@@ -1,0 +1,33 @@
+from rest_framework import serializers
+
+from .models import Poll, PollOption
+
+
+class PollOptionSerializer(serializers.ModelSerializer):
+    votes = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = PollOption
+        fields = ["id", "label", "votes"]
+
+
+class PollSerializer(serializers.ModelSerializer):
+    options = PollOptionSerializer(many=True, read_only=True)
+    my_vote = serializers.SerializerMethodField()
+    option_labels = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
+
+    class Meta:
+        model = Poll
+        fields = ["id", "question", "ends_at", "options", "my_vote", "option_labels", "created_at"]
+        read_only_fields = ["id", "options", "my_vote", "created_at"]
+
+    def get_my_vote(self, obj):
+        v = obj.votes.filter(user=self.context["request"].user).first()
+        return str(v.option_id) if v else None
+
+    def create(self, validated_data):
+        labels = validated_data.pop("option_labels", [])
+        poll = super().create(validated_data)
+        for label in labels:
+            PollOption.objects.create(poll=poll, label=label, tenant=poll.tenant)
+        return poll

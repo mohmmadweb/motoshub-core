@@ -1,5 +1,5 @@
 "use client";
-import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban, FileSignature, Landmark } from "lucide-react";
+import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban, FileSignature, Landmark, GraduationCap, BarChart3, LifeBuoy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -18,6 +18,9 @@ const items = [
   { href: routes.projects, label: "پروژه‌ها", icon: FolderKanban },
   { href: routes.contracts, label: "قراردادها", icon: FileSignature },
   { href: routes.funds, label: "صندوق نوآور", icon: Landmark },
+  { href: routes.training, label: "آموزش", icon: GraduationCap },
+  { href: routes.polls, label: "نظرسنجی‌ها", icon: BarChart3 },
+  { href: routes.tickets, label: "تیکت‌ها", icon: LifeBuoy },
 ];
 
 export default function Sidebar() {

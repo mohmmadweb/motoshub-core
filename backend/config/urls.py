@@ -12,6 +12,9 @@ api_v1 = [
     path("", include("apps.projects.urls")),
     path("", include("apps.contracts.urls")),
     path("", include("apps.fund.urls")),
+    path("", include("apps.training.urls")),
+    path("", include("apps.support.urls")),
+    path("", include("apps.polls.urls")),
 ]
 
 urlpatterns = [

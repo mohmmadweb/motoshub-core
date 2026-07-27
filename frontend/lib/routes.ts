@@ -12,4 +12,7 @@ export const routes = {
   projects: "/projects",
   contracts: "/contracts",
   funds: "/funds",
+  training: "/training",
+  polls: "/polls",
+  tickets: "/tickets",
 } as const;

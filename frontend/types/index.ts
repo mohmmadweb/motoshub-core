@@ -77,3 +77,19 @@ export interface NfProject {
   budget: string; stage: NfStage; sub_status: string; green_path: boolean;
   progress: number; created_at: string;
 }
+
+export interface TrainingCourse {
+  id: string; title: string; instructor: string; starts_at: string | null;
+  hours: number; capacity: number; status: "open" | "running" | "done";
+  satisfaction: string | null; enrolled: number; is_enrolled: boolean; created_at: string;
+}
+export interface Ticket {
+  id: string; number: string; subject: string; category: string;
+  priority: "low" | "medium" | "urgent"; status: "open" | "in_review" | "answered" | "closed";
+  author: Author | null; created_at: string;
+}
+export interface PollOption { id: string; label: string; votes: number; }
+export interface Poll {
+  id: string; question: string; ends_at: string | null;
+  options: PollOption[]; my_vote: string | null; created_at: string;
+}

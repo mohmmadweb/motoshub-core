@@ -14,8 +14,11 @@ from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
 from apps.contracts.models import Contract, ContractApproval, ContractPayment
 from apps.fund.models import NfPayment, NfProject, NfReport, NfReportChainStep
+from apps.polls.models import Poll, PollOption
 from apps.projects.models import Project, Task
 from apps.rbac.models import Role, RoleAssignment
+from apps.support.models import Ticket, TicketMessage
+from apps.training.models import TrainingCourse
 from apps.social.models import ForumReply, ForumTopic, Group, GroupMembership
 from apps.tenancy.models import Company, Holding, Tenant
 
@@ -124,6 +127,20 @@ class Command(BaseCommand):
             NfReportChainStep.objects.create(tenant=tenant, report=rep, role="nazer", name="ناظر فنی", status="pending", order=2)
             NfPayment.objects.create(tenant=tenant, project=nf, payment_type="prepayment", title="پیش‌پرداخت", amount=200000000, status="paid")
             NfPayment.objects.create(tenant=tenant, project=nf, payment_type="stage", title="پرداخت مرحله‌ای", amount=160000000, status="await_order")
+
+        if not TrainingCourse.objects.filter(tenant=tenant).exists():
+            TrainingCourse.objects.create(tenant=tenant, title="آشنایی با سامانهٔ موتوشاب", instructor="واحد آموزش", hours=8, capacity=40, status="open")
+            TrainingCourse.objects.create(tenant=tenant, title="امنیت اطلاعات سازمانی", instructor="کارشناس امنیت", hours=12, capacity=25, status="running", satisfaction=4.6)
+
+        if not Ticket.objects.filter(tenant=tenant).exists():
+            tk = Ticket.objects.create(tenant=tenant, author=member, number="TK-10001", subject="عدم دسترسی به بخش گزارش‌ها", category="فنی", priority="urgent", status="answered")
+            TicketMessage.objects.create(tenant=tenant, ticket=tk, author=member, body="هنگام ورود به گزارش‌ها خطا می‌گیرم.")
+            TicketMessage.objects.create(tenant=tenant, ticket=tk, author=admin, from_support=True, body="دسترسی شما اصلاح شد؛ لطفاً دوباره تلاش کنید.")
+
+        if not Poll.objects.filter(tenant=tenant).exists():
+            poll = Poll.objects.create(tenant=tenant, author=admin, question="کدام قابلیت را زودتر می‌خواهید؟")
+            for lbl in ["پیام‌رسان", "گزارش‌های پیشرفته", "اپ موبایل"]:
+                PollOption.objects.create(tenant=tenant, poll=poll, label=lbl)
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"
