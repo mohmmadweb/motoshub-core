@@ -1,5 +1,7 @@
 # Motoshub Core
 
+[![CI](https://github.com/mohmmadweb/motoshub-core/actions/workflows/ci.yml/badge.svg)](https://github.com/mohmmadweb/motoshub-core/actions/workflows/ci.yml)
+
 A clean, modular, production-grade implementation of the **Motoshub** platform —
 a multi-tenant enterprise "communications + organizational processes" product.
 Its goal is to bring the reference prototype at **demo.shub.ir** fully to life:

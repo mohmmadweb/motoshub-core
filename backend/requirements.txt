@@ -31,5 +31,5 @@ whitenoise==6.11.0
 pytest==8.4.2
 pytest-django==4.11.1
 factory-boy==3.3.3
-model-bakery==1.20.6
+model-bakery==1.20.5
 ruff==0.14.2
