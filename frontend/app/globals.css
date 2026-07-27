@@ -23,6 +23,9 @@
 
 html { font-family: Vazirmatn, system-ui, Tahoma, sans-serif; }
 
+/* Accessibility: larger font scale (all rem-based sizes scale up). */
+html[data-font="large"] { font-size: 112.5%; }
+
 body { background-color: var(--ink-50); color: var(--ink-900); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }

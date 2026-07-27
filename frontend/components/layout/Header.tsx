@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, LogOut, Moon, Sun } from "lucide-react";
+import { Bell, LogOut, Moon, Sun, Type } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -14,10 +14,19 @@ export default function Header() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const [dark, setDark] = useState(false);
+  const [large, setLarge] = useState(false);
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains("dark"));
+    setLarge(document.documentElement.getAttribute("data-font") === "large");
   }, []);
+
+  const toggleFont = () => {
+    const next = !large;
+    document.documentElement.setAttribute("data-font", next ? "large" : "normal");
+    try { localStorage.setItem("ms-font", next ? "large" : "normal"); } catch { /* ignore */ }
+    setLarge(next);
+  };
 
   const { data: unread } = useQuery({
     queryKey: ["notifications", "unread_count"],
@@ -44,6 +53,9 @@ export default function Header() {
             </span>
           )}
         </Link>
+        <button onClick={toggleFont} className={`rounded-lg p-2 hover:bg-ink-100 ${large ? "text-brand-600" : "text-ink-500"}`} aria-label="اندازه فونت" title="اندازه فونت">
+          <Type size={18} />
+        </button>
         <button onClick={toggleTheme} className="rounded-lg p-2 text-ink-500 hover:bg-ink-100" aria-label="تغییر تم">
           {dark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
