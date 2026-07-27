@@ -11,4 +11,5 @@ export const routes = {
   knowledge: "/knowledge",
   projects: "/projects",
   contracts: "/contracts",
+  funds: "/funds",
 } as const;

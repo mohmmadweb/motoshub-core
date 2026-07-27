@@ -70,3 +70,10 @@ export interface Contract {
   contract_type: string; value: string; deadline: string | null;
   owner: Author | null; created_at: string;
 }
+
+export type NfStage = "proposal" | "screening" | "jury" | "approval" | "contract" | "monitoring" | "exit";
+export interface NfProject {
+  id: string; code: string; title_fa: string; field: string; rahbar: string;
+  budget: string; stage: NfStage; sub_status: string; green_path: boolean;
+  progress: number; created_at: string;
+}

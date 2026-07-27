@@ -13,6 +13,7 @@ from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
 from apps.contracts.models import Contract, ContractApproval, ContractPayment
+from apps.fund.models import NfPayment, NfProject, NfReport, NfReportChainStep
 from apps.projects.models import Project, Task
 from apps.rbac.models import Role, RoleAssignment
 from apps.social.models import ForumReply, ForumTopic, Group, GroupMembership
@@ -109,6 +110,20 @@ class Command(BaseCommand):
             ContractPayment.objects.create(tenant=tenant, contract=ct, title="پرداخت مرحله‌ای اول", amount=200000000, status="pending")
             ContractApproval.objects.create(tenant=tenant, contract=ct, role="مدیر حقوقی", name="کارشناس حقوقی", status="approved", order=1)
             ContractApproval.objects.create(tenant=tenant, contract=ct, role="مدیر مالی", name="کارشناس مالی", status="pending", order=2)
+
+        if not NfProject.objects.filter(tenant=tenant).exists():
+            nf = NfProject.objects.create(
+                tenant=tenant, fund_manager=admin, code="NF-1405-0001",
+                title_fa="سامانهٔ هوشمند پایش انرژی", field="انرژی", rahbar="شرکت شتابدهی راهبر بنیاد",
+                nazer="واحد فنی", budget=800000000, share_percent=40, duration_months=18,
+                stage="monitoring", sub_status="بررسی گزارش مرحله‌ای", progress=55, screening_score=150, jury_score=72,
+                team_name="تیم فناور پایش", team_type="تیم فناور", team_city="تهران",
+            )
+            rep = NfReport.objects.create(tenant=tenant, project=nf, report_type="stage", title="گزارش مرحله‌ای اول", status="under_review")
+            NfReportChainStep.objects.create(tenant=tenant, report=rep, role="fund_manager", name="مدیر صندوق", status="approved", order=1)
+            NfReportChainStep.objects.create(tenant=tenant, report=rep, role="nazer", name="ناظر فنی", status="pending", order=2)
+            NfPayment.objects.create(tenant=tenant, project=nf, payment_type="prepayment", title="پیش‌پرداخت", amount=200000000, status="paid")
+            NfPayment.objects.create(tenant=tenant, project=nf, payment_type="stage", title="پرداخت مرحله‌ای", amount=160000000, status="await_order")
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"
