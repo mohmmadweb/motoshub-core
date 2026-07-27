@@ -10,6 +10,13 @@ const columns: Column<News>[] = [
   { key: "visibility", label: "دسترسی", render: (r) => <VisibilityBadge visibility={r.visibility} /> },
 ];
 
+const createFields = [
+  { name: "title", label: "عنوان", required: true },
+  { name: "summary", label: "خلاصه", type: "textarea" as const },
+  { name: "visibility", label: "دسترسی", type: "select" as const, default: "private", options: [{ value: "private", label: "خصوصی" }, { value: "public", label: "عمومی" }] },
+  { name: "scope", label: "دامنه", type: "select" as const, default: "global", options: [{ value: "global", label: "سراسری" }, { value: "holding", label: "هلدینگ" }, { value: "company", label: "شرکت" }] },
+];
+
 export default function NewsPage() {
-  return <ContentList<News> resource="news" title="اخبار" columns={columns} />;
+  return <ContentList<News> resource="news" title="اخبار" columns={columns} createFields={createFields} createLabel="خبر جدید" />;
 }

@@ -9,6 +9,14 @@ const columns: Column<BlogPost>[] = [
   { key: "visibility", label: "دسترسی", render: (r) => <VisibilityBadge visibility={r.visibility} /> },
 ];
 
+const createFields = [
+  { name: "title", label: "عنوان", required: true },
+  { name: "excerpt", label: "چکیده", type: "textarea" as const },
+  { name: "tags", label: "برچسب‌ها (با کاما)", placeholder: "راهبردی, فناوری" },
+  { name: "visibility", label: "دسترسی", type: "select" as const, default: "private", options: [{ value: "private", label: "خصوصی" }, { value: "public", label: "عمومی" }] },
+];
+const transform = (v: Record<string, unknown>) => ({ ...v, tags: String(v.tags || "").split(",").map((t) => t.trim()).filter(Boolean) });
+
 export default function BlogPage() {
-  return <ContentList<BlogPost> resource="blogs" title="بلاگ" columns={columns} />;
+  return <ContentList<BlogPost> resource="blogs" title="بلاگ" columns={columns} createFields={createFields} createTransform={transform} createLabel="یادداشت جدید" />;
 }

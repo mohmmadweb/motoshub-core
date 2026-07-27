@@ -1,8 +1,12 @@
 "use client";
-import { type ReactNode } from "react";
+import { Plus } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
+import CreateForm, { type Field } from "@/components/common/CreateForm";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Modal from "@/components/ui/Modal";
 import { useList } from "@/hooks/useContent";
 import { faDate } from "@/lib/format";
 
@@ -16,21 +20,36 @@ interface Props<T> {
   resource: string;
   title: string;
   columns: Column<T>[];
+  createFields?: Field[];
+  createTransform?: (values: Record<string, unknown>) => Record<string, unknown>;
+  createLabel?: string;
 }
 
 /** Generic tenant-scoped list: desktop table + mobile cards, envelope-aware. */
 export default function ContentList<T extends { id: string; created_at: string; visibility?: string }>({
-  resource, title, columns,
+  resource, title, columns, createFields, createTransform, createLabel = "افزودن",
 }: Props<T>) {
   const { data, isLoading, isError } = useList<T>(resource);
+  const [open, setOpen] = useState(false);
   const rows = data?.data ?? [];
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-bold text-ink-900">{title}</h1>
-        {data?.meta && <span className="text-xs text-ink-400">{data.meta.count.toLocaleString("fa-IR")} مورد</span>}
+        <div className="flex items-center gap-3">
+          {data?.meta && <span className="text-xs text-ink-400">{data.meta.count.toLocaleString("fa-IR")} مورد</span>}
+          {createFields && (
+            <Button size="sm" icon={<Plus size={15} />} onClick={() => setOpen(true)}>{createLabel}</Button>
+          )}
+        </div>
       </div>
+
+      {createFields && (
+        <Modal open={open} onClose={() => setOpen(false)} title={createLabel}>
+          <CreateForm resource={resource} fields={createFields} transform={createTransform} onDone={() => setOpen(false)} />
+        </Modal>
+      )}
 
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       {isError && <Card className="p-8 text-center text-sm text-red-600">خطا در دریافت داده.</Card>}
