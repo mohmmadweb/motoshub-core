@@ -1,10 +1,11 @@
 "use client";
+import Link from "next/link";
 import ContentList, { VisibilityBadge, type Column } from "@/components/content/ContentList";
 import Badge from "@/components/ui/Badge";
 import type { News } from "@/types";
 
 const columns: Column<News>[] = [
-  { key: "title", label: "عنوان", render: (r) => <span className="font-medium text-ink-900">{r.title}{r.pinned && " 📌"}</span> },
+  { key: "title", label: "عنوان", render: (r) => <Link href={`/news/${r.id}`} className="font-medium text-ink-900 hover:text-brand-700">{r.title}{r.pinned && " 📌"}</Link> },
   { key: "views", label: "بازدید", render: (r) => r.views.toLocaleString("fa-IR") },
   { key: "scope", label: "دامنه", render: (r) => <Badge tone="navy">{r.scope === "global" ? "سراسری" : r.scope === "holding" ? "هلدینگ" : "شرکت"}</Badge> },
   { key: "visibility", label: "دسترسی", render: (r) => <VisibilityBadge visibility={r.visibility} /> },

@@ -1,9 +1,10 @@
 "use client";
+import Link from "next/link";
 import ContentList, { VisibilityBadge, type Column } from "@/components/content/ContentList";
 import type { BlogPost } from "@/types";
 
 const columns: Column<BlogPost>[] = [
-  { key: "title", label: "عنوان", render: (r) => <span className="font-medium text-ink-900">{r.title}</span> },
+  { key: "title", label: "عنوان", render: (r) => <Link href={`/blog/${r.id}`} className="font-medium text-ink-900 hover:text-brand-700">{r.title}</Link> },
   { key: "author", label: "نویسنده", render: (r) => r.author?.name ?? "—" },
   { key: "rating", label: "امتیاز", render: (r) => Number(r.rating).toLocaleString("fa-IR") },
   { key: "visibility", label: "دسترسی", render: (r) => <VisibilityBadge visibility={r.visibility} /> },
