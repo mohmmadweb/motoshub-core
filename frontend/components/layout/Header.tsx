@@ -28,6 +28,7 @@ export default function Header() {
   const toggleTheme = () => {
     const next = !dark;
     document.documentElement.classList.toggle("dark", next);
+    try { localStorage.setItem("ms-dark", next ? "1" : "0"); } catch { /* ignore */ }
     setDark(next);
   };
 
