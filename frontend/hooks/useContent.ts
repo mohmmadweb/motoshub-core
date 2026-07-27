@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type Envelope } from "@/lib/api";
+import { toast } from "@/store/toast";
 
 // Generic list/create hooks over any tenant-scoped content resource.
 export function useList<T>(resource: string, params?: Record<string, unknown>) {
@@ -21,7 +22,8 @@ export function useCreate<T>(resource: string) {
       const res = await api.post<Envelope<T>>(`/${resource}`, payload);
       return res.data.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: [resource] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [resource] }); toast("با موفقیت ثبت شد."); },
+    onError: () => toast("ثبت ناموفق بود.", "error"),
   });
 }
 
@@ -32,7 +34,8 @@ export function useUpdate<T>(resource: string) {
       const res = await api.patch<Envelope<T>>(`/${resource}/${id}`, payload);
       return res.data.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: [resource] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [resource] }); toast("تغییرات ذخیره شد."); },
+    onError: () => toast("ذخیره ناموفق بود.", "error"),
   });
 }
 
@@ -42,6 +45,7 @@ export function useRemoveById(resource: string) {
     mutationFn: async (id: string) => {
       await api.delete(`/${resource}/${id}`);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: [resource] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [resource] }); toast("حذف شد."); },
+    onError: () => toast("حذف ناموفق بود.", "error"),
   });
 }
