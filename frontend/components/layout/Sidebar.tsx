@@ -1,5 +1,5 @@
 "use client";
-import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare } from "lucide-react";
+import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -15,6 +15,7 @@ const items = [
   { href: routes.events, label: "رویدادها", icon: CalendarDays },
   { href: routes.media, label: "رسانه", icon: ImageIcon },
   { href: routes.knowledge, label: "مدیریت دانش", icon: BookOpen },
+  { href: routes.projects, label: "پروژه‌ها", icon: FolderKanban },
 ];
 
 export default function Sidebar() {

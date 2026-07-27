@@ -51,3 +51,15 @@ export interface ForumTopic {
   category: string; views: number; solved: boolean; visibility: Visibility;
   reply_count: number; created_at: string;
 }
+
+export interface Project {
+  id: string; name: string; client: string; health: "green" | "yellow" | "red";
+  progress: number; budget_total: string; budget_used: string; deadline: string | null;
+  manager: Author | null; task_count: number; created_at: string;
+}
+export interface Task {
+  id: string; project: string; title: string;
+  status: "planning" | "in_progress" | "review" | "done";
+  assignee: Author | null; priority: "low" | "medium" | "high";
+  due: string | null; progress: number; created_at: string;
+}

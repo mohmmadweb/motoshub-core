@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
+from apps.projects.models import Project, Task
 from apps.rbac.models import Role, RoleAssignment
 from apps.social.models import ForumReply, ForumTopic, Group, GroupMembership
 from apps.tenancy.models import Company, Holding, Tenant
@@ -85,6 +86,17 @@ class Command(BaseCommand):
             ForumReply.objects.create(tenant=tenant, topic=topic, author=admin, body="راهنمای کامل در بخش دانش موجود است.", is_solution=True)
             topic.solved = True
             topic.save(update_fields=["solved"])
+
+        if not Project.objects.filter(tenant=tenant).exists():
+            proj = Project.objects.create(
+                tenant=tenant, manager=admin, author=admin, name="پیاده‌سازی سامانهٔ موتوشاب",
+                client="بنیاد مستضعفان", health="yellow", progress=45, budget_total=800000000, budget_used=360000000,
+            )
+            Task.objects.create(tenant=tenant, project=proj, title="طراحی معماری بک‌اند", status="done", assignee=admin, priority="high", progress=100)
+            Task.objects.create(tenant=tenant, project=proj, title="پیاده‌سازی احراز هویت", status="done", assignee=admin, priority="high", progress=100)
+            Task.objects.create(tenant=tenant, project=proj, title="ماژول‌های محتوا", status="in_progress", assignee=member, priority="medium", progress=60)
+            Task.objects.create(tenant=tenant, project=proj, title="فرانت‌اند Next", status="in_progress", assignee=admin, priority="high", progress=40)
+            Task.objects.create(tenant=tenant, project=proj, title="آزمون پذیرش", status="planning", priority="medium", progress=0)
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"

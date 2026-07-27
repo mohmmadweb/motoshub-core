@@ -9,4 +9,5 @@ export const routes = {
   events: "/events",
   media: "/media",
   knowledge: "/knowledge",
+  projects: "/projects",
 } as const;
