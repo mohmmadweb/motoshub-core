@@ -32,6 +32,7 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 # ── Applications ────────────────────────────────────────────────────────────
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -44,6 +45,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",
     "drf_spectacular",
+    "channels",
 ]
 # Local apps — one Django app per bounded context. Domain apps are appended as
 # they are implemented; the ordering respects FK dependencies.
@@ -63,6 +65,7 @@ LOCAL_APPS = [
     "apps.research",
     "apps.awards",
     "apps.notifications",
+    "apps.chat",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 

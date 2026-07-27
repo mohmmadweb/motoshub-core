@@ -18,4 +18,5 @@ export const routes = {
   research: "/research",
   awards: "/awards",
   notifications: "/notifications",
+  chat: "/chat",
 } as const;

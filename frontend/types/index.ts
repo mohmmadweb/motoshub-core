@@ -103,3 +103,12 @@ export interface ResearchOpportunity {
 export interface AwardEntry { id: string; track: string; title: string; company: string; status: string; score: number | null; }
 export interface AwardTrack { id: string; title: string; categories: string[]; submission_count: number; entries: AwardEntry[]; created_at: string; }
 export interface Notification { id: string; text: string; kind: string; read: boolean; link: string; created_at: string; }
+
+export interface Channel {
+  id: string; name: string; topic: string; channel_type: "public" | "private";
+  category: string; owner: Author | null; created_at: string;
+}
+export interface ChatMessage {
+  id: string; channel: string; author: Author | null; text: string;
+  pinned: boolean; created_at: string;
+}

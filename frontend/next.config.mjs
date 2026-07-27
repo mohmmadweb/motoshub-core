@@ -5,7 +5,10 @@ const nextConfig = {
   async rewrites() {
     // Proxy /api/v1/* to the backend to avoid CORS in the browser.
     const base = process.env.BACKEND_ORIGIN || "http://localhost:8000";
-    return [{ source: "/api/v1/:path*", destination: `${base}/api/v1/:path*` }];
+    return [
+      { source: "/api/v1/:path*", destination: `${base}/api/v1/:path*` },
+      { source: "/ws/:path*", destination: `${base}/ws/:path*` },
+    ];
   },
 };
 export default nextConfig;

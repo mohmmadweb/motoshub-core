@@ -15,6 +15,7 @@ from apps.core.models import ContentScope, Visibility
 from apps.contracts.models import Contract, ContractApproval, ContractPayment
 from apps.fund.models import NfPayment, NfProject, NfReport, NfReportChainStep
 from apps.awards.models import AwardEntry, AwardTrack
+from apps.chat.models import Channel, Message
 from apps.notifications.models import Notification
 from apps.polls.models import Poll, PollOption
 from apps.projects.models import Project, Task
@@ -156,6 +157,12 @@ class Command(BaseCommand):
         if not Notification.objects.filter(tenant=tenant, user=admin).exists():
             Notification.objects.create(tenant=tenant, user=admin, text="گزارش مرحله‌ای طرح NF-1405-0001 در انتظار بررسی شماست.", kind="task")
             Notification.objects.create(tenant=tenant, user=admin, text="کاربر «کاربر نمونه» به گروه عمومی فناوری پیوست.", kind="system")
+
+        if not Channel.objects.filter(tenant=tenant).exists():
+            ch = Channel.objects.create(tenant=tenant, owner=admin, name="عمومی", topic="گفتگوی عمومی سازمان", channel_type="public", category="کانال‌ها")
+            Message.objects.create(tenant=tenant, channel=ch, author=admin, text="به کانال عمومی موتوشاب خوش آمدید!")
+            Message.objects.create(tenant=tenant, channel=ch, author=member, text="سلام، خوشحالم که این‌جا هستم.")
+            Channel.objects.create(tenant=tenant, owner=admin, name="فناوری", topic="بحث‌های فنی", channel_type="public", category="کانال‌ها")
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"
