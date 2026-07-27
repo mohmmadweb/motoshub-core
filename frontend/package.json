@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "15.1.6",
@@ -28,6 +29,7 @@
     "@types/react-dom": "19.0.3",
     "tailwindcss": "3.4.17",
     "postcss": "8.5.1",
-    "autoprefixer": "10.4.20"
+    "autoprefixer": "10.4.20",
+    "vitest": "2.1.9"
   }
 }
