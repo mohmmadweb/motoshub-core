@@ -2,6 +2,7 @@
 import Link from "next/link";
 
 import Badge from "@/components/ui/Badge";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum } from "@/lib/format";
@@ -13,7 +14,7 @@ export default function FundsPage() {
   const rows = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">صندوق نوآور</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">صندوق نوآور</h1><AddButton resource="funds/projects" label="طرح جدید" fields={[{ name: "code", label: "کد طرح", required: true, placeholder: "NF-1405-0001" },{ name: "title_fa", label: "عنوان", required: true },{ name: "field", label: "حوزه" },{ name: "budget", label: "بودجه (ریال)", type: "number", default: 0 },{ name: "stage", label: "مرحله", type: "select", default: "proposal", options: [{ value: "proposal", label: "دریافت پروپوزال" }, { value: "screening", label: "ارزیابی اولیه" }] }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="space-y-3">
         {rows.map((p) => (

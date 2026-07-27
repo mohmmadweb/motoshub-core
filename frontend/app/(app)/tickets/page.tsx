@@ -1,5 +1,6 @@
 "use client";
 import Badge from "@/components/ui/Badge";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faDate } from "@/lib/format";
@@ -15,7 +16,7 @@ export default function TicketsPage() {
   const rows = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">تیکت‌های پشتیبانی</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">تیکت‌های پشتیبانی</h1><AddButton resource="tickets" label="تیکت جدید" fields={[{ name: "subject", label: "موضوع", required: true },{ name: "category", label: "دسته" },{ name: "priority", label: "اولویت", type: "select", default: "medium", options: [{ value: "low", label: "کم" }, { value: "medium", label: "متوسط" }, { value: "urgent", label: "فوری" }] }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <Card className="divide-y divide-ink-200">
         {rows.map((t) => (

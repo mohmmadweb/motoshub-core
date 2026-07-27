@@ -1,6 +1,7 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { api } from "@/lib/api";
@@ -17,7 +18,7 @@ export default function PollsPage() {
   const polls = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">نظرسنجی‌ها</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">نظرسنجی‌ها</h1><AddButton resource="polls" label="نظرسنجی جدید" transform={(v) => ({ ...v, option_labels: String(v.option_labels || "").split(",").map((x) => x.trim()).filter(Boolean) })} fields={[{ name: "question", label: "پرسش", required: true },{ name: "option_labels", label: "گزینه‌ها (با کاما)", placeholder: "بله, خیر, نظری ندارم" }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="space-y-4">
         {polls.map((p) => {

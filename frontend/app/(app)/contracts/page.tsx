@@ -1,5 +1,6 @@
 "use client";
 import Badge from "@/components/ui/Badge";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum, faDate } from "@/lib/format";
@@ -18,7 +19,18 @@ export default function ContractsPage() {
   const rows = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">قراردادها</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-lg font-bold text-ink-900">قراردادها</h1>
+        <AddButton resource="contracts" label="قرارداد جدید" fields={[
+          { name: "title", label: "عنوان", required: true },
+          { name: "vendor", label: "طرف قرارداد" },
+          { name: "contract_type", label: "نوع", type: "select", default: "service", options: [
+            { value: "tech", label: "فناورانه" }, { value: "research", label: "پژوهشی" }, { value: "construction", label: "عمرانی" }, { value: "service", label: "خدماتی" }] },
+          { name: "method", label: "روش", type: "select", default: "public_call", options: [
+            { value: "public_call", label: "فراخوان عمومی" }, { value: "limited", label: "استعلام محدود" }, { value: "no_tender", label: "ترک تشریفات" }] },
+          { name: "value", label: "مبلغ (ریال)", type: "number", default: 0 },
+        ]} />
+      </div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <Card className="overflow-hidden">
         <table className="hidden w-full text-right sm:table">

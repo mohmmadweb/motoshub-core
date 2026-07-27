@@ -4,6 +4,7 @@ import { Users, Lock, Globe } from "lucide-react";
 
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { api } from "@/lib/api";
@@ -21,7 +22,7 @@ export default function GroupsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">گروه‌ها</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">گروه‌ها</h1><AddButton resource="groups" label="گروه جدید" fields={[{ name: "name", label: "نام گروه", required: true },{ name: "description", label: "توضیح", type: "textarea" },{ name: "privacy", label: "حریم", type: "select", default: "public", options: [{ value: "public", label: "عمومی" }, { value: "private", label: "خصوصی" }] },{ name: "category", label: "دسته" }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {groups.map((g) => (

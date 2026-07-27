@@ -4,6 +4,7 @@ import { Clock, Users } from "lucide-react";
 
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { api } from "@/lib/api";
@@ -24,7 +25,7 @@ export default function TrainingPage() {
   const rows = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">آموزش</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">آموزش</h1><AddButton resource="training/courses" label="دورهٔ جدید" fields={[{ name: "title", label: "عنوان دوره", required: true },{ name: "instructor", label: "مدرس" },{ name: "hours", label: "ساعت", type: "number", default: 0 },{ name: "capacity", label: "ظرفیت", type: "number", default: 0 }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((c) => (

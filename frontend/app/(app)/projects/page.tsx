@@ -2,6 +2,7 @@
 import Link from "next/link";
 
 import Badge from "@/components/ui/Badge";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum } from "@/lib/format";
@@ -18,7 +19,16 @@ export default function ProjectsPage() {
   const projects = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">پروژه‌ها</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-lg font-bold text-ink-900">پروژه‌ها</h1>
+        <AddButton resource="projects" label="پروژه جدید" fields={[
+          { name: "name", label: "نام پروژه", required: true },
+          { name: "client", label: "کارفرما" },
+          { name: "health", label: "سلامت", type: "select", default: "green", options: [
+            { value: "green", label: "سالم" }, { value: "yellow", label: "نیازمند توجه" }, { value: "red", label: "در خطر" }] },
+          { name: "progress", label: "پیشرفت (٪)", type: "number", default: 0 },
+        ]} />
+      </div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((p) => (
