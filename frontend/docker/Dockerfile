@@ -9,6 +9,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG BACKEND_ORIGIN=http://api:8000
+ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
 RUN npm run build
 
 FROM node:20-alpine AS runner

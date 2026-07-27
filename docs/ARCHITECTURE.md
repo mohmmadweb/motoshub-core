@@ -136,7 +136,13 @@ branches ≤ 3 days; bug fixes start with a failing test.
 | innovation fund (7-stage machine, eval gates, Celery job) | ✅ done, tested |
 | **Next.js frontend** (auth, RTL shell, 11 module pages) | ✅ done, builds green, e2e-tested |
 | infra (docker-compose + Dockerfiles + seed_demo) | ✅ done, compose validated |
-| research / training / awards / tickets / polls | ⏳ next |
-| chat + realtime (Channels) | ⏳ planned |
-| admin (modules, branding, settings) + reports + notifications | ⏳ planned |
-| nginx reverse proxy + CI pipeline | ⏳ planned |
+| research / training / awards / tickets / polls | ✅ done, tested |
+| chat + realtime (Channels WebSocket) | ✅ done, live-tested |
+| notifications (per-user) + header bell | ✅ done, tested |
+| admin (workflow settings + branding) + reports summary | ✅ done, tested |
+| nginx reverse proxy (REST + WS upgrade) | ✅ done, compose-validated |
+| CI pipeline (GitHub Actions) + pytest L1 suite | ✅ done (5 tests green) |
+
+**All prototype modules are now implemented end-to-end (backend + frontend).**
+Remaining work is depth per module (richer detail views, more L1 tests, the
+remaining SettingsContext wiring to live theming) rather than new modules.

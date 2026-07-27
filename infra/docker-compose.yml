@@ -66,11 +66,24 @@ services:
     build:
       context: ../frontend
       dockerfile: docker/Dockerfile
+      args:
+        BACKEND_ORIGIN: http://api:8000
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+      # Browser uses relative /api/v1 → proxied by nginx (:80) or Next (:3000).
+      BACKEND_ORIGIN: http://api:8000
     ports:
       - "3000:3000"
     depends_on:
+      - api
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - web
       - api
 
 volumes:
