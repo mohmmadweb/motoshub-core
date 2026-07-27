@@ -40,3 +40,14 @@ export interface KnowledgeDoc {
   id: string; title: string; category: string; doc_type: string; size: string;
   visibility: Visibility; created_at: string;
 }
+
+export interface Group {
+  id: string; name: string; description: string; privacy: Visibility;
+  color: string; category: string; owner: Author | null;
+  member_count: number; is_member: boolean; created_at: string;
+}
+export interface ForumTopic {
+  id: string; title: string; body: string; author: Author | null;
+  category: string; views: number; solved: boolean; visibility: Visibility;
+  reply_count: number; created_at: string;
+}

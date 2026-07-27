@@ -1,5 +1,5 @@
 "use client";
-import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard } from "lucide-react";
+import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +8,8 @@ import { routes } from "@/lib/routes";
 
 const items = [
   { href: routes.dashboard, label: "داشبورد", icon: LayoutDashboard },
+  { href: routes.groups, label: "گروه‌ها", icon: Users },
+  { href: routes.forum, label: "تالار گفتگو", icon: MessagesSquare },
   { href: routes.news, label: "اخبار", icon: Newspaper },
   { href: routes.blog, label: "بلاگ", icon: PenSquare },
   { href: routes.events, label: "رویدادها", icon: CalendarDays },

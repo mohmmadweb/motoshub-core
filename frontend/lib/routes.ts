@@ -2,6 +2,8 @@
 export const routes = {
   login: "/login",
   dashboard: "/dashboard",
+  groups: "/groups",
+  forum: "/forum",
   news: "/news",
   blog: "/blog",
   events: "/events",
