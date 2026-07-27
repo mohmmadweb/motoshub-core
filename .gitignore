@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+dev.db
+.env
+staticfiles/
+media/
+
+# Node / Next
+node_modules/
+.next/
+out/
+.env.local
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
