@@ -13,6 +13,7 @@ from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
 from apps.rbac.models import Role, RoleAssignment
+from apps.social.models import ForumReply, ForumTopic, Group, GroupMembership
 from apps.tenancy.models import Company, Holding, Tenant
 
 PASSWORD = "demo1234"
@@ -62,6 +63,28 @@ class Command(BaseCommand):
                 tenant=tenant, owner=admin, title="آیین‌نامهٔ داخلی",
                 category="حاکمیت", doc_type="report", size="۱٫۲ مگابایت", visibility=Visibility.PRIVATE,
             )
+
+        if not Group.objects.filter(tenant=tenant).exists():
+            g_pub = Group.objects.create(
+                tenant=tenant, owner=admin, name="گروه عمومی فناوری",
+                description="بحث و تبادل نظر دربارهٔ فناوری‌های نوین.", privacy=Visibility.PUBLIC,
+                color="#1f4f99", category="فناوری",
+            )
+            Group.objects.create(
+                tenant=tenant, owner=admin, name="کارگروه راهبری بهنوش",
+                description="گروه خصوصیِ مدیران شرکت بهنوش.", privacy=Visibility.PRIVATE,
+                color="#b45309", category="مدیریت",
+            )
+            GroupMembership.objects.create(tenant=tenant, group=g_pub, user=admin, is_moderator=True)
+            GroupMembership.objects.create(tenant=tenant, group=g_pub, user=member)
+
+            topic = ForumTopic.objects.create(
+                tenant=tenant, author=member, title="چگونه به سامانهٔ جدید مهاجرت کنیم؟",
+                body="سوالی دربارهٔ فرآیند مهاجرت داشتم.", category="راهنما", views=42,
+            )
+            ForumReply.objects.create(tenant=tenant, topic=topic, author=admin, body="راهنمای کامل در بخش دانش موجود است.", is_solution=True)
+            topic.solved = True
+            topic.save(update_fields=["solved"])
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"
