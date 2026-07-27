@@ -14,8 +14,11 @@ from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
 from apps.contracts.models import Contract, ContractApproval, ContractPayment
 from apps.fund.models import NfPayment, NfProject, NfReport, NfReportChainStep
+from apps.awards.models import AwardEntry, AwardTrack
+from apps.notifications.models import Notification
 from apps.polls.models import Poll, PollOption
 from apps.projects.models import Project, Task
+from apps.research.models import ResearchOpportunity
 from apps.rbac.models import Role, RoleAssignment
 from apps.support.models import Ticket, TicketMessage
 from apps.training.models import TrainingCourse
@@ -141,6 +144,18 @@ class Command(BaseCommand):
             poll = Poll.objects.create(tenant=tenant, author=admin, question="کدام قابلیت را زودتر می‌خواهید؟")
             for lbl in ["پیام‌رسان", "گزارش‌های پیشرفته", "اپ موبایل"]:
                 PollOption.objects.create(tenant=tenant, poll=poll, label=lbl)
+
+        if not ResearchOpportunity.objects.filter(tenant=tenant).exists():
+            ResearchOpportunity.objects.create(tenant=tenant, author=admin, title="فراخوان پژوهشی هوش مصنوعی صنعتی", field="هوش مصنوعی", stage="review", budget=300000000, supervisor="دکتر نمونه")
+
+        if not AwardTrack.objects.filter(tenant=tenant).exists():
+            track = AwardTrack.objects.create(tenant=tenant, title="محور فناوری‌های نرم‌افزاری", categories=["هوش مصنوعی", "امنیت"])
+            AwardEntry.objects.create(tenant=tenant, track=track, title="سامانهٔ پایش هوشمند", company="شرکت بهنوش", status="scored", score=88)
+            AwardEntry.objects.create(tenant=tenant, track=track, title="پلتفرم تحلیل داده", company="زمزم", status="judging")
+
+        if not Notification.objects.filter(tenant=tenant, user=admin).exists():
+            Notification.objects.create(tenant=tenant, user=admin, text="گزارش مرحله‌ای طرح NF-1405-0001 در انتظار بررسی شماست.", kind="task")
+            Notification.objects.create(tenant=tenant, user=admin, text="کاربر «کاربر نمونه» به گروه عمومی فناوری پیوست.", kind="system")
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"

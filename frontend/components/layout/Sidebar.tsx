@@ -1,5 +1,5 @@
 "use client";
-import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban, FileSignature, Landmark, GraduationCap, BarChart3, LifeBuoy } from "lucide-react";
+import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban, FileSignature, Landmark, GraduationCap, BarChart3, LifeBuoy, FlaskConical, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -20,6 +20,8 @@ const items = [
   { href: routes.funds, label: "صندوق نوآور", icon: Landmark },
   { href: routes.training, label: "آموزش", icon: GraduationCap },
   { href: routes.polls, label: "نظرسنجی‌ها", icon: BarChart3 },
+  { href: routes.research, label: "پژوهش", icon: FlaskConical },
+  { href: routes.awards, label: "جایزه نوآوری", icon: Trophy },
   { href: routes.tickets, label: "تیکت‌ها", icon: LifeBuoy },
 ];
 

@@ -15,6 +15,9 @@ api_v1 = [
     path("", include("apps.training.urls")),
     path("", include("apps.support.urls")),
     path("", include("apps.polls.urls")),
+    path("", include("apps.research.urls")),
+    path("", include("apps.awards.urls")),
+    path("", include("apps.notifications.urls")),
 ]
 
 urlpatterns = [

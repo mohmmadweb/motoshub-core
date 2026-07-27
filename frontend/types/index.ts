@@ -93,3 +93,13 @@ export interface Poll {
   id: string; question: string; ends_at: string | null;
   options: PollOption[]; my_vote: string | null; created_at: string;
 }
+
+export interface ResearchOpportunity {
+  id: string; title: string; field: string;
+  stage: "open" | "review" | "judging" | "running" | "closed";
+  budget: string; supervisor: string; deadline: string | null;
+  applicant_count: number; created_at: string;
+}
+export interface AwardEntry { id: string; track: string; title: string; company: string; status: string; score: number | null; }
+export interface AwardTrack { id: string; title: string; categories: string[]; submission_count: number; entries: AwardEntry[]; created_at: string; }
+export interface Notification { id: string; text: string; kind: string; read: boolean; link: string; created_at: string; }
