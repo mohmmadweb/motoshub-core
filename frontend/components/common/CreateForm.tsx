@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { useCreate } from "@/hooks/useContent";
+import { useCreate, useUpdate } from "@/hooks/useContent";
 
 export interface Field {
   name: string;
@@ -19,15 +19,21 @@ interface Props {
   resource: string;
   fields: Field[];
   onDone: () => void;
-  /** Transform the raw form values before POST (e.g. split tags). */
+  /** Transform the raw form values before submit (e.g. split tags). */
   transform?: (values: Record<string, unknown>) => Record<string, unknown>;
+  /** When set, the form edits (PATCH) that record instead of creating. */
+  editId?: string;
+  initialValues?: Record<string, unknown>;
 }
 
-/** Config-driven create form: renders fields, POSTs via useCreate, closes on success. */
-export default function CreateForm({ resource, fields, onDone, transform }: Props) {
+/** Config-driven create/edit form: renders fields, POST/PATCHes, closes on success. */
+export default function CreateForm({ resource, fields, onDone, transform, editId, initialValues }: Props) {
   const create = useCreate(resource);
+  const update = useUpdate(resource);
+  const pending = create.isPending || update.isPending;
+
   const [values, setValues] = useState<Record<string, unknown>>(
-    Object.fromEntries(fields.map((f) => [f.name, f.default ?? ""])),
+    initialValues ?? Object.fromEntries(fields.map((f) => [f.name, f.default ?? ""])),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -41,10 +47,9 @@ export default function CreateForm({ resource, fields, onDone, transform }: Prop
       }
     }
     const payload = transform ? transform(values) : values;
-    create.mutate(payload, {
-      onSuccess: () => onDone(),
-      onError: () => setError("ثبت ناموفق بود (احتمالاً دسترسی لازم را ندارید)."),
-    });
+    const onError = () => setError("ثبت ناموفق بود (احتمالاً دسترسی لازم را ندارید).");
+    if (editId) update.mutate({ id: editId, payload }, { onSuccess: onDone, onError });
+    else create.mutate(payload, { onSuccess: onDone, onError });
   };
 
   return (
@@ -76,7 +81,7 @@ export default function CreateForm({ resource, fields, onDone, transform }: Prop
       ))}
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex items-center gap-2 pt-1">
-        <Button onClick={submit} loading={create.isPending} className="flex-1 justify-center">ثبت</Button>
+        <Button onClick={submit} loading={pending} className="flex-1 justify-center">{editId ? "ذخیره" : "ثبت"}</Button>
         <Button variant="secondary" onClick={onDone}>انصراف</Button>
       </div>
     </div>

@@ -25,6 +25,17 @@ export function useCreate<T>(resource: string) {
   });
 }
 
+export function useUpdate<T>(resource: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<T> }) => {
+      const res = await api.patch<Envelope<T>>(`/${resource}/${id}`, payload);
+      return res.data.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [resource] }),
+  });
+}
+
 export function useRemoveById(resource: string) {
   const qc = useQueryClient();
   return useMutation({

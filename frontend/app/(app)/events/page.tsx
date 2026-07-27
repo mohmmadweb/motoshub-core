@@ -19,5 +19,5 @@ const createFields = [
 ];
 
 export default function EventsPage() {
-  return <ContentList<EventItem> resource="events" title="رویدادها" columns={columns} createFields={createFields} createLabel="رویداد جدید" deletable />;
+  return <ContentList<EventItem> resource="events" title="رویدادها" columns={columns} createFields={createFields} createLabel="رویداد جدید" deletable editable />;
 }

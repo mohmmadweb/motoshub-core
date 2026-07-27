@@ -20,5 +20,5 @@ const createFields = [
 ];
 
 export default function KnowledgePage() {
-  return <ContentList<KnowledgeDoc> resource="knowledge" title="مدیریت دانش" columns={columns} createFields={createFields} createLabel="سند جدید" deletable />;
+  return <ContentList<KnowledgeDoc> resource="knowledge" title="مدیریت دانش" columns={columns} createFields={createFields} createLabel="سند جدید" deletable editable />;
 }

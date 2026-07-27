@@ -18,5 +18,5 @@ const createFields = [
 const transform = (v: Record<string, unknown>) => ({ ...v, tags: String(v.tags || "").split(",").map((t) => t.trim()).filter(Boolean) });
 
 export default function BlogPage() {
-  return <ContentList<BlogPost> resource="blogs" title="بلاگ" columns={columns} createFields={createFields} createTransform={transform} createLabel="یادداشت جدید" deletable />;
+  return <ContentList<BlogPost> resource="blogs" title="بلاگ" columns={columns} createFields={createFields} createTransform={transform} createLabel="یادداشت جدید" deletable editable />;
 }

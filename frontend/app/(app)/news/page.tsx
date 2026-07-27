@@ -18,5 +18,5 @@ const createFields = [
 ];
 
 export default function NewsPage() {
-  return <ContentList<News> resource="news" title="اخبار" columns={columns} createFields={createFields} createLabel="خبر جدید" deletable />;
+  return <ContentList<News> resource="news" title="اخبار" columns={columns} createFields={createFields} createLabel="خبر جدید" deletable editable />;
 }

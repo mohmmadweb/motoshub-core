@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import CreateForm, { type Field } from "@/components/common/CreateForm";
@@ -25,23 +25,30 @@ interface Props<T> {
   createTransform?: (values: Record<string, unknown>) => Record<string, unknown>;
   createLabel?: string;
   deletable?: boolean;
+  editable?: boolean;
   searchable?: boolean;
 }
 
 /** Generic tenant-scoped list: search, create, delete; desktop table + mobile cards. */
 export default function ContentList<T extends { id: string; created_at: string; visibility?: string }>({
   resource, title, columns, createFields, createTransform, createLabel = "افزودن",
-  deletable, searchable = true,
+  deletable, editable, searchable = true,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<T | null>(null);
   const [search, setSearch] = useState("");
   const { data, isLoading, isError } = useList<T>(resource, search ? { search } : undefined);
   const remove = useRemoveById(resource);
   const rows = data?.data ?? [];
+  const canEdit = editable && !!createFields;
+  const hasActions = deletable || canEdit;
 
   const onDelete = (id: string) => {
     if (window.confirm("آیا از حذف این مورد مطمئن هستید؟")) remove.mutate(id);
   };
+
+  const initialFor = (row: T): Record<string, unknown> =>
+    Object.fromEntries((createFields ?? []).map((f) => [f.name, (row as Record<string, unknown>)[f.name] ?? ""]));
 
   return (
     <div>
@@ -64,6 +71,14 @@ export default function ContentList<T extends { id: string; created_at: string; 
           <CreateForm resource={resource} fields={createFields} transform={createTransform} onDone={() => setOpen(false)} />
         </Modal>
       )}
+      {canEdit && (
+        <Modal open={!!editing} onClose={() => setEditing(null)} title="ویرایش">
+          {editing && (
+            <CreateForm resource={resource} fields={createFields!} transform={createTransform}
+              editId={editing.id} initialValues={initialFor(editing)} onDone={() => setEditing(null)} />
+          )}
+        </Modal>
+      )}
 
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       {isError && <Card className="p-8 text-center text-sm text-red-600">خطا در دریافت داده.</Card>}
@@ -78,7 +93,7 @@ export default function ContentList<T extends { id: string; created_at: string; 
               <tr className="bg-ink-100 text-[11px] uppercase tracking-wide text-ink-400">
                 {columns.map((c) => <th key={c.key} className="px-4 py-2 font-semibold">{c.label}</th>)}
                 <th className="px-4 py-2 font-semibold">تاریخ</th>
-                {deletable && <th className="w-10 px-4 py-2" aria-label="عملیات" />}
+                {hasActions && <th className="px-4 py-2" aria-label="عملیات" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200">
@@ -86,11 +101,20 @@ export default function ContentList<T extends { id: string; created_at: string; 
                 <tr key={row.id} className="text-sm text-ink-800">
                   {columns.map((c) => <td key={c.key} className="px-4 py-3">{c.render(row)}</td>)}
                   <td className="px-4 py-3 text-xs text-ink-400">{faDate(row.created_at)}</td>
-                  {deletable && (
+                  {hasActions && (
                     <td className="px-4 py-3">
-                      <button onClick={() => onDelete(row.id)} className="rounded p-1 text-ink-400 hover:bg-red-50 hover:text-red-600" aria-label="حذف">
-                        <Trash2 size={15} />
-                      </button>
+                      <span className="flex items-center gap-1">
+                        {canEdit && (
+                          <button onClick={() => setEditing(row)} className="rounded p-1 text-ink-400 hover:bg-brand-50 hover:text-brand-600" aria-label="ویرایش">
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {deletable && (
+                          <button onClick={() => onDelete(row.id)} className="rounded p-1 text-ink-400 hover:bg-red-50 hover:text-red-600" aria-label="حذف">
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </span>
                     </td>
                   )}
                 </tr>
@@ -108,9 +132,10 @@ export default function ContentList<T extends { id: string; created_at: string; 
                 ))}
                 <div className="flex items-center justify-between text-xs text-ink-400">
                   <span>{faDate(row.created_at)}</span>
-                  {deletable && (
-                    <button onClick={() => onDelete(row.id)} className="text-red-500" aria-label="حذف"><Trash2 size={15} /></button>
-                  )}
+                  <span className="flex items-center gap-2">
+                    {canEdit && <button onClick={() => setEditing(row)} className="text-brand-500" aria-label="ویرایش"><Pencil size={15} /></button>}
+                    {deletable && <button onClick={() => onDelete(row.id)} className="text-red-500" aria-label="حذف"><Trash2 size={15} /></button>}
+                  </span>
                 </div>
               </div>
             ))}
