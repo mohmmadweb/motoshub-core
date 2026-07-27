@@ -10,4 +10,5 @@ export const routes = {
   media: "/media",
   knowledge: "/knowledge",
   projects: "/projects",
+  contracts: "/contracts",
 } as const;

@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
+from apps.contracts.models import Contract, ContractApproval, ContractPayment
 from apps.projects.models import Project, Task
 from apps.rbac.models import Role, RoleAssignment
 from apps.social.models import ForumReply, ForumTopic, Group, GroupMembership
@@ -97,6 +98,17 @@ class Command(BaseCommand):
             Task.objects.create(tenant=tenant, project=proj, title="ماژول‌های محتوا", status="in_progress", assignee=member, priority="medium", progress=60)
             Task.objects.create(tenant=tenant, project=proj, title="فرانت‌اند Next", status="in_progress", assignee=admin, priority="high", progress=40)
             Task.objects.create(tenant=tenant, project=proj, title="آزمون پذیرش", status="planning", priority="medium", progress=0)
+
+        if not Contract.objects.filter(tenant=tenant).exists():
+            ct = Contract.objects.create(
+                tenant=tenant, owner=admin, title="قرارداد پیاده‌سازی زیرساخت", vendor="شرکت فناوری سینا",
+                stage="executing", contract_type="tech", method="public_call", value=500000000,
+                guarantee="۱۰٪ حسن انجام کار",
+            )
+            ContractPayment.objects.create(tenant=tenant, contract=ct, title="پیش‌پرداخت", amount=125000000, status="paid")
+            ContractPayment.objects.create(tenant=tenant, contract=ct, title="پرداخت مرحله‌ای اول", amount=200000000, status="pending")
+            ContractApproval.objects.create(tenant=tenant, contract=ct, role="مدیر حقوقی", name="کارشناس حقوقی", status="approved", order=1)
+            ContractApproval.objects.create(tenant=tenant, contract=ct, role="مدیر مالی", name="کارشناس مالی", status="pending", order=2)
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"

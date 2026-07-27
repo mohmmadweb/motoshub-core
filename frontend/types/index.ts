@@ -63,3 +63,10 @@ export interface Task {
   assignee: Author | null; priority: "low" | "medium" | "high";
   due: string | null; progress: number; created_at: string;
 }
+
+export interface Contract {
+  id: string; title: string; vendor: string;
+  stage: "negotiation" | "rfp" | "evaluation" | "executing" | "settled";
+  contract_type: string; value: string; deadline: string | null;
+  owner: Author | null; created_at: string;
+}
