@@ -112,3 +112,18 @@ export interface ChatMessage {
   id: string; channel: string; author: Author | null; text: string;
   pinned: boolean; created_at: string;
 }
+
+export interface WorkflowSettings {
+  report_reminder_days: number; review_escalation_days: number; dormant_project_days: number;
+  screening_threshold: number; jury_threshold: number; legal_review_days: number;
+  retention_percent: number; prepayment_percent: number; rate_limit_per_minute: number;
+  edit_window_count: number; accent: string; font_scale: string; dark_default: boolean;
+  enabled_modules: string[];
+}
+export interface ReportSummary {
+  totals: Record<string, number>;
+  projects_by_health: Record<string, number>;
+  contracts_by_stage: Record<string, number>;
+  funds_by_stage: Record<string, number>;
+  tickets_by_status: Record<string, number>;
+}

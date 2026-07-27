@@ -1,5 +1,5 @@
 "use client";
-import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban, FileSignature, Landmark, GraduationCap, BarChart3, LifeBuoy, FlaskConical, Trophy, MessageCircle } from "lucide-react";
+import { Newspaper, PenSquare, CalendarDays, Image as ImageIcon, BookOpen, LayoutDashboard, Users, MessagesSquare, FolderKanban, FileSignature, Landmark, GraduationCap, BarChart3, LifeBuoy, FlaskConical, Trophy, MessageCircle, BarChart2, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -24,6 +24,8 @@ const items = [
   { href: routes.research, label: "پژوهش", icon: FlaskConical },
   { href: routes.awards, label: "جایزه نوآوری", icon: Trophy },
   { href: routes.tickets, label: "تیکت‌ها", icon: LifeBuoy },
+  { href: routes.reports, label: "گزارش‌گیری", icon: BarChart2 },
+  { href: routes.admin, label: "پنل مدیریت", icon: Settings },
 ];
 
 export default function Sidebar() {
