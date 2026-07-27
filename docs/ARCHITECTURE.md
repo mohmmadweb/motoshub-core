@@ -126,15 +126,17 @@ branches ≤ 3 days; bug fixes start with a failing test.
 |------|--------|
 | Project config, envelope, errors, pagination | ✅ done, tested |
 | Unified JWT auth (login/refresh/me) | ✅ done, tested |
-| accounts (custom User + presence) | ✅ done |
-| tenancy (tenant/holding/company + middleware) | ✅ done |
+| accounts (custom User + presence) | ✅ done, tested |
+| tenancy (tenant/holding/company + middleware) | ✅ done, tested |
 | rbac (catalog, roles, assignments, HasPerm, seed) | ✅ done, tested |
-| content: news/blog/events/media/knowledge | ⏳ next |
-| social: groups/forum/feed/friends | ⏳ planned |
+| content: news/blog/events/media/knowledge | ✅ done, tested |
+| social: groups (+membership, IDOR-safe) / forum | ✅ done, tested |
+| projects + Kanban task board | ✅ done, tested |
+| contracts (stage machine, payments, approval chain) | ✅ done, tested |
+| innovation fund (7-stage machine, eval gates, Celery job) | ✅ done, tested |
+| **Next.js frontend** (auth, RTL shell, 11 module pages) | ✅ done, builds green, e2e-tested |
+| infra (docker-compose + Dockerfiles + seed_demo) | ✅ done, compose validated |
+| research / training / awards / tickets / polls | ⏳ next |
 | chat + realtime (Channels) | ⏳ planned |
-| projects + contracts + e-sign | ⏳ planned |
-| innovation fund (+ workflow jobs) | ⏳ planned |
-| research / training / awards / tickets / polls | ⏳ planned |
-| admin (modules, branding, settings, reports) | ⏳ planned |
-| Next.js frontend | ⏳ planned |
-| infra (docker-compose, nginx, CI) | ⏳ planned |
+| admin (modules, branding, settings) + reports + notifications | ⏳ planned |
+| nginx reverse proxy + CI pipeline | ⏳ planned |
