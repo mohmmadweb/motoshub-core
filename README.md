@@ -99,10 +99,15 @@ Every list response is `{data, links, meta}`; errors are
 | `POST` | `/api/v1/auth/refresh` | — | new `access` |
 | `GET` | `/api/v1/auth/me` | ✔ | current user + effective permissions |
 | `GET` | `/api/v1/health` | — | liveness |
-| CRUD | `/api/v1/news` · `/blogs` · `/events` · `/media` · `/knowledge` | ✔ + RBAC | tenant-scoped |
+| CRUD | content: `/news` `/blogs` `/events` `/media` `/knowledge` | ✔ + RBAC | tenant-scoped |
+| CRUD | social: `/groups` (+join/leave) `/forum/topics` (+reply/solve) | ✔ + RBAC | IDOR-safe privacy |
+| CRUD | process: `/projects` `/tasks` `/contracts` `/funds/projects` | ✔ + RBAC | stage machines |
+| CRUD | `/training/courses` `/tickets` `/polls` `/research` `/awards/*` | ✔ + RBAC | |
+| WS | `/ws/chat/<channel_id>/?token=` + `/chat/channels` | ✔ | realtime |
+| — | `/notifications` `/settings/workflow` `/reports/summary` | ✔ + RBAC | |
 
-New modules are added continuously — see the status table in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+All prototype modules are implemented end-to-end (backend + frontend); the full
+module map + status is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Documentation
 
