@@ -38,7 +38,9 @@ export default function ChatPage() {
       const list = Array.isArray(hist.data) ? hist.data : hist.data.data;
       setMessages(list);
       const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${proto}://${window.location.host}/ws/chat/${activeId}/?token=${access}`);
+      // WS base: explicit env (when the reverse proxy can't upgrade WS) or same-origin.
+      const wsBase = process.env.NEXT_PUBLIC_WS_BASE || `${proto}://${window.location.host}`;
+      ws = new WebSocket(`${wsBase}/ws/chat/${activeId}/?token=${access}`);
       ws.onmessage = (e) => setMessages((prev) => [...prev, JSON.parse(e.data)]);
       wsRef.current = ws;
     })();
