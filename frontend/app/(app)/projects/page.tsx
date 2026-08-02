@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import Badge from "@/components/ui/Badge";
 import AddButton from "@/components/common/AddButton";
+import RowActions from "@/components/common/RowActions";
+import { fields } from "@/lib/moduleFields";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum } from "@/lib/format";
@@ -21,13 +23,7 @@ export default function ProjectsPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-bold text-ink-900">پروژه‌ها</h1>
-        <AddButton resource="projects" label="پروژه جدید" fields={[
-          { name: "name", label: "نام پروژه", required: true },
-          { name: "client", label: "کارفرما" },
-          { name: "health", label: "سلامت", type: "select", default: "green", options: [
-            { value: "green", label: "سالم" }, { value: "yellow", label: "نیازمند توجه" }, { value: "red", label: "در خطر" }] },
-          { name: "progress", label: "پیشرفت (٪)", type: "number", default: 0 },
-        ]} />
+        <AddButton resource="projects" label="پروژه جدید" fields={fields.projects} />
       </div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -36,7 +32,10 @@ export default function ProjectsPage() {
             <Card className="p-4 transition-shadow hover:shadow-md">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold text-ink-900">{p.name}</h3>
-                <Badge tone={health[p.health]?.tone}>{health[p.health]?.label}</Badge>
+                <span className="flex items-center gap-1">
+                  <Badge tone={health[p.health]?.tone}>{health[p.health]?.label}</Badge>
+                  <RowActions resource="projects" id={p.id} fields={fields.projects} initial={{ name: p.name, client: p.client, health: p.health, progress: p.progress }} />
+                </span>
               </div>
               <p className="text-xs text-ink-400">{p.client || "—"}</p>
               <div className="mt-3">

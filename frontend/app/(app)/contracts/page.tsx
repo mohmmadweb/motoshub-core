@@ -1,6 +1,8 @@
 "use client";
 import Badge from "@/components/ui/Badge";
 import AddButton from "@/components/common/AddButton";
+import RowActions from "@/components/common/RowActions";
+import { fields } from "@/lib/moduleFields";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum, faDate } from "@/lib/format";
@@ -41,6 +43,7 @@ export default function ContractsPage() {
               <th className="px-4 py-2 font-semibold">مرحله</th>
               <th className="px-4 py-2 font-semibold">مبلغ (ریال)</th>
               <th className="px-4 py-2 font-semibold">مهلت</th>
+              <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-200">
@@ -51,6 +54,7 @@ export default function ContractsPage() {
                 <td className="px-4 py-3"><Badge tone={stage[c.stage]?.tone}>{stage[c.stage]?.label}</Badge></td>
                 <td className="px-4 py-3">{faNum(c.value)}</td>
                 <td className="px-4 py-3 text-xs text-ink-400">{c.deadline ? faDate(c.deadline) : "—"}</td>
+                <td className="px-4 py-3"><RowActions resource="contracts" id={c.id} fields={fields.contracts} initial={{ title: c.title, vendor: c.vendor, contract_type: c.contract_type, value: c.value }} /></td>
               </tr>
             ))}
           </tbody>

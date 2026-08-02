@@ -1,5 +1,6 @@
 "use client";
 import Badge from "@/components/ui/Badge";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum } from "@/lib/format";
@@ -12,7 +13,7 @@ export default function AwardsPage() {
   const tracks = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">جایزه نوآوری</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">جایزه نوآوری</h1><AddButton resource="awards/tracks" label="محور جدید" transform={(v) => ({ ...v, categories: String(v.categories || "").split(",").map((x) => x.trim()).filter(Boolean) })} fields={[{ name: "title", label: "عنوان محور", required: true },{ name: "categories", label: "دسته‌ها (با کاما)", placeholder: "نرم‌افزار, سخت‌افزار" }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <div className="space-y-4">
         {tracks.map((t) => (

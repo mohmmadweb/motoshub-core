@@ -5,6 +5,8 @@ import { Clock, Users } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import AddButton from "@/components/common/AddButton";
+import RowActions from "@/components/common/RowActions";
+import { fields } from "@/lib/moduleFields";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { api } from "@/lib/api";
@@ -32,7 +34,10 @@ export default function TrainingPage() {
           <Card key={c.id} className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-semibold text-ink-900">{c.title}</h3>
-              <Badge tone={status[c.status]?.tone}>{status[c.status]?.label}</Badge>
+              <span className="flex items-center gap-1">
+                <Badge tone={status[c.status]?.tone}>{status[c.status]?.label}</Badge>
+                <RowActions resource="training/courses" id={c.id} fields={fields.training} initial={{ title: c.title, instructor: c.instructor, hours: c.hours, capacity: c.capacity }} />
+              </span>
             </div>
             <p className="text-xs text-ink-400">{c.instructor || "—"}</p>
             <div className="mt-3 flex items-center gap-3 text-xs text-ink-400">

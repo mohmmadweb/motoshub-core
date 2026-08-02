@@ -2,6 +2,7 @@
 import { CheckCircle2, Eye, MessageSquare } from "lucide-react";
 
 import Badge from "@/components/ui/Badge";
+import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum, faDate } from "@/lib/format";
@@ -12,7 +13,7 @@ export default function ForumPage() {
   const topics = data?.data ?? [];
   return (
     <div>
-      <h1 className="mb-4 text-lg font-bold text-ink-900">تالار گفتگو</h1>
+      <div className="mb-4 flex items-center justify-between"><h1 className="text-lg font-bold text-ink-900">تالار گفتگو</h1><AddButton resource="forum/topics" label="موضوع جدید" fields={[{ name: "title", label: "عنوان موضوع", required: true },{ name: "body", label: "متن", type: "textarea" },{ name: "category", label: "دسته" }]} /></div>
       {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
       <Card className="divide-y divide-ink-200">
         {topics.map((t) => (

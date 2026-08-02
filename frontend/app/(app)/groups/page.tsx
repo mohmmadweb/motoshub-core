@@ -5,6 +5,8 @@ import { Users, Lock, Globe } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import AddButton from "@/components/common/AddButton";
+import RowActions from "@/components/common/RowActions";
+import { fields } from "@/lib/moduleFields";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { api } from "@/lib/api";
@@ -29,10 +31,13 @@ export default function GroupsPage() {
           <Card key={g.id} className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="h-9 w-9 rounded-lg" style={{ backgroundColor: g.color }} />
-              <Badge tone={g.privacy === "public" ? "success" : "neutral"}>
-                {g.privacy === "public" ? <Globe size={11} /> : <Lock size={11} />}
-                {g.privacy === "public" ? "عمومی" : "خصوصی"}
-              </Badge>
+              <span className="flex items-center gap-1">
+                <Badge tone={g.privacy === "public" ? "success" : "neutral"}>
+                  {g.privacy === "public" ? <Globe size={11} /> : <Lock size={11} />}
+                  {g.privacy === "public" ? "عمومی" : "خصوصی"}
+                </Badge>
+                <RowActions resource="groups" id={g.id} fields={fields.groups} initial={{ name: g.name, description: g.description, privacy: g.privacy, category: g.category }} />
+              </span>
             </div>
             <h3 className="font-semibold text-ink-900">{g.name}</h3>
             <p className="mt-1 line-clamp-2 text-xs text-ink-400">{g.description || "بدون توضیح"}</p>

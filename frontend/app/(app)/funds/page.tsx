@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import Badge from "@/components/ui/Badge";
 import AddButton from "@/components/common/AddButton";
+import RowActions from "@/components/common/RowActions";
+import { fields } from "@/lib/moduleFields";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum } from "@/lib/format";
@@ -28,7 +30,10 @@ export default function FundsPage() {
                   </div>
                   <p className="mt-0.5 text-xs text-ink-400">{p.code} · {p.rahbar || "—"} · {faNum(p.budget)} ریال</p>
                 </div>
-                <Badge tone="brand">{stageLabel(p.stage)}</Badge>
+                <span className="flex items-center gap-1">
+                  <Badge tone="brand">{stageLabel(p.stage)}</Badge>
+                  <RowActions resource="funds/projects" id={p.id} fields={fields.funds} initial={{ code: p.code, title_fa: p.title_fa, field: p.field, budget: p.budget }} />
+                </span>
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-100">
                 <div className="h-full rounded-full bg-emerald-500" style={{ width: `${p.progress}%` }} />

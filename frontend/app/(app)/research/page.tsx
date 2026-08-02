@@ -1,6 +1,8 @@
 "use client";
 import Badge from "@/components/ui/Badge";
 import AddButton from "@/components/common/AddButton";
+import RowActions from "@/components/common/RowActions";
+import { fields } from "@/lib/moduleFields";
 import Card from "@/components/ui/Card";
 import { useList } from "@/hooks/useContent";
 import { faNum } from "@/lib/format";
@@ -20,7 +22,10 @@ export default function ResearchPage() {
           <Card key={r.id} className="p-4">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-semibold text-ink-900">{r.title}</h3>
-              <Badge tone="brand">{stage[r.stage]}</Badge>
+              <span className="flex items-center gap-1">
+                <Badge tone="brand">{stage[r.stage]}</Badge>
+                <RowActions resource="research" id={r.id} fields={fields.research} initial={{ title: r.title, field: r.field, supervisor: r.supervisor, budget: r.budget }} />
+              </span>
             </div>
             <p className="text-xs text-ink-400">{r.field} · ناظر: {r.supervisor || "—"}</p>
             <p className="mt-2 text-xs text-ink-400">{faNum(r.applicant_count)} متقاضی · بودجه {faNum(r.budget)} ریال</p>
