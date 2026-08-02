@@ -5,6 +5,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Brand accent (default = blue). Overridable via [data-accent] presets. */
+:root {
+  --brand-50:#eef4fc; --brand-100:#d9e7f8; --brand-200:#b3cef1; --brand-300:#82aee6;
+  --brand-400:#4d87d6; --brand-500:#2a66bd; --brand-600:#1f4f99; --brand-700:#1b4079;
+  --brand-800:#17325f; --brand-900:#112442;
+}
+:root[data-accent="teal"]{--brand-50:#effcf9;--brand-100:#c9f2e9;--brand-200:#96e3d5;--brand-300:#5fcdbd;--brand-400:#33b0a0;--brand-500:#0f9e8c;--brand-600:#0d9488;--brand-700:#107569;--brand-800:#115e56;--brand-900:#134e4a;}
+:root[data-accent="amber"]{--brand-50:#fff8eb;--brand-100:#fdecc8;--brand-200:#fcd9a0;--brand-300:#f9bd63;--brand-400:#f59e0b;--brand-500:#d97706;--brand-600:#b45309;--brand-700:#92400e;--brand-800:#78350f;--brand-900:#451a03;}
+:root[data-accent="purple"]{--brand-50:#f5f3ff;--brand-100:#ede9fe;--brand-200:#ddd6fe;--brand-300:#c4b5fd;--brand-400:#a78bfa;--brand-500:#8b5cf6;--brand-600:#7c3aed;--brand-700:#6d28d9;--brand-800:#5b21b6;--brand-900:#4c1d95;}
+
+
 :root {
   /* light-mode ink scale */
   --ink-50: #f6f7f9;  --ink-100: #eceef1; --ink-200: #dde1e6; --ink-300: #c1c7d0;

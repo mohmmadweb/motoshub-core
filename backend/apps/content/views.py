@@ -68,3 +68,35 @@ class KnowledgeViewSet(TenantScopedModelViewSet):
     filterset_fields = ["visibility", "doc_type", "category"]
     search_fields = ["title", "category"]
     ordering_fields = ["created_at"]
+
+
+# ── Public (unauthenticated) showcase feed ──────────────────────────────────
+from rest_framework.permissions import AllowAny  # noqa: E402
+from rest_framework.response import Response  # noqa: E402
+from rest_framework.views import APIView  # noqa: E402
+
+
+class PublicFeedView(APIView):
+    """Unauthenticated: only visibility=public items. Optional ?domain= to scope."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from apps.tenancy.models import Tenant
+
+        news = News.objects.filter(visibility="public")
+        blogs = BlogPost.objects.filter(visibility="public")
+        events = Event.objects.filter(visibility="public")
+        domain = request.query_params.get("domain")
+        if domain:
+            tenant = Tenant.objects.filter(domain=domain).first()
+            if tenant:
+                news = news.filter(tenant=tenant)
+                blogs = blogs.filter(tenant=tenant)
+                events = events.filter(tenant=tenant)
+        return Response({
+            "news": NewsSerializer(news.select_related("author")[:10], many=True, context={"request": request}).data,
+            "blogs": BlogPostSerializer(blogs.select_related("author")[:10], many=True, context={"request": request}).data,
+            "events": EventSerializer(events.select_related("author")[:10], many=True, context={"request": request}).data,
+        })

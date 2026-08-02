@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, LogOut, Moon, Sun, Type } from "lucide-react";
+import { Bell, LogOut, Moon, Palette, Sun, Type } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -15,11 +15,18 @@ export default function Header() {
   const logout = useLogout();
   const [dark, setDark] = useState(false);
   const [large, setLarge] = useState(false);
+  const [accentOpen, setAccentOpen] = useState(false);
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains("dark"));
     setLarge(document.documentElement.getAttribute("data-font") === "large");
   }, []);
+
+  const setAccent = (a: string) => {
+    document.documentElement.setAttribute("data-accent", a);
+    try { localStorage.setItem("ms-accent", a); } catch { /* ignore */ }
+    setAccentOpen(false);
+  };
 
   const toggleFont = () => {
     const next = !large;
@@ -53,6 +60,18 @@ export default function Header() {
             </span>
           )}
         </Link>
+        <span className="relative">
+          <button onClick={() => setAccentOpen((v) => !v)} className="rounded-lg p-2 text-ink-500 hover:bg-ink-100" aria-label="رنگ سازمان">
+            <Palette size={18} />
+          </button>
+          {accentOpen && (
+            <span className="absolute left-0 top-full z-20 mt-1 flex gap-1 rounded-lg border border-ink-200 bg-[var(--surface)] p-2 shadow-lg">
+              {[["blue","#1f4f99"],["teal","#0d9488"],["amber","#b45309"],["purple","#7c3aed"]].map(([k,c]) => (
+                <button key={k} onClick={() => setAccent(k)} className="h-6 w-6 rounded-full border border-ink-200" style={{ backgroundColor: c }} aria-label={k} />
+              ))}
+            </span>
+          )}
+        </span>
         <button onClick={toggleFont} className={`rounded-lg p-2 hover:bg-ink-100 ${large ? "text-brand-600" : "text-ink-500"}`} aria-label="اندازه فونت" title="اندازه فونت">
           <Type size={18} />
         </button>

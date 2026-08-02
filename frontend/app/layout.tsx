@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Apply the persisted theme before paint to avoid a flash. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var d=localStorage.getItem('ms-dark');if(d==='1'||(d===null&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');var f=localStorage.getItem('ms-font');if(f)document.documentElement.setAttribute('data-font',f);}catch(e){}`,
+            __html: `try{var d=localStorage.getItem('ms-dark');if(d==='1'||(d===null&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');var f=localStorage.getItem('ms-font');if(f)document.documentElement.setAttribute('data-font',f);var ac=localStorage.getItem('ms-accent');if(ac)document.documentElement.setAttribute('data-accent',ac);}catch(e){}`,
           }}
         />
       </head>

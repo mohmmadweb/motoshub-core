@@ -1,6 +1,8 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import BlogViewSet, EventViewSet, KnowledgeViewSet, MediaViewSet, NewsViewSet
+from django.urls import path
+
+from .views import BlogViewSet, EventViewSet, KnowledgeViewSet, MediaViewSet, NewsViewSet, PublicFeedView
 
 router = DefaultRouter(trailing_slash=False)
 router.register("news", NewsViewSet, basename="news")
@@ -9,4 +11,4 @@ router.register("events", EventViewSet, basename="event")
 router.register("media", MediaViewSet, basename="media")
 router.register("knowledge", KnowledgeViewSet, basename="knowledge")
 
-urlpatterns = router.urls
+urlpatterns = [path("public/feed", PublicFeedView.as_view(), name="public-feed")] + router.urls

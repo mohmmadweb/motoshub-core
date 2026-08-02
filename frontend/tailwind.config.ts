@@ -11,9 +11,9 @@ const config: Config = {
       fontFamily: { sans: ["Vazirmatn", "system-ui", "Tahoma", "sans-serif"] },
       colors: {
         brand: {
-          50: "#eef4fc", 100: "#d9e7f8", 200: "#b3cef1", 300: "#82aee6",
-          400: "#4d87d6", 500: "#2a66bd", 600: "#1f4f99", 700: "#1b4079",
-          800: "#17325f", 900: "#112442",
+          50: "var(--brand-50)", 100: "var(--brand-100)", 200: "var(--brand-200)",
+          300: "var(--brand-300)", 400: "var(--brand-400)", 500: "var(--brand-500)",
+          600: "var(--brand-600)", 700: "var(--brand-700)", 800: "var(--brand-800)", 900: "var(--brand-900)",
         },
         navy: {
           50: "#f4f6f9", 100: "#e3e8ef", 200: "#c3ccd9", 300: "#93a2b8",
