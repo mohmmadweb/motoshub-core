@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { SystemSection, StorageSection } from "./AdminSections";
 import { holdings as daneshmandHoldings } from "../data/mockDaneshmand";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromRole, toRole } from "../lib/adapters";
 import LiveUsagePanel from "../components/LiveUsagePanel";
 import BrandingPanel from "../components/BrandingPanel";
 import { useSettings, settingsMeta, defaultSettings, type WorkflowSettings } from "../context/SettingsContext";
@@ -43,7 +45,6 @@ import {
   moduleCatalog,
   adminPages as initialPages,
   adminMenus,
-  roles as initialRoles,
   allowedFileExtensions as initialExtensions,
   integrations as initialIntegrations,
   guestAccounts as initialGuests,
@@ -96,7 +97,7 @@ export default function Admin() {
   const tenant = tenants.find((t) => t.id === activeTenant) ?? tenants[0];
   const [enabledModules, setEnabledModules] = useState<string[]>(["social", "knowledge", "projects", "reports"]);
   const [crossTenant, setCrossTenant] = useState(false);
-  const [roles, setRoles] = useState<RoleDef[]>(initialRoles);
+  const [roles, setRoles] = useApiCollection<RoleDef>("/roles", fromRole as any, toRole as any);
   const [pages, setPages] = useState<AdminPageDef[]>(initialPages);
   const [extensions, setExtensions] = useState<string[]>(initialExtensions);
   const [integrations, setIntegrations] = useState<Integration[]>(initialIntegrations);

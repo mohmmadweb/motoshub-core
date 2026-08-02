@@ -111,3 +111,12 @@ export const fromContract = (c: any) => ({
   value: faMoney(c.value), deadline: toJalali(c.deadline), owner: c.owner?.name ?? "—",
 });
 export const toContract = (v: any) => ({ title: v.title, vendor: v.vendor, stage: cStageApi[v.stage] ?? "negotiation", value: faToNumber(v.value) });
+
+// ── RBAC roles (admin) ──────────────────────────────────────────────────────
+const rbScope: Record<string, string> = { platform: "پلتفرم", tenant: "سازمان", group: "گروه" };
+const rbScopeApi: Record<string, string> = { "پلتفرم": "platform", "سازمان": "tenant", "گروه": "group" };
+export const fromRole = (r: any) => ({
+  id: r.id, title: r.title, scope: rbScope[r.scope] ?? "سازمان", members: r.member_count ?? 0,
+  description: r.description ?? "", permissions: r.permissions ?? [], system: r.is_system,
+});
+export const toRole = (v: any) => ({ title: v.title, scope: rbScopeApi[v.scope] ?? "tenant", description: v.description ?? "", permissions: v.permissions ?? [] });
