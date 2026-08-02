@@ -4,8 +4,9 @@ from rest_framework.views import APIView
 
 from apps.awards.models import AwardEntry
 from apps.contracts.models import Contract
-from apps.fund.models import NfProject
+from apps.fund.models import Fund, NfProject
 from apps.projects.models import Project
+from apps.research.models import ResearchOpportunity
 from apps.support.models import Ticket
 
 from .models import WorkflowSettings
@@ -54,12 +55,15 @@ class ReportSummaryView(APIView):
             "totals": {
                 "projects": Project.objects.filter(tenant=t).count(),
                 "contracts": Contract.objects.filter(tenant=t).count(),
-                "funds": NfProject.objects.filter(tenant=t).count(),
+                "funds": Fund.objects.filter(tenant=t).count(),
+                "nf_projects": NfProject.objects.filter(tenant=t).count(),
                 "tickets": Ticket.objects.filter(tenant=t).count(),
                 "award_entries": AwardEntry.objects.filter(tenant=t).count(),
+                "research": ResearchOpportunity.objects.filter(tenant=t).count(),
             },
             "projects_by_health": by(Project.objects, "health"),
             "contracts_by_stage": by(Contract.objects, "stage"),
-            "funds_by_stage": by(NfProject.objects, "stage"),
+            "funds_by_stage": by(Fund.objects, "stage"),
             "tickets_by_status": by(Ticket.objects, "status"),
+            "research_by_stage": by(ResearchOpportunity.objects, "stage"),
         })

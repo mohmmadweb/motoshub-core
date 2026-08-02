@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { http } from "../lib/http";
 import {
   BarChart3,
   Download,
@@ -14,7 +15,7 @@ import {
   CalendarClock,
   Table2,
 } from "lucide-react";
-import { reportByDepartment, reportByStatus, monthlyActivity, projects, contracts, funds, researchOpportunities } from "../data/mock";
+import { reportByDepartment, reportByStatus, monthlyActivity } from "../data/mock";
 import {
   contractFunnel,
   holdingComparison,
@@ -44,6 +45,21 @@ const scheduleTone: Record<SavedReport["schedule"], BadgeTone> = {
 
 type BuilderRow = { id: string; label: string; count: number; extra: string };
 
+// Real aggregates arrive with English enum keys — map to the prototype's Persian labels.
+interface ReportSummary {
+  totals: { projects: number; contracts: number; funds: number; research: number };
+  projects_by_health: Record<string, number>;
+  contracts_by_stage: Record<string, number>;
+  funds_by_stage: Record<string, number>;
+  research_by_stage: Record<string, number>;
+}
+const L_HEALTH: Record<string, string> = { green: "سبز", yellow: "زرد", red: "قرمز" };
+const L_CONTRACT: Record<string, string> = { negotiation: "مذاکره", rfp: "فراخوان", evaluation: "داوری", executing: "در حال اجرا", settled: "تسویه‌شده" };
+const L_FUND: Record<string, string> = { registered: "ثبت‌شده", screening: "انتخاب اولیه", judging: "داوری", allocated: "تخصیص‌یافته", monitoring: "در حال پایش" };
+const L_RESEARCH: Record<string, string> = { open: "فراخوان باز", review: "در حال بررسی", judging: "داوری", running: "در حال اجرا", closed: "بسته‌شده" };
+const rowsFrom = (by: Record<string, number> | undefined, labels: Record<string, string>, unit: string): BuilderRow[] =>
+  Object.entries(by ?? {}).map(([k, count], i) => ({ id: `b${i}`, label: labels[k] ?? k, count, extra: `${count} ${unit}` }));
+
 export default function Reports() {
   const [period, setPeriod] = useState(periods[1]);
   const [builderModule, setBuilderModule] = useState<(typeof builderModules)[number]>("پروژه‌ها");
@@ -52,7 +68,12 @@ export default function Reports() {
   const [builderResult, setBuilderResult] = useState<BuilderRow[] | null>(null);
   const [saved, setSaved] = useState<SavedReport[]>(initialSavedReports);
   const [exportOpen, setExportOpen] = useState(false);
+  const [summary, setSummary] = useState<ReportSummary | null>(null);
   const { notify } = useToast();
+
+  useEffect(() => {
+    http<ReportSummary>("/reports/summary").then(setSummary).catch(() => setSummary(null));
+  }, []);
 
   const maxMonthly = Math.max(...monthlyActivity.map((m) => m.value));
   const maxDept = Math.max(...reportByDepartment.map((d) => d.value));
@@ -60,28 +81,16 @@ export default function Reports() {
   const maxHolding = Math.max(...holdingComparison.flatMap((h) => [h.projects, h.contracts, h.funds]));
 
   const buildReport = () => {
+    // Aggregates come live from /reports/summary (real DB counts by enum).
     let rows: BuilderRow[] = [];
     if (builderModule === "پروژه‌ها") {
-      const byHealth: Record<string, number> = {};
-      projects.forEach((p) => (byHealth[p.health] = (byHealth[p.health] ?? 0) + 1));
-      rows = Object.entries(byHealth).map(([label, count], i) => ({
-        id: `b${i}`,
-        label: `وضعیت ${label}`,
-        count,
-        extra: builderMetric === "درصد پیشرفت" ? `${Math.round(projects.filter((p) => p.health === label).reduce((s, p) => s + p.progress, 0) / count)}٪ میانگین پیشرفت` : `${count} پروژه`,
-      }));
+      rows = rowsFrom(summary?.projects_by_health, L_HEALTH, "پروژه").map((r) => ({ ...r, label: `وضعیت ${r.label}` }));
     } else if (builderModule === "قراردادها") {
-      const byStage: Record<string, number> = {};
-      contracts.forEach((c) => (byStage[c.stage] = (byStage[c.stage] ?? 0) + 1));
-      rows = Object.entries(byStage).map(([label, count], i) => ({ id: `b${i}`, label, count, extra: `${count} قرارداد` }));
+      rows = rowsFrom(summary?.contracts_by_stage, L_CONTRACT, "قرارداد");
     } else if (builderModule === "صندوق") {
-      const byStage: Record<string, number> = {};
-      funds.forEach((f) => (byStage[f.stage] = (byStage[f.stage] ?? 0) + 1));
-      rows = Object.entries(byStage).map(([label, count], i) => ({ id: `b${i}`, label, count, extra: `${count} طرح` }));
+      rows = rowsFrom(summary?.funds_by_stage, L_FUND, "طرح");
     } else {
-      const byStage: Record<string, number> = {};
-      researchOpportunities.forEach((r) => (byStage[r.stage] = (byStage[r.stage] ?? 0) + 1));
-      rows = Object.entries(byStage).map(([label, count], i) => ({ id: `b${i}`, label, count, extra: `${count} فراخوان` }));
+      rows = rowsFrom(summary?.research_by_stage, L_RESEARCH, "فراخوان");
     }
     setBuilderResult(rows);
     notify(`گزارش «${builderModule} بر اساس ${builderGroupBy}» برای بازه «${period}» ساخته شد.`, "info");
@@ -135,12 +144,12 @@ export default function Reports() {
 
   const kpis = useMemo(
     () => [
-      { label: "پروژه‌های فعال", value: projects.length, icon: <KanbanSquare size={16} />, tone: "brand" as const },
-      { label: "قراردادهای جاری", value: contracts.filter((c) => c.stage === "در حال اجرا").length, icon: <FileSignature size={16} />, tone: "success" as const },
-      { label: "طرح‌های صندوق", value: funds.length, icon: <PiggyBank size={16} />, tone: "warning" as const },
-      { label: "فراخوان‌های پژوهشی", value: researchOpportunities.length, icon: <FlaskConical size={16} />, tone: "neutral" as const },
+      { label: "پروژه‌های فعال", value: summary?.totals.projects ?? 0, icon: <KanbanSquare size={16} />, tone: "brand" as const },
+      { label: "قراردادهای جاری", value: summary?.contracts_by_stage?.executing ?? 0, icon: <FileSignature size={16} />, tone: "success" as const },
+      { label: "طرح‌های صندوق", value: summary?.totals.funds ?? 0, icon: <PiggyBank size={16} />, tone: "warning" as const },
+      { label: "فراخوان‌های پژوهشی", value: summary?.totals.research ?? 0, icon: <FlaskConical size={16} />, tone: "neutral" as const },
     ],
-    []
+    [summary]
   );
 
   return (

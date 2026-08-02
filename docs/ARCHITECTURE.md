@@ -187,8 +187,14 @@ forum, groups, projects, research, training, tickets, polls, notifications,
 contracts (core), roles (RBAC/admin), funds (simple), chat (channels+messages),
 friends/profile (Friendship + Follow graph + user org/skills/presence).
 
+**Partly real:**
+- reports: KPI cards + the report-builder (projects/contracts/funds/research
+  grouped by status) run off live `/reports/summary` aggregates. The decorative
+  charts (by-department, monthly trend, holding funnel, cross-tab) stay
+  illustrative — they need dimensions the schema doesn't model yet (a
+  `department` field, a time-series aggregation).
+
 **Still on mock — each needs a NEW backend model/field, then wiring:**
-- reports: dedicated aggregation endpoints for its charts.
 - rich contract sub-data: e-sign, tenders, tech-transfer models.
 - rich innovation-fund sub-data: gantt/reports/payments sub-UI beyond NfProject.
 - chat DM / reactions / threads; realtime receive over WS.
