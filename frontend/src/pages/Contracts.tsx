@@ -4,7 +4,9 @@ import { currentUser, type ContractRecord } from "../data/mock";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromContract, toContract } from "../lib/adapters";
 import { contractDetails, type ContractDetail } from "../data/mockDetails";
-import { techTransferContracts, eSignDocuments, tenders, pendingReviewItems, type TechTransferContract, type TenderRecord } from "../data/mockDaneshmand";
+import { pendingReviewItems, type TechTransferContract, type TenderRecord, type ESignDocument } from "../data/mockDaneshmand";
+import { useApiList } from "../lib/useApiList";
+import { fromTechTransfer, fromTender, fromESign } from "../lib/adapters";
 import Tabs from "../components/ui/Tabs";
 import RowActions from "../components/ui/RowActions";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -42,6 +44,9 @@ const stages: ContractRecord["stage"][] = ["فراخوان", "مذاکره", "د
 
 export default function Contracts() {
   const [tab, setTab] = useTabParam<"tech" | "transfer" | "esign" | "tender">("tech", ["tech", "transfer", "esign", "tender"]);
+  const techTransfer = useApiList<TechTransferContract>("/contracts/tech-transfer", fromTechTransfer as any);
+  const tenderList = useApiList<TenderRecord>("/contracts/tenders", fromTender as any);
+  const esignDocs = useApiList<ESignDocument>("/contracts/esign", fromESign as any);
   return (
     <div>
       <PageHeader
@@ -52,17 +57,17 @@ export default function Contracts() {
       <Tabs
         tabs={[
           { id: "tech", label: "قراردادهای فناورانه" },
-          { id: "transfer", label: "پورتفولیوی تبادل فناوری", count: techTransferContracts.length },
-          { id: "esign", label: "گردش امضای الکترونیک", count: eSignDocuments.length },
-          { id: "tender", label: "مناقصه و کمیسیون معاملات", count: tenders.length },
+          { id: "transfer", label: "پورتفولیوی تبادل فناوری", count: techTransfer.length },
+          { id: "esign", label: "گردش امضای الکترونیک", count: esignDocs.length },
+          { id: "tender", label: "مناقصه و کمیسیون معاملات", count: tenderList.length },
         ]}
         active={tab}
         onChange={setTab}
       />
       {tab === "tech" && <TechContractsTab />}
-      {tab === "transfer" && <TechTransferTab />}
-      {tab === "esign" && <ESignTab />}
-      {tab === "tender" && <TenderTab />}
+      {tab === "transfer" && <TechTransferTab rows={techTransfer} />}
+      {tab === "esign" && <ESignTab docs={esignDocs} />}
+      {tab === "tender" && <TenderTab items={tenderList} />}
     </div>
   );
 }
@@ -78,7 +83,7 @@ const tenderStageTone: Record<TenderRecord["stage"], BadgeTone> = {
   "عقد قرارداد": "navy",
 };
 
-function TenderTab() {
+function TenderTab({ items }: { items: TenderRecord[] }) {
   const { notify } = useToast();
   return (
     <div className="space-y-4">
@@ -92,7 +97,7 @@ function TenderTab() {
         </Button>
       </div>
       <div className="card divide-y divide-ink-100">
-        {tenders.map((t) => (
+        {items.map((t) => (
           <div key={t.id} className="p-3.5 flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink-900">{t.title}</p>
@@ -132,7 +137,7 @@ function ProgressCell({ value, label }: { value: number; label: string }) {
   );
 }
 
-function TechTransferTab() {
+function TechTransferTab({ rows }: { rows: TechTransferContract[] }) {
   const [selected, setSelected] = useState<TechTransferContract | null>(null);
 
   const columns: Column<TechTransferContract>[] = [
@@ -184,7 +189,7 @@ function TechTransferTab() {
       </div>
       <DataTable
         columns={columns}
-        rows={techTransferContracts}
+        rows={rows}
         searchKeys={["title", "holding", "company", "mojri"]}
         searchPlaceholder="جستجو در موضوع، هلدینگ، شرکت یا مجری…"
         onRowClick={(c) => setSelected(c)}
@@ -245,7 +250,7 @@ function TechTransferTab() {
 // ---------------------------------------------------------------------------
 // گردش امضای الکترونیک — زنجیره امضا: مجری ← راهبر/ناظر ← صاحبین امضای موسسه
 // ---------------------------------------------------------------------------
-function ESignTab() {
+function ESignTab({ docs }: { docs: ESignDocument[] }) {
   return (
     <div className="space-y-4">
       <div className="card p-4 bg-brand-50 border-brand-200 flex items-start gap-3">
@@ -256,7 +261,7 @@ function ESignTab() {
           برای راهبر و مجری ارسال می‌شود.
         </p>
       </div>
-      {eSignDocuments.map((doc) => {
+      {docs.map((doc) => {
         const done = doc.steps.filter((s) => s.status === "امضا شد").length;
         return (
           <div key={doc.id} className="card p-4">

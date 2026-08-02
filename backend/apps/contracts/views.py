@@ -5,8 +5,14 @@ from rest_framework.response import Response
 from apps.content.views import _crud_perms
 from apps.core.viewsets import TenantScopedModelViewSet
 
-from .models import Contract, ContractApproval, Stage
-from .serializers import ContractListSerializer, ContractSerializer
+from .models import Contract, ContractApproval, ESignDocument, Stage, TechTransferContract, Tender
+from .serializers import (
+    ContractListSerializer,
+    ContractSerializer,
+    ESignDocumentSerializer,
+    TechTransferSerializer,
+    TenderSerializer,
+)
 
 
 class ContractViewSet(TenantScopedModelViewSet):
@@ -40,3 +46,33 @@ class ContractViewSet(TenantScopedModelViewSet):
         step.acted_at = timezone.now()
         step.save(update_fields=["status", "acted_at"])
         return Response({"id": str(step.id), "status": step.status})
+
+
+class TechTransferViewSet(TenantScopedModelViewSet):
+    queryset = TechTransferContract.objects.all()
+    serializer_class = TechTransferSerializer
+    owner_field = None
+    required_perms = _crud_perms("contracts")
+    filterset_fields = ["kind", "holding"]
+    search_fields = ["title", "company", "mojri", "nazer", "city"]
+    ordering_fields = ["created_at"]
+
+
+class TenderViewSet(TenantScopedModelViewSet):
+    queryset = Tender.objects.all()
+    serializer_class = TenderSerializer
+    owner_field = None
+    required_perms = _crud_perms("contracts")
+    filterset_fields = ["method", "stage"]
+    search_fields = ["title", "winner"]
+    ordering_fields = ["created_at"]
+
+
+class ESignDocumentViewSet(TenantScopedModelViewSet):
+    queryset = ESignDocument.objects.prefetch_related("steps").all()
+    serializer_class = ESignDocumentSerializer
+    owner_field = None
+    required_perms = _crud_perms("contracts")
+    filterset_fields = ["kind"]
+    search_fields = ["title", "related_to"]
+    ordering_fields = ["created_at"]

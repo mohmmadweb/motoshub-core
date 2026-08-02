@@ -12,7 +12,15 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
-from apps.contracts.models import Contract, ContractApproval, ContractPayment
+from apps.contracts.models import (
+    Contract,
+    ContractApproval,
+    ContractPayment,
+    ESignDocument,
+    ESignStep,
+    TechTransferContract,
+    Tender,
+)
 from apps.fund.models import Fund, NfPayment, NfProject, NfReport, NfReportChainStep
 from apps.awards.models import AwardEntry, AwardTrack
 from apps.chat.models import Channel, Message
@@ -167,6 +175,52 @@ class Command(BaseCommand):
         if not Fund.objects.filter(tenant=tenant).exists():
             Fund.objects.create(tenant=tenant, title="طرح اشتغال‌زایی روستایی", applicant="تعاونی نمونه", stage="judging", amount=150000000, roi="۱۸٪")
             Fund.objects.create(tenant=tenant, title="حمایت از استارتاپ کشاورزی", applicant="شرکت سبز", stage="allocated", amount=300000000, roi="۲۴٪")
+
+        # ── Rich contract sub-modules (tech-transfer / tender / e-sign) ──────────
+        if not TechTransferContract.objects.filter(tenant=tenant).exists():
+            tt = [
+                ("تبادل فناوری", "پهپاد سمپاش کشاورزی — مزارع دشت ناز", "کارشناس ارشد کشاورزی و امنیت غذایی", "ساری", "فردوس پارس", "دشت ناز ساری", "شرکت فناور پرواز سبز", "بهره‌بردار و کارفرما", "ناظر و هماهنگ‌کننده", "۱۸ میلیارد ریال", "۹ میلیارد ریال (۵۰٪)", 70, 80, 55, "ضمانت‌نامه بانکی", ""),
+                ("تبادل فناوری", "سامانه MOT چاه‌های نفت", "رییس بخش انرژی و نفت و گاز", "اهواز", "انرژی گستر سینا", "پدکس", "شرکت دانش‌بنیان ژرف‌کاو", "کارفرما", "هماهنگ‌کننده مالی", "۴۲ میلیارد ریال", "۲۱ میلیارد ریال (۵۰٪)", 45, 60, 40, "سفته", "صورت‌وضعیت ۲ در انتظار تایید ناظر"),
+                ("تبادل فناوری", "انبارداری هوشمند مبتنی بر UWB", "رییس بخش اقتصاد دیجیتال", "تهران", "صنایع غذایی سینا", "بهنوش ایران", "تیم فناور ردیاب", "بهره‌بردار", "ناظر و هماهنگ‌کننده", "۱۲ میلیارد ریال", "۶ میلیارد ریال (۵۰٪)", 90, 95, 75, "چک", ""),
+                ("تبادل فناوری", "تشخیص خودکار حوادث آزادراه تهران - شمال", "رییس بخش حمل‌ونقل ترکیبی", "تهران", "پایا ترابر سینا", "آزادراه تهران - شمال", "شرکت بینا رایان", "بهره‌بردار و کارفرما", "ناظر و هماهنگ‌کننده", "۲۵ میلیارد ریال", "۱۲.۵ میلیارد ریال (۵۰٪)", 100, 100, 85, "ضمانت‌نامه بانکی", "در انتظار آزادسازی حسن انجام کار"),
+                ("تبادل فناوری", "لیدار پایش واگن‌های باری", "رییس بخش حمل‌ونقل ترکیبی", "اصفهان", "پایا ترابر سینا", "سینا ریل پارس", "شرکت فوتونیک آریا", "خریدار", "پیمانکار", "۹ میلیارد ریال", "۴.۵ میلیارد ریال (۵۰٪)", 30, 45, 25, "سفته", "تاخیر در واردات قطعات — درخواست الحاقیه زمانی"),
+                ("تبادل فناوری", "کیت تشخیص سریع آنتی‌بیوتیک در شیر خام", "کارشناس ارشد امنیت غذایی", "تهران", "صنایع غذایی سینا", "لبنیات پاک", "شرکت زیست‌فناور کیمیا", "بهره‌بردار", "ناظر و هماهنگ‌کننده", "۷ میلیارد ریال", "۳.۵ میلیارد ریال (۵۰٪)", 60, 55, 50, "چک", ""),
+                ("آموزشی-پژوهشی", "برنامه جامع آموزش هوش مصنوعی", "مجتبی سروش‌پور", "تهران", "ستاد بنیاد", "ایرانسل لبز", "موسسه آموزشی و پژوهشی سینا", "کارفرما", "طرف دوم", "۹۹ میلیارد ریال", "—", 40, 50, 35, "—", ""),
+                ("تبادل فناوری", "کوره عملیات حرارتی قطعات نیروگاهی", "رییس بخش انرژی", "کرج", "برق و انرژی صبا", "نیروگاه‌های صبا", "شرکت مهندسی حرارت گستر", "کارفرما", "ناظر و هماهنگ‌کننده", "۳۱ میلیارد ریال", "۱۵.۵ میلیارد ریال (۵۰٪)", 15, 20, 20, "ضمانت‌نامه بانکی", "نیازمند استعلام از واحد مالی"),
+            ]
+            for k, ti, nz, ci, ho, co, mo, cr, dr, am, cm, pp, tp, fp, gu, no in tt:
+                TechTransferContract.objects.create(
+                    tenant=tenant, kind=k, title=ti, nazer=nz, city=ci, holding=ho, company=co,
+                    mojri=mo, company_role=cr, daneshmand_role=dr, amount=am, commitment=cm,
+                    physical_progress=pp, time_progress=tp, financial_progress=fp, guarantee=gu, note=no)
+
+        if not Tender.objects.filter(tenant=tenant).exists():
+            tn = [
+                ("تجهیز آزمایشگاه مرکز نوآوری پارک پیامبر اعظم", "public", "commission", 6, "۱۴۰۵/۰۴/۲۵", "", "بازگشایی پاکات الف و ب انجام شد؛ پاکت ج در جلسه کمیسیون"),
+                ("واگذاری فضای کار اشتراکی خانه خلاقیت علوی", "auction", "receive", 3, "", "", ""),
+                ("خرید سرویس رایانش ابری پروژه‌های هوش مصنوعی", "no_formality", "contract", 1, "", "ابر آروان (نمونه)", "مصوبه ترک تشریفات هیئت مدیره پیوست است"),
+                ("چاپ و توزیع شماره ۱۲ ماهنامه بنیاد", "limited", "award", 4, "", "چاپخانه اندیشه", ""),
+            ]
+            for ti, me, st, pa, sd, wi, no in tn:
+                Tender.objects.create(tenant=tenant, title=ti, method=me, stage=st,
+                                      participants=pa, session_date=sd, winner=wi, note=no)
+
+        if not ESignDocument.objects.filter(tenant=tenant).exists():
+            es = [
+                ("قرارداد پروژه NF-1404-1051 — سامانه تشخیص نقص خط تولید زمزم", "nf", "NF-1404-1051", "",
+                 [("مجری", "سیگنال امید", "awaiting", ""), ("راهبر", "شتابدهی تا ثریا", "queued", ""),
+                  ("مدیرعامل موسسه", "صاحب امضا ۱", "queued", ""), ("عضو هیئت مدیره", "صاحب امضا ۲", "queued", "")]),
+                ("قرارداد پروژه NF-1404-1053 — قطعات CFRP بدنه خودرو", "nf", "NF-1404-1053", "د/۱۴۰۴/۲۹۸۱",
+                 [("مجری", "کربنیکس", "signed", "۱۴۰۴/۱۰/۲۲"), ("راهبر", "شتابدهی تا ثریا", "signed", "۱۴۰۴/۱۰/۲۳"),
+                  ("مدیرعامل موسسه", "صاحب امضا ۱", "signed", "۱۴۰۴/۱۰/۲۴"), ("عضو هیئت مدیره", "صاحب امضا ۲", "signed", "۱۴۰۴/۱۰/۲۵")]),
+                ("متمم زمانی قرارداد لیدار واگن‌های باری", "amendment", "سینا ریل پارس", "",
+                 [("مجری", "فوتونیک آریا", "signed", "۱۴۰۵/۰۴/۰۱"), ("ناظر فنی", "رییس بخش حمل‌ونقل", "signed", "۱۴۰۵/۰۴/۰۲"),
+                  ("مدیرعامل موسسه", "صاحب امضا ۱", "awaiting", ""), ("عضو هیئت مدیره", "صاحب امضا ۲", "queued", "")]),
+            ]
+            for ti, ki, rel, ln, steps in es:
+                doc = ESignDocument.objects.create(tenant=tenant, title=ti, kind=ki, related_to=rel, letter_no=ln)
+                for i, (ro, na, sta, da) in enumerate(steps):
+                    ESignStep.objects.create(tenant=tenant, document=doc, role=ro, name=na, status=sta, date=da, order=i)
 
         # ── Social graph: colleagues + friends + follows (Friends/Profile pages) ──
         colleagues = [

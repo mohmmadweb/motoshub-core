@@ -191,7 +191,8 @@ no separate Next client and no `frontend-demo/` — those were consolidated away
 
 **Real on the backend (18 modules):** auth, news, blog, events, media, knowledge,
 forum, groups, projects, research, training, tickets, polls, notifications,
-contracts (core), roles (RBAC/admin), funds (simple), chat (channels+messages),
+contracts (core + tech-transfer portfolio, tenders/commission, e-sign flow),
+roles (RBAC/admin), funds (simple), chat (channels+messages),
 friends/profile (Friendship + Follow graph + user org/skills/presence).
 
 **Partly real:**
@@ -202,7 +203,6 @@ friends/profile (Friendship + Follow graph + user org/skills/presence).
   `department` field, a time-series aggregation).
 
 **Still on mock — each needs a NEW backend model/field, then wiring:**
-- rich contract sub-data: e-sign, tenders, tech-transfer models.
 - rich innovation-fund sub-data: gantt/reports/payments sub-UI beyond NfProject.
 - chat DM / reactions / threads; realtime receive over WS.
 - competitions, assistant: demo-only (no backend planned yet).

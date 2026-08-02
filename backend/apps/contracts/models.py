@@ -80,3 +80,82 @@ class ContractApproval(TenantScopedModel):
     class Meta(TenantScopedModel.Meta):
         db_table = "contracts_approval"
         ordering = ["order"]
+
+
+# ── Rich Daneshmand sub-modules (portfolio views under the Contracts page) ────
+class TechTransferContract(TenantScopedModel):
+    """Technology-transfer portfolio row (متن آزاد + سه محور پیشرفت)."""
+    kind = models.CharField(max_length=60, default="تبادل فناوری", help_text="نوع قرارداد")
+    title = models.CharField(max_length=300)
+    nazer = models.CharField(max_length=200, blank=True, help_text="ناظر فنی پروژه")
+    city = models.CharField(max_length=120, blank=True)
+    holding = models.CharField(max_length=200, blank=True, help_text="هلدینگ متقاضی")
+    company = models.CharField(max_length=200, blank=True, help_text="شرکت متقاضی")
+    mojri = models.CharField(max_length=200, blank=True, help_text="مجری پروژه")
+    company_role = models.CharField(max_length=120, blank=True)
+    daneshmand_role = models.CharField(max_length=120, blank=True)
+    amount = models.CharField(max_length=80, blank=True, help_text="مبلغ قرارداد (نمایشی)")
+    commitment = models.CharField(max_length=80, blank=True, help_text="تعهد بنیاد (نمایشی)")
+    physical_progress = models.PositiveSmallIntegerField(default=0)
+    time_progress = models.PositiveSmallIntegerField(default=0)
+    financial_progress = models.PositiveSmallIntegerField(default=0)
+    guarantee = models.CharField(max_length=120, blank=True)
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_tech_transfer"
+
+    def __str__(self):
+        return self.title
+
+
+class Tender(TenantScopedModel):
+    """مناقصه/مزایده — کمیسیون معاملات."""
+    METHODS = [("public", "مناقصه عمومی"), ("limited", "مناقصه محدود"),
+               ("auction", "مزایده"), ("no_formality", "ترک تشریفات")]
+    STAGES = [("publish", "انتشار آگهی"), ("receive", "دریافت پاکات"),
+              ("commission", "کمیسیون معاملات"), ("award", "ابلاغ برنده"), ("contract", "عقد قرارداد")]
+    title = models.CharField(max_length=300)
+    method = models.CharField(max_length=14, choices=METHODS, default="public")
+    stage = models.CharField(max_length=12, choices=STAGES, default="publish")
+    participants = models.PositiveSmallIntegerField(default=0)
+    session_date = models.CharField(max_length=20, blank=True, help_text="تاریخ جلسه (جلالی نمایشی)")
+    winner = models.CharField(max_length=200, blank=True)
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_tender"
+
+    def __str__(self):
+        return self.title
+
+
+class ESignDocument(TenantScopedModel):
+    """گردش امضای الکترونیک — سند + زنجیرهٔ امضا."""
+    KINDS = [("nf", "قرارداد صندوق نوآور"), ("tech", "قرارداد تبادل فناوری"),
+             ("amendment", "متمم قرارداد"), ("minutes", "صورت‌جلسه")]
+    title = models.CharField(max_length=400)
+    kind = models.CharField(max_length=12, choices=KINDS, default="nf")
+    related_to = models.CharField(max_length=120, blank=True)
+    method = models.CharField(max_length=60, default="امضای الکترونیک غیرحضوری")
+    letter_no = models.CharField(max_length=64, blank=True, help_text="شماره نامه پس از تکمیل امضاها")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_esign_doc"
+
+    def __str__(self):
+        return self.title
+
+
+class ESignStep(TenantScopedModel):
+    STATUS = [("signed", "امضا شد"), ("awaiting", "در انتظار امضا"), ("queued", "در نوبت")]
+    document = models.ForeignKey(ESignDocument, on_delete=models.CASCADE, related_name="steps")
+    role = models.CharField(max_length=120)
+    name = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS, default="queued")
+    date = models.CharField(max_length=20, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_esign_step"
+        ordering = ["order"]

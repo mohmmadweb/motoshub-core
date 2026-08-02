@@ -148,3 +148,27 @@ export const fromUser = (u: any) => ({
   skills: Array.isArray(u.skills) ? u.skills : [],
   online: u.presence === "online",
 });
+
+// ── Rich contract sub-modules (tech-transfer / tender / e-sign) ─────────────
+export const fromTechTransfer = (t: any) => ({
+  id: t.id, type: t.kind, title: t.title, nazer: t.nazer, city: t.city,
+  holding: t.holding, company: t.company, mojri: t.mojri, companyRole: t.company_role,
+  daneshmandRole: t.daneshmand_role, amount: t.amount, commitment: t.commitment,
+  physicalProgress: t.physical_progress, timeProgress: t.time_progress,
+  financialProgress: t.financial_progress, guarantee: t.guarantee, note: t.note || undefined,
+});
+
+const tnMethod: Record<string, string> = { public: "مناقصه عمومی", limited: "مناقصه محدود", auction: "مزایده", no_formality: "ترک تشریفات" };
+const tnStage: Record<string, string> = { publish: "انتشار آگهی", receive: "دریافت پاکات", commission: "کمیسیون معاملات", award: "ابلاغ برنده", contract: "عقد قرارداد" };
+export const fromTender = (t: any) => ({
+  id: t.id, title: t.title, method: tnMethod[t.method] ?? t.method, stage: tnStage[t.stage] ?? t.stage,
+  participants: t.participants, sessionDate: t.session_date || undefined, winner: t.winner || undefined, note: t.note || undefined,
+});
+
+const esKind: Record<string, string> = { nf: "قرارداد صندوق نوآور", tech: "قرارداد تبادل فناوری", amendment: "متمم قرارداد", minutes: "صورت‌جلسه" };
+const esStatus: Record<string, string> = { signed: "امضا شد", awaiting: "در انتظار امضا", queued: "در نوبت" };
+export const fromESign = (d: any) => ({
+  id: d.id, title: d.title, kind: esKind[d.kind] ?? d.kind, relatedTo: d.related_to,
+  method: d.method, letterNo: d.letter_no || undefined,
+  steps: (d.steps ?? []).map((s: any) => ({ role: s.role, name: s.name, status: esStatus[s.status] ?? s.status, date: s.date || undefined })),
+});
