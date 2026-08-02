@@ -126,3 +126,14 @@ const fStage: Record<string, string> = { registered: "ثبت‌شده", screenin
 const fStageApi: Record<string, string> = { "ثبت‌شده": "registered", "انتخاب اولیه": "screening", "داوری": "judging", "تخصیص‌یافته": "allocated", "در حال پایش": "monitoring" };
 export const fromFund = (f: any) => ({ id: f.id, title: f.title, applicant: f.applicant, stage: fStage[f.stage] ?? "ثبت‌شده", amount: faMoney(f.amount), roi: f.roi ?? "" });
 export const toFund = (v: any) => ({ title: v.title, applicant: v.applicant, stage: fStageApi[v.stage] ?? "registered", amount: faToNumber(v.amount), roi: v.roi });
+
+// ── Chat (channels + messages; author carried for rendering) ────────────────
+const chCat = new Set(["علاقه‌مندی‌ها", "کانال‌ها", "بایگانی‌شده"]);
+export const fromChannel = (c: any) => ({
+  id: c.id, name: c.name, topic: c.topic ?? "", type: c.channel_type ?? "public",
+  category: chCat.has(c.category) ? c.category : "کانال‌ها", unread: 0, mentions: 0, members: c.member_count ?? 0, pinnedCount: 0,
+});
+export const fromChannelMessage = (m: any) => ({
+  id: m.id, channelId: m.channel, authorId: m.author?.id ?? "", text: m.text, time: toTime(m.created_at), pinned: m.pinned,
+  _authorName: m.author?.name ?? "—", _authorColor: m.author?.avatar_color ?? "#1f4f99",
+});

@@ -42,8 +42,6 @@ import {
   Eraser,
 } from "lucide-react";
 import {
-  channels,
-  channelMessages as initialChannelMessages,
   chatThreads as initialChatThreads,
   users,
   currentUser,
@@ -54,6 +52,8 @@ import {
   type ReactionIcon,
 } from "../data/mock";
 import Avatar from "../components/Avatar";
+import { http } from "../lib/http";
+import { fromChannel, fromChannelMessage } from "../lib/adapters";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Drawer from "../components/ui/Drawer";
@@ -99,7 +99,9 @@ const nowFa = () => new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", mi
 
 export default function Chat() {
   const [selection, setSelection] = useState<Selection>({ kind: "dm", id: initialChatThreads[0].id });
-  const [messages, setMessages] = useState<ChannelMessage[]>(initialChannelMessages);
+  const [messages, setMessages] = useState<ChannelMessage[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [msgAuthors, setMsgAuthors] = useState<Record<string, { name: string; color: string }>>({});
   const [dmThreads, setDmThreads] = useState<DmThreadState[]>(
     initialChatThreads.map((t) => ({
       ...t,
@@ -135,6 +137,32 @@ export default function Chat() {
   const activeDm = selection.kind === "dm" ? dmThreads.find((c) => c.id === selection.id) : undefined;
 
   const channelMsgs = useMemo(() => messages.filter((m) => m.channelId === selection.id), [messages, selection]);
+
+  const authorOf = (id: string): { name: string; avatarColor?: string } => {
+    const u = users.find((x) => x.id === id);
+    if (u) return { name: u.name, avatarColor: u.avatarColor };
+    const a = msgAuthors[id];
+    return a ? { name: a.name, avatarColor: a.color } : { name: "—" };
+  };
+
+  // Load real channels once.
+  useEffect(() => {
+    http<any[]>("/chat/channels?page_size=100").then((rows) => setChannels(rows.map(fromChannel) as Channel[])).catch(() => {});
+  }, []);
+
+  // Load real messages when a channel is selected.
+  useEffect(() => {
+    if (selection.kind !== "channel") return;
+    let cancelled = false;
+    http<any[]>(`/chat/channels/${selection.id}/messages`).then((rows) => {
+      if (cancelled) return;
+      const mapped = rows.map(fromChannelMessage);
+      setMsgAuthors((prev) => { const n = { ...prev }; mapped.forEach((m: any) => { n[m.authorId] = { name: m._authorName, color: m._authorColor }; }); return n; });
+      setMessages((prev) => [...prev.filter((m) => m.channelId !== selection.id), ...mapped.map(({ _authorName, _authorColor, ...m }: any) => m)]);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
 
   const scrollToBottom = (smooth = true) => {
     requestAnimationFrame(() => {
@@ -189,8 +217,14 @@ export default function Chat() {
     }
 
     if (selection.kind === "channel") {
-      const newMsg: ChannelMessage = { id: `cm-${Date.now()}`, channelId: selection.id, authorId: currentUser.id, text, time: nowFa() };
-      setMessages((prev) => [...prev, newMsg]);
+      const chId = selection.id;
+      http<any>(`/chat/channels/${chId}/messages`, { method: "POST", body: JSON.stringify({ text }) })
+        .then((created) => {
+          const m = fromChannelMessage(created);
+          setMsgAuthors((prev) => ({ ...prev, [m.authorId]: { name: m._authorName, color: m._authorColor } }));
+          const { _authorName, _authorColor, ...msg } = m as any;
+          setMessages((prev) => [...prev, msg]);
+        }).catch(() => {});
     } else if (activeDm) {
       const id = `dm-${Date.now()}`;
       const msg: DmMsg = {
@@ -505,7 +539,7 @@ export default function Chat() {
                 <EmptyState icon={<Hash size={18} />} title="هنوز پیامی در این کانال نیست" />
               ) : (
                 channelMsgs.map((m) => {
-                  const author = users.find((u) => u.id === m.authorId);
+                  const author = authorOf(m.authorId);
                   return (
                     <div key={m.id} className="group flex items-start gap-2.5 py-2 px-2 -mx-2 rounded-xl hover:bg-white/80 transition-colors">
                       <Avatar name={author?.name ?? "?"} color={author?.avatarColor} size={34} status={userPresence[m.authorId]} />
