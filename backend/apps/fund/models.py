@@ -117,3 +117,26 @@ class NfRequest(TenantScopedModel):
 
     class Meta(TenantScopedModel.Meta):
         db_table = "fund_nf_request"
+
+
+class FundStage(models.TextChoices):
+    REGISTERED = "registered", "ثبت‌شده"
+    SCREENING = "screening", "انتخاب اولیه"
+    JUDGING = "judging", "داوری"
+    ALLOCATED = "allocated", "تخصیص‌یافته"
+    MONITORING = "monitoring", "در حال پایش"
+
+
+class Fund(TenantScopedModel):
+    """Simple employment/micro-grant fund pipeline (prototype FundRecord)."""
+    title = models.CharField(max_length=300)
+    applicant = models.CharField(max_length=200, blank=True)
+    stage = models.CharField(max_length=12, choices=FundStage.choices, default=FundStage.REGISTERED)
+    amount = models.DecimalField(max_digits=16, decimal_places=0, default=0)
+    roi = models.CharField(max_length=64, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "fund_simple_fund"
+
+    def __str__(self):
+        return self.title

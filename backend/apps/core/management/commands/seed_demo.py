@@ -13,7 +13,7 @@ from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
 from apps.contracts.models import Contract, ContractApproval, ContractPayment
-from apps.fund.models import NfPayment, NfProject, NfReport, NfReportChainStep
+from apps.fund.models import Fund, NfPayment, NfProject, NfReport, NfReportChainStep
 from apps.awards.models import AwardEntry, AwardTrack
 from apps.chat.models import Channel, Message
 from apps.notifications.models import Notification
@@ -163,6 +163,10 @@ class Command(BaseCommand):
             Message.objects.create(tenant=tenant, channel=ch, author=admin, text="به کانال عمومی موتوشاب خوش آمدید!")
             Message.objects.create(tenant=tenant, channel=ch, author=member, text="سلام، خوشحالم که این‌جا هستم.")
             Channel.objects.create(tenant=tenant, owner=admin, name="فناوری", topic="بحث‌های فنی", channel_type="public", category="کانال‌ها")
+
+        if not Fund.objects.filter(tenant=tenant).exists():
+            Fund.objects.create(tenant=tenant, title="طرح اشتغال‌زایی روستایی", applicant="تعاونی نمونه", stage="judging", amount=150000000, roi="۱۸٪")
+            Fund.objects.create(tenant=tenant, title="حمایت از استارتاپ کشاورزی", applicant="شرکت سبز", stage="allocated", amount=300000000, roi="۲۴٪")
 
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"

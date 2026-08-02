@@ -120,3 +120,9 @@ export const fromRole = (r: any) => ({
   description: r.description ?? "", permissions: r.permissions ?? [], system: r.is_system,
 });
 export const toRole = (v: any) => ({ title: v.title, scope: rbScopeApi[v.scope] ?? "tenant", description: v.description ?? "", permissions: v.permissions ?? [] });
+
+// ── Simple Fund pipeline (FundRecord) ───────────────────────────────────────
+const fStage: Record<string, string> = { registered: "ثبت‌شده", screening: "انتخاب اولیه", judging: "داوری", allocated: "تخصیص‌یافته", monitoring: "در حال پایش" };
+const fStageApi: Record<string, string> = { "ثبت‌شده": "registered", "انتخاب اولیه": "screening", "داوری": "judging", "تخصیص‌یافته": "allocated", "در حال پایش": "monitoring" };
+export const fromFund = (f: any) => ({ id: f.id, title: f.title, applicant: f.applicant, stage: fStage[f.stage] ?? "ثبت‌شده", amount: faMoney(f.amount), roi: f.roi ?? "" });
+export const toFund = (v: any) => ({ title: v.title, applicant: v.applicant, stage: fStageApi[v.stage] ?? "registered", amount: faToNumber(v.amount), roi: v.roi });

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
+from .models import Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
 
 
 class NfGuaranteeSerializer(serializers.ModelSerializer):
@@ -60,3 +60,10 @@ class NfProjectSerializer(serializers.ModelSerializer):
                   "created_at", "updated_at"]
         read_only_fields = ["id", "fund_manager", "guarantees", "reports", "payments",
                             "requests", "created_at", "updated_at"]
+
+
+class FundSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Fund
+        fields = ["id", "title", "applicant", "stage", "amount", "roi", "created_at"]
+        read_only_fields = ["id", "created_at"]

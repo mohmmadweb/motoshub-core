@@ -10,8 +10,8 @@ from .catalog import (
     SCREENING_MAX,
     SCREENING_THRESHOLD,
 )
-from .models import NfProject, NfRequest
-from .serializers import NfProjectListSerializer, NfProjectSerializer, NfRequestSerializer
+from .models import Fund, NfProject, NfRequest
+from .serializers import FundSerializer, NfProjectListSerializer, NfProjectSerializer, NfRequestSerializer
 
 
 class NfProjectViewSet(TenantScopedModelViewSet):
@@ -73,3 +73,15 @@ class NfProjectViewSet(TenantScopedModelViewSet):
             note=(request.data or {}).get("note", ""),
         )
         return Response(NfRequestSerializer(req).data, status=201)
+
+
+class FundViewSet(TenantScopedModelViewSet):
+    queryset = Fund.objects.all()
+    serializer_class = FundSerializer
+    owner_field = None
+    required_perms = {
+        "list": "funds.list", "retrieve": "funds.list", "create": "funds.submit",
+        "update": "funds.monitor", "partial_update": "funds.monitor", "destroy": "funds.monitor",
+    }
+    filterset_fields = ["stage"]
+    search_fields = ["title", "applicant"]

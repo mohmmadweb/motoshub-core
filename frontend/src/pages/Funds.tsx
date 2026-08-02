@@ -18,7 +18,9 @@ import {
   BellRing,
   Send,
 } from "lucide-react";
-import { funds as initialFunds, type FundRecord } from "../data/mock";
+import { type FundRecord } from "../data/mock";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromFund, toFund } from "../lib/adapters";
 import { fundDetails, fundOverview, reviewSessions } from "../data/mockDetails";
 import {
   nfProjects as initialNfProjects,
@@ -101,7 +103,7 @@ export default function Funds() {
         tabs={[
           { id: "nf", label: "صندوق نوآور — روند کامل", count: initialNfProjects.length },
           { id: "allFunds", label: "شبکه صندوق‌ها و بذرمایه باور", count: fundCatalog.length },
-          { id: "employment", label: "طرح‌های اشتغال‌زایی", count: initialFunds.length },
+          { id: "employment", label: "طرح‌های اشتغال‌زایی" },
         ]}
         active={tab}
         onChange={setTab}
@@ -756,7 +758,7 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
 // طرح‌های اشتغال‌زایی (محتوای قبلی صفحه — بدون تغییر)
 // ---------------------------------------------------------------------------
 function EmploymentFundTab() {
-  const [funds, setFunds] = useState<FundRecord[]>(initialFunds);
+  const [funds, setFunds] = useApiCollection<FundRecord>("/funds/records", fromFund as any, toFund as any);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [applicant, setApplicant] = useState("");
