@@ -194,8 +194,15 @@ forum, groups, projects, research, training, tickets, polls, notifications,
 contracts (core + tech-transfer portfolio, tenders/commission, e-sign flow),
 roles (RBAC/admin), funds (simple + full innovation-fund dossier: NfProject with
 finance/gantt/timeline + guarantees/reports/payments/requests, addressable by
-NF code), chat (channels+messages),
-friends/profile (Friendship + Follow graph + user org/skills/presence).
+NF code), chat (channels + DMs, realtime over WebSocket, persistent reactions),
+competitions/challenges (vote + join), friends/profile (Friendship + Follow graph
++ user org/skills/presence), assistant (see below).
+
+**Assistant.** `/assistant/ask` answers in Persian grounded in a live-data
+snapshot of the tenant (project/fund/contract/report/payment/competition counts).
+When `ANTHROPIC_API_KEY` is set it calls Claude with that snapshot as system
+context; otherwise a deterministic keyword matcher answers. Any LLM error falls
+back to the matcher, so the endpoint always responds. Model via `ANTHROPIC_MODEL`.
 
 The innovation-fund dossier persists top-level fields + finance/gantt/timeline
 JSON via the diff-persist `useApiCollection` setter (NfProjectViewSet uses

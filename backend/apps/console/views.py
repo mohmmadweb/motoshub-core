@@ -87,8 +87,97 @@ SUGGESTIONS = [
 ]
 
 
+def _rule_answer(t, q):
+    """Deterministic keyword matcher over live tenant data. Always available."""
+    def has(*words):
+        return any(w in q for w in words)
+
+    if has("پورتفولیو", "سلامت", "وضعیت پروژه"):
+        by = {}
+        for row in Project.objects.filter(tenant=t).values("health"):
+            by[row["health"]] = by.get(row["health"], 0) + 1
+        fa = {"green": "سبز", "yellow": "زرد", "red": "قرمز"}
+        parts = "، ".join(f"{_fa(v)} {fa.get(k, k)}" for k, v in by.items()) or "بدون داده"
+        return f"سلامت پورتفولیو بر پایهٔ داده‌های زنده: {parts}."
+    if has("گزارش") and has("بررسی", "معوق", "مانده"):
+        pending = NfReport.objects.filter(tenant=t, status__in=["under_review", "pending_upload", "needs_fix"]).count()
+        return f"در حال حاضر {_fa(pending)} گزارش در وضعیت بررسی/در انتظار است و نیازمند اقدام بررسی‌کننده می‌باشد."
+    if has("پرداخت"):
+        await_ = NfPayment.objects.filter(tenant=t, status="await_order").count()
+        paid = NfPayment.objects.filter(tenant=t, status="paid").count()
+        return f"{_fa(await_)} پرداخت در انتظار دستور پرداخت است و {_fa(paid)} پرداخت انجام شده."
+    if has("قرارداد"):
+        executing = Contract.objects.filter(tenant=t, stage="executing").count()
+        total = Contract.objects.filter(tenant=t).count()
+        return f"از مجموع {_fa(total)} قرارداد، {_fa(executing)} قرارداد در گام «در حال اجرا» است."
+    if has("مسابقه", "چالش"):
+        from apps.competitions.models import Challenge, Competition
+        return f"{_fa(Competition.objects.filter(tenant=t).count())} مسابقه و {_fa(Challenge.objects.filter(tenant=t, status='active').count())} چالش فعال در جریان است."
+    if has("پروژه", "طرح", "صندوق", "چند"):
+        return (f"{_fa(Project.objects.filter(tenant=t).count())} پروژه و "
+                f"{_fa(NfProject.objects.filter(tenant=t).count())} طرح صندوق نوآور در سامانه ثبت شده است. "
+                "برای جزئیات هر طرح، شناسنامهٔ آن را در بخش صندوق نوآور ببینید.")
+    return ("می‌توانم دربارهٔ شمار پروژه‌ها، سلامت پورتفولیو، گزارش‌های بررسی‌نشده، پرداخت‌های در جریان، "
+            "قراردادها و مسابقات از داده‌های زندهٔ سامانه پاسخ دهم. لطفاً یکی از پرسش‌های پیشنهادی را انتخاب کنید.")
+
+
+def _live_context(t):
+    """Compact real-data snapshot handed to the LLM so its answers stay grounded."""
+    from apps.competitions.models import Challenge, Competition
+    health = {}
+    for row in Project.objects.filter(tenant=t).values("health"):
+        health[row["health"]] = health.get(row["health"], 0) + 1
+    return (
+        "دادهٔ زندهٔ سامانه (این تنها منبع موثقِ توست):\n"
+        f"- پروژه‌ها: {Project.objects.filter(tenant=t).count()} (سلامت: {health or 'نامشخص'})\n"
+        f"- طرح‌های صندوق نوآور: {NfProject.objects.filter(tenant=t).count()}\n"
+        f"- قراردادها: کل {Contract.objects.filter(tenant=t).count()}، در حال اجرا {Contract.objects.filter(tenant=t, stage='executing').count()}\n"
+        f"- گزارش‌های در انتظار/در حال بررسی: {NfReport.objects.filter(tenant=t, status__in=['under_review','pending_upload','needs_fix']).count()}\n"
+        f"- پرداخت‌ها: در انتظار دستور {NfPayment.objects.filter(tenant=t, status='await_order').count()}، انجام‌شده {NfPayment.objects.filter(tenant=t, status='paid').count()}\n"
+        f"- تیکت‌ها: {Ticket.objects.filter(tenant=t).count()}\n"
+        f"- مسابقات: {Competition.objects.filter(tenant=t).count()}، چالش‌های فعال: {Challenge.objects.filter(tenant=t, status='active').count()}\n"
+    )
+
+
+def _llm_answer(question, context):
+    """Ask Claude, grounded in the live-data context. Returns text or None on any
+    failure / when no API key is configured (caller then uses the rule matcher)."""
+    import json as _json
+    import urllib.request
+    from django.conf import settings
+
+    key = getattr(settings, "ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    system = (
+        "تو «دستیار هوشمند موتوشاب» هستی؛ به فارسی، کوتاه و دقیق پاسخ بده. "
+        "فقط بر پایهٔ «دادهٔ زندهٔ سامانه» که در اختیارت گذاشته می‌شود پاسخ بده و چیزی از خودت نساز. "
+        "اگر داده پاسخ را پوشش نمی‌دهد، صادقانه بگو که در دادهٔ فعلی موجود نیست.\n\n" + context
+    )
+    body = _json.dumps({
+        "model": getattr(settings, "ANTHROPIC_MODEL", "claude-sonnet-5"),
+        "max_tokens": 600,
+        "system": system,
+        "messages": [{"role": "user", "content": question}],
+    }).encode()
+    req = urllib.request.Request(
+        getattr(settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/") + "/v1/messages",
+        data=body, method="POST",
+        headers={"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            data = _json.loads(resp.read())
+        blocks = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
+        text = "".join(blocks).strip()
+        return text or None
+    except Exception:
+        return None
+
+
 class AssistantView(APIView):
-    """Persian Q&A grounded in live tenant data (keyword intent matcher)."""
+    """Persian Q&A grounded in live tenant data. Uses an LLM (Claude) when
+    ANTHROPIC_API_KEY is configured, otherwise a deterministic keyword matcher."""
 
     permission_classes = [IsAuthenticated]
 
@@ -98,33 +187,7 @@ class AssistantView(APIView):
     def post(self, request):
         t = request.tenant
         q = (request.data or {}).get("question", "")
-
-        def has(*words):
-            return any(w in q for w in words)
-
-        if has("پورتفولیو", "سلامت", "وضعیت پروژه"):
-            by = {}
-            for row in Project.objects.filter(tenant=t).values("health"):
-                by[row["health"]] = by.get(row["health"], 0) + 1
-            fa = {"green": "سبز", "yellow": "زرد", "red": "قرمز"}
-            parts = "، ".join(f"{_fa(v)} {fa.get(k, k)}" for k, v in by.items()) or "بدون داده"
-            return Response({"answer": f"سلامت پورتفولیو بر پایهٔ داده‌های زنده: {parts}."})
-        if has("گزارش") and has("بررسی", "معوق", "مانده"):
-            pending = NfReport.objects.filter(tenant=t, status__in=["under_review", "pending_upload", "needs_fix"]).count()
-            return Response({"answer": f"در حال حاضر {_fa(pending)} گزارش در وضعیت بررسی/در انتظار است و نیازمند اقدام بررسی‌کننده می‌باشد."})
-        if has("پرداخت"):
-            await_ = NfPayment.objects.filter(tenant=t, status="await_order").count()
-            paid = NfPayment.objects.filter(tenant=t, status="paid").count()
-            return Response({"answer": f"{_fa(await_)} پرداخت در انتظار دستور پرداخت است و {_fa(paid)} پرداخت انجام شده."})
-        if has("قرارداد"):
-            executing = Contract.objects.filter(tenant=t, stage="executing").count()
-            total = Contract.objects.filter(tenant=t).count()
-            return Response({"answer": f"از مجموع {_fa(total)} قرارداد، {_fa(executing)} قرارداد در گام «در حال اجرا» است."})
-        if has("مسابقه", "چالش"):
-            from apps.competitions.models import Challenge, Competition
-            return Response({"answer": f"{_fa(Competition.objects.filter(tenant=t).count())} مسابقه و {_fa(Challenge.objects.filter(tenant=t, status='active').count())} چالش فعال در جریان است."})
-        if has("پروژه", "طرح", "صندوق", "چند"):
-            projects = Project.objects.filter(tenant=t).count()
-            nf = NfProject.objects.filter(tenant=t).count()
-            return Response({"answer": f"{_fa(projects)} پروژه و {_fa(nf)} طرح صندوق نوآور در سامانه ثبت شده است. برای جزئیات هر طرح، شناسنامهٔ آن را در بخش صندوق نوآور ببینید."})
-        return Response({"answer": "می‌توانم دربارهٔ شمار پروژه‌ها، سلامت پورتفولیو، گزارش‌های بررسی‌نشده، پرداخت‌های در جریان، قراردادها و مسابقات از داده‌های زندهٔ سامانه پاسخ دهم. لطفاً یکی از پرسش‌های پیشنهادی را انتخاب کنید یا پرسش را دقیق‌تر بیان کنید."})
+        llm = _llm_answer(q, _live_context(t))
+        if llm:
+            return Response({"answer": llm, "source": "llm"})
+        return Response({"answer": _rule_answer(t, q), "source": "rules"})

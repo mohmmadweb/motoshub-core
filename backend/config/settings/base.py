@@ -176,6 +176,11 @@ CHANNEL_LAYERS = {
     }
 }
 
+# ── Assistant (optional LLM; falls back to the deterministic matcher) ────────
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
+ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-sonnet-5")
+ANTHROPIC_BASE_URL = env("ANTHROPIC_BASE_URL", default="https://api.anthropic.com")
+
 # ── CORS ────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
