@@ -165,3 +165,34 @@ remaining SettingsContext wiring to live theming) rather than new modules.
   one home tenant today) — a data-model extension, not wired.
 - Auth extras (password reset, OTP, SSO/LDAP) are not implemented (username/password).
 - Chat is channel-based (no DMs/reactions/threads yet).
+
+## 10. Frontend = the prototype UI on the real backend (current reality)
+
+The single `frontend/` is the **exact demo.shub.ir prototype UI** (Vite + React 19
++ Tailwind v4), served as a static SPA, talking to the real Django API. There is
+no separate Next client and no `frontend-demo/` — those were consolidated away.
+
+**Wiring pattern (mock → real without rewriting pages):**
+- `src/lib/http.ts` — fetch client (JWT, refresh, envelope unwrap, FormData).
+- `src/lib/auth.ts` — real login/guard.
+- `src/lib/adapters.ts` — map backend shapes ↔ prototype shapes (Jalali dates,
+  Persian enums, money formatting).
+- `src/context/ContentContext.tsx` + `src/lib/useApiCollection.ts` — load a
+  collection from the API and turn the prototype's local `set*` CRUD into
+  create/update/delete API calls by **diffing** old vs new arrays. This makes
+  pages real without editing them.
+
+**Real on the backend (17 modules):** auth, news, blog, events, media, knowledge,
+forum, groups, projects, research, training, tickets, polls, notifications,
+contracts (core), roles (RBAC/admin), funds (simple), chat (channels+messages).
+
+**Still on mock — each needs a NEW backend model/field, then wiring:**
+- reports: dedicated aggregation endpoints for its charts.
+- profile/friends: a friendship model + `org`/`skills`/presence on the user.
+- rich contract sub-data: e-sign, tenders, tech-transfer models.
+- rich innovation-fund sub-data: gantt/reports/payments sub-UI beyond NfProject.
+- chat DM / reactions / threads; realtime receive over WS.
+- competitions, assistant: demo-only (no backend planned yet).
+
+Once a module's backend exists, wiring is a small adapter + a `useApiCollection`
+swap (or a `ContentContext` entry), following the established pattern.
