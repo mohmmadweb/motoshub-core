@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, FileSearch, MessageCircleQuestion, Globe, Mic } from "lucide-react";
-import { assistantSamples } from "../data/mockDaneshmand";
+import { http } from "../lib/http";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -17,8 +17,16 @@ export default function Assistant() {
   ]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { notify } = useToast();
+
+  useEffect(() => {
+    http<{ suggestions: string[] }>("/assistant/suggestions").then((d) => setSuggestions(d.suggestions)).catch(() => {});
+  }, []);
+
+  const scrollDown = () =>
+    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
 
   const ask = (question: string) => {
     const q = question.trim();
@@ -26,16 +34,12 @@ export default function Assistant() {
     setMessages((prev) => [...prev, { from: "me", text: q }]);
     setInput("");
     setThinking(true);
-    const match = assistantSamples.find((s) => q.includes(s.q.slice(0, 8)) || s.q.includes(q.slice(0, 8)));
-    const answer =
-      match?.a ??
-      "در نسخه نمایشی، پاسخ کامل برای پرسش‌های پیشنهادی آماده شده است. در نسخه عملیاتی، این دستیار به داده‌های زنده پروژه‌ها، گزارش‌ها و پرداخت‌ها متصل می‌شود و هر پرسش فارسی را پاسخ می‌دهد.";
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { from: "assistant", text: answer }]);
-      setThinking(false);
-      setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
-    }, 600);
-    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+    scrollDown();
+    // Real answer grounded in live tenant data.
+    http<{ answer: string }>("/assistant/ask", { method: "POST", body: JSON.stringify({ question: q }) })
+      .then((d) => setMessages((prev) => [...prev, { from: "assistant", text: d.answer }]))
+      .catch(() => setMessages((prev) => [...prev, { from: "assistant", text: "خطا در ارتباط با دستیار. لطفاً دوباره تلاش کنید." }]))
+      .finally(() => { setThinking(false); scrollDown(); });
   };
 
   return (
@@ -99,13 +103,13 @@ export default function Assistant() {
           <div className="card p-4">
             <p className="text-xs font-bold text-ink-900 mb-2">پرسش‌های پیشنهادی</p>
             <div className="space-y-1.5">
-              {assistantSamples.map((s) => (
+              {suggestions.map((s) => (
                 <button
-                  key={s.q}
-                  onClick={() => ask(s.q)}
+                  key={s}
+                  onClick={() => ask(s)}
                   className="w-full text-right text-[12px] text-ink-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg px-2.5 py-2 border border-ink-100"
                 >
-                  {s.q}
+                  {s}
                 </button>
               ))}
             </div>
