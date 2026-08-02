@@ -37,7 +37,11 @@ export default function ContentList<T extends { id: string; created_at: string; 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<T | null>(null);
   const [search, setSearch] = useState("");
-  const { data, isLoading, isError } = useList<T>(resource, search ? { search } : undefined);
+  const [page, setPage] = useState(1);
+  const params: Record<string, unknown> = { page };
+  if (search) params.search = search;
+  const { data, isLoading, isError } = useList<T>(resource, params);
+  const meta = data?.meta;
   const remove = useRemoveById(resource);
   const rows = data?.data ?? [];
   const canEdit = editable && !!createFields;
@@ -58,7 +62,7 @@ export default function ContentList<T extends { id: string; created_at: string; 
           {searchable && (
             <span className="relative">
               <Search size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400" />
-              <Input className="w-48 pr-9" placeholder="جستجو…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="w-48 pr-9" placeholder="جستجو…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
             </span>
           )}
           {data?.meta && <span className="text-xs text-ink-400">{data.meta.count.toLocaleString("fa-IR")} مورد</span>}
@@ -141,6 +145,14 @@ export default function ContentList<T extends { id: string; created_at: string; 
             ))}
           </div>
         </Card>
+      )}
+
+      {meta && meta.pages > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+          <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>قبلی</Button>
+          <span className="text-ink-500">صفحهٔ {meta.page.toLocaleString("fa-IR")} از {meta.pages.toLocaleString("fa-IR")}</span>
+          <Button size="sm" variant="secondary" disabled={page >= meta.pages} onClick={() => setPage((p) => p + 1)}>بعدی</Button>
+        </div>
       )}
     </div>
   );
