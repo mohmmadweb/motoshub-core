@@ -21,7 +21,7 @@ from apps.contracts.models import (
     TechTransferContract,
     Tender,
 )
-from apps.fund.models import Fund, NfPayment, NfProject, NfReport, NfReportChainStep
+from apps.fund.models import Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
 from apps.awards.models import AwardEntry, AwardTrack
 from apps.chat.models import Channel, Message
 from apps.notifications.models import Notification
@@ -129,16 +129,33 @@ class Command(BaseCommand):
         if not NfProject.objects.filter(tenant=tenant).exists():
             nf = NfProject.objects.create(
                 tenant=tenant, fund_manager=admin, code="NF-1405-0001",
-                title_fa="سامانهٔ هوشمند پایش انرژی", field="انرژی", rahbar="شرکت شتابدهی راهبر بنیاد",
+                title_fa="سامانهٔ هوشمند پایش انرژی", title_en="Smart Energy Monitoring",
+                field="انرژی", macro_field="اقتصاد دیجیتال و هوش مصنوعی",
+                mother_project="رویداد راهی‌شو ۱۴۰۴", rahbar="شرکت شتابدهی راهبر بنیاد",
                 nazer="واحد فنی", budget=800000000, share_percent=40, duration_months=18,
-                stage="monitoring", sub_status="بررسی گزارش مرحله‌ای", progress=55, screening_score=150, jury_score=72,
+                contract_no="ق/۱۴۰۵/۰۰۱", stage="monitoring", sub_status="بررسی گزارش مرحله‌ای",
+                green_path=False, progress=55, screening_score=150, jury_score=72,
                 team_name="تیم فناور پایش", team_type="تیم فناور", team_city="تهران",
+                team_manager="مهندس رستمی", team_members=6,
+                finance={"prepayment": "۲۰۰٬۰۰۰٬۰۰۰ ریال", "approvedByProgress": "۴۴۰٬۰۰۰٬۰۰۰ ریال",
+                         "paid": "۳۶۰٬۰۰۰٬۰۰۰ ریال", "pending": "۸۰٬۰۰۰٬۰۰۰ ریال",
+                         "retention": "۳۶٬۰۰۰٬۰۰۰ ریال", "remaining": "۳۶۰٬۰۰۰٬۰۰۰ ریال"},
+                gantt=[{"title": "تحلیل و طراحی", "weight": 20, "months": "۱–۳", "cost": "۱۶۰٬۰۰۰٬۰۰۰", "done": 100},
+                       {"title": "پیاده‌سازی سنسورها", "weight": 40, "months": "۴–۹", "cost": "۳۲۰٬۰۰۰٬۰۰۰", "done": 70},
+                       {"title": "یکپارچه‌سازی و تست", "weight": 25, "months": "۱۰–۱۴", "cost": "۲۰۰٬۰۰۰٬۰۰۰", "done": 20},
+                       {"title": "بهره‌برداری آزمایشی", "weight": 15, "months": "۱۵–۱۸", "cost": "۱۲۰٬۰۰۰٬۰۰۰", "done": 0}],
+                timeline=[{"date": "۱۴۰۴/۱۰/۰۱", "time": "۰۹:۳۰", "step": "تصویب طرح", "text": "طرح در کمیتهٔ سرمایه‌گذاری تصویب شد."},
+                          {"date": "۱۴۰۴/۱۱/۱۵", "time": "۱۴:۰۰", "step": "تنظیم قرارداد", "text": "قرارداد سه‌جانبه امضا و پیش‌پرداخت صادر شد."},
+                          {"date": "۱۴۰۵/۰۲/۲۰", "time": "۱۱:۱۵", "step": "نظارت و راهبری", "text": "گزارش مرحله‌ای اول بارگذاری شد؛ در حال بررسی ناظر."}],
             )
+            NfGuarantee.objects.create(tenant=tenant, project=nf, kind="ضمانت‌نامه بانکی", amount=80000000, status="received")
+            NfGuarantee.objects.create(tenant=tenant, project=nf, kind="سفتهٔ حسن انجام کار", amount=40000000, status="pending")
             rep = NfReport.objects.create(tenant=tenant, project=nf, report_type="stage", title="گزارش مرحله‌ای اول", status="under_review")
             NfReportChainStep.objects.create(tenant=tenant, report=rep, role="fund_manager", name="مدیر صندوق", status="approved", order=1)
             NfReportChainStep.objects.create(tenant=tenant, report=rep, role="nazer", name="ناظر فنی", status="pending", order=2)
-            NfPayment.objects.create(tenant=tenant, project=nf, payment_type="prepayment", title="پیش‌پرداخت", amount=200000000, status="paid")
-            NfPayment.objects.create(tenant=tenant, project=nf, payment_type="stage", title="پرداخت مرحله‌ای", amount=160000000, status="await_order")
+            NfPayment.objects.create(tenant=tenant, project=nf, payment_type="پیش‌پرداخت", title="پیش‌پرداخت", amount=200000000, status="paid")
+            NfPayment.objects.create(tenant=tenant, project=nf, payment_type="پرداخت مرحله‌ای", title="پرداخت مرحله‌ای", amount=160000000, status="await_order")
+            NfRequest.objects.create(tenant=tenant, project=nf, request_type="extend", note="درخواست تمدید ددلاین میانی به دلیل تأخیر در واردات سنسور.", status="pending")
 
         if not TrainingCourse.objects.filter(tenant=tenant).exists():
             TrainingCourse.objects.create(tenant=tenant, title="آشنایی با سامانهٔ موتوشاب", instructor="واحد آموزش", hours=8, capacity=40, status="open")

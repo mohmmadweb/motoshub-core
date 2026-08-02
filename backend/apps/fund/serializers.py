@@ -49,14 +49,17 @@ class NfProjectSerializer(serializers.ModelSerializer):
     reports = NfReportSerializer(many=True, read_only=True)
     payments = NfPaymentSerializer(many=True, read_only=True)
     requests = NfRequestSerializer(many=True, read_only=True)
+    fund_manager_name = serializers.CharField(source="fund_manager.name", read_only=True, default="")
 
     class Meta:
         model = NfProject
         fields = ["id", "code", "title_fa", "title_en", "field", "macro_field",
-                  "rahbar", "nazer", "fund_manager", "budget", "share_percent",
-                  "duration_months", "contract_no", "stage", "sub_status", "green_path",
-                  "progress", "screening_score", "jury_score", "team_name", "team_type",
-                  "team_city", "guarantees", "reports", "payments", "requests",
+                  "mother_project", "rahbar", "nazer", "fund_manager", "budget",
+                  "share_percent", "duration_months", "contract_no", "stage",
+                  "sub_status", "green_path", "progress", "screening_score", "jury_score",
+                  "team_name", "team_type", "team_city", "team_manager", "team_members",
+                  "fund_manager_name", "finance", "gantt", "timeline",
+                  "guarantees", "reports", "payments", "requests",
                   "created_at", "updated_at"]
         read_only_fields = ["id", "fund_manager", "guarantees", "reports", "payments",
                             "requests", "created_at", "updated_at"]

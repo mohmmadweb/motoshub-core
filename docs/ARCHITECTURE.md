@@ -192,8 +192,16 @@ no separate Next client and no `frontend-demo/` — those were consolidated away
 **Real on the backend (18 modules):** auth, news, blog, events, media, knowledge,
 forum, groups, projects, research, training, tickets, polls, notifications,
 contracts (core + tech-transfer portfolio, tenders/commission, e-sign flow),
-roles (RBAC/admin), funds (simple), chat (channels+messages),
+roles (RBAC/admin), funds (simple + full innovation-fund dossier: NfProject with
+finance/gantt/timeline + guarantees/reports/payments/requests, addressable by
+NF code), chat (channels+messages),
 friends/profile (Friendship + Follow graph + user org/skills/presence).
+
+The innovation-fund dossier persists top-level fields + finance/gantt/timeline
+JSON via the diff-persist `useApiCollection` setter (NfProjectViewSet uses
+`lookup_field="code"` so the prototype's code-as-id maps straight to the URL).
+Nested guarantees/reports/payments/requests are served real (read) and remain
+first-class models with their own workflow actions (advance/score/request).
 
 **Partly real:**
 - reports: KPI cards + the report-builder (projects/contracts/funds/research
@@ -202,10 +210,10 @@ friends/profile (Friendship + Follow graph + user org/skills/presence).
   illustrative — they need dimensions the schema doesn't model yet (a
   `department` field, a time-series aggregation).
 
-**Still on mock — each needs a NEW backend model/field, then wiring:**
-- rich innovation-fund sub-data: gantt/reports/payments sub-UI beyond NfProject.
+**Still on mock — demo-only (no backend planned yet):**
 - chat DM / reactions / threads; realtime receive over WS.
-- competitions, assistant: demo-only (no backend planned yet).
+- competitions, assistant.
+- a few illustrative widgets (report decorative charts, pending-review queue).
 
 Once a module's backend exists, wiring is a small adapter + a `useApiCollection`
 swap (or a `ContentContext` entry), following the established pattern.

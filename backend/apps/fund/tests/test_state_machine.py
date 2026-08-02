@@ -11,13 +11,13 @@ def _create(admin, tenant, auth, **over):
 
 def test_advance_blocked_below_screening_threshold(admin, tenant, auth):
     p = _create(admin, tenant, auth)
-    r = Client().post(f"/api/v1/funds/projects/{p['id']}/advance", **auth(admin, tenant))
+    r = Client().post(f"/api/v1/funds/projects/{p['code']}/advance", **auth(admin, tenant))
     assert r.status_code == 422
 
 
 def test_advance_allowed_after_passing(admin, tenant, auth):
     p = _create(admin, tenant, auth)
-    Client().post(f"/api/v1/funds/projects/{p['id']}/score",
+    Client().post(f"/api/v1/funds/projects/{p['code']}/score",
                   json.dumps({"screening_score": 150}), content_type="application/json", **auth(admin, tenant))
-    r = Client().post(f"/api/v1/funds/projects/{p['id']}/advance", **auth(admin, tenant))
+    r = Client().post(f"/api/v1/funds/projects/{p['code']}/advance", **auth(admin, tenant))
     assert r.status_code == 200 and r.json()["data"]["stage"] == "jury"

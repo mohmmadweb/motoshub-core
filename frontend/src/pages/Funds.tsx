@@ -20,10 +20,9 @@ import {
 } from "lucide-react";
 import { type FundRecord } from "../data/mock";
 import { useApiCollection } from "../lib/useApiCollection";
-import { fromFund, toFund } from "../lib/adapters";
+import { fromFund, toFund, fromNfProject, toNfProject } from "../lib/adapters";
 import { fundDetails, fundOverview, reviewSessions } from "../data/mockDetails";
 import {
-  nfProjects as initialNfProjects,
   nfStages,
   type NfProject,
   type NfStage,
@@ -101,7 +100,7 @@ export default function Funds() {
       />
       <Tabs
         tabs={[
-          { id: "nf", label: "صندوق نوآور — روند کامل", count: initialNfProjects.length },
+          { id: "nf", label: "صندوق نوآور — روند کامل" },
           { id: "allFunds", label: "شبکه صندوق‌ها و بذرمایه باور", count: fundCatalog.length },
           { id: "employment", label: "طرح‌های اشتغال‌زایی" },
         ]}
@@ -212,7 +211,7 @@ function nfRules(s: WorkflowSettings) {
 }
 
 function InnovationFundTab() {
-  const [projects, setProjects] = useState<NfProject[]>(initialNfProjects);
+  const [projects, setProjects] = useApiCollection<NfProject>("/funds/projects", fromNfProject as any, toNfProject);
   const [selected, setSelected] = useState<NfProject | null>(null);
   const [stageFilter, setStageFilter] = useState<"همه" | NfStage>("همه");
   const [open, setOpen] = useState(false);

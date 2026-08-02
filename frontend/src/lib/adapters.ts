@@ -172,3 +172,51 @@ export const fromESign = (d: any) => ({
   method: d.method, letterNo: d.letter_no || undefined,
   steps: (d.steps ?? []).map((s: any) => ({ role: s.role, name: s.name, status: esStatus[s.status] ?? s.status, date: s.date || undefined })),
 });
+
+// ── Innovation Fund dossier (NfProject — the richest aggregate) ──────────────
+const nfStageL: Record<string, string> = { proposal: "دریافت پروپوزال", screening: "ارزیابی اولیه", jury: "ارزیابی موشکافانه", approval: "تصویب طرح", contract: "تنظیم قرارداد", monitoring: "نظارت و راهبری", exit: "خروج از صندوق" };
+const nfStageApi: Record<string, string> = Object.fromEntries(Object.entries(nfStageL).map(([k, v]) => [v, k]));
+const gStatus: Record<string, string> = { received: "دریافت‌شده", pending: "در انتظار", released: "آزادشده" };
+const rType: Record<string, string> = { stage: "مرحله‌ای", monthly: "ماهانه", interactions: "ماهانه تعاملات", final: "نهایی" };
+const rStatus: Record<string, string> = { pending_upload: "در انتظار بارگذاری", under_review: "در حال بررسی", needs_fix: "نیازمند اصلاح", approved: "تایید نهایی" };
+const chRole: Record<string, string> = { fund_manager: "مدیر صندوق", rahbar: "راهبر", nazer: "ناظر" };
+const chStatus: Record<string, string> = { approved: "تایید شده", pending: "در انتظار بررسی", needs_fix: "نیازمند اصلاح" };
+const payStatus: Record<string, string> = { await_order: "در انتظار دستور پرداخت", ordered: "دستور پرداخت صادر شد", paid: "پرداخت انجام شد", docs_to_fund: "اسناد تحویل صندوق شد", docs_to_team: "اسناد به تیم مجری ارسال شد" };
+const reqType: Record<string, string> = { extend: "تمدید ددلاین میانی", amendment: "متمم قرارداد", budget: "افزایش بودجه", letter: "معرفی‌نامه" };
+const reqStatus: Record<string, string> = { pending: "در انتظار بررسی مدیر صندوق", approved: "تایید شده — اعمال خودکار", rejected: "رد شده" };
+
+export const fromNfProject = (p: any) => ({
+  id: p.code,
+  titleFa: p.title_fa, titleEn: p.title_en ?? "", macroField: p.macro_field ?? "", field: p.field ?? "",
+  motherProject: p.mother_project ?? "",
+  team: { name: p.team_name ?? "", type: (p.team_type || "تیم فناور"), city: p.team_city ?? "", manager: p.team_manager ?? "", members: p.team_members ?? 0 },
+  rahbar: p.rahbar ?? "", nazer: p.nazer ?? "", fundManager: p.fund_manager_name || "مدیر صندوق",
+  budget: faMoney(p.budget), shareDaneshmand: p.share_percent ?? 0, durationMonths: p.duration_months ?? 0,
+  contractNo: p.contract_no ?? "", stage: nfStageL[p.stage] ?? "دریافت پروپوزال", subStatus: p.sub_status ?? "",
+  greenPath: p.green_path, progress: p.progress ?? 0,
+  finance: p.finance && Object.keys(p.finance).length ? p.finance : { prepayment: "—", approvedByProgress: "—", paid: "—", pending: "—", retention: "—", remaining: "—" },
+  guarantees: (p.guarantees ?? []).map((g: any) => ({ type: g.kind, amount: faMoney(g.amount), status: gStatus[g.status] ?? g.status })),
+  gantt: p.gantt ?? [],
+  reports: (p.reports ?? []).map((r: any) => ({
+    id: r.id, type: rType[r.report_type] ?? r.report_type, title: r.title,
+    due: r.due ? toJalali(r.due) : "", uploadedBy: "", uploadedAt: r.uploaded_at ? toJalali(r.uploaded_at) : undefined,
+    status: rStatus[r.status] ?? r.status,
+    chain: (r.chain ?? []).map((c: any) => ({ role: chRole[c.role] ?? c.role, name: c.name, status: chStatus[c.status] ?? c.status, late: c.late })),
+  })),
+  payments: (p.payments ?? []).map((pm: any) => ({ id: pm.id, type: pm.payment_type, title: pm.title, amount: faMoney(pm.amount), status: payStatus[pm.status] ?? pm.status, docNo: pm.doc_no || undefined })),
+  timeline: p.timeline ?? [],
+  requests: (p.requests ?? []).map((rq: any) => ({ id: rq.id, type: reqType[rq.request_type] ?? rq.request_type, note: rq.note, date: rq.created_at ? toJalali(rq.created_at) : "", status: reqStatus[rq.status] ?? rq.status })),
+});
+
+// Only the writable top-level fields + JSON aggregates are sent; nested children
+// (guarantees/reports/payments/requests) are read-only on the serializer.
+export const toNfProject = (v: any) => ({
+  code: v.id, title_fa: v.titleFa, title_en: v.titleEn ?? "", macro_field: v.macroField ?? "", field: v.field ?? "",
+  mother_project: v.motherProject ?? "", rahbar: v.rahbar ?? "", nazer: v.nazer ?? "",
+  budget: faToNumber(v.budget), share_percent: v.shareDaneshmand ?? 0, duration_months: v.durationMonths ?? 0,
+  contract_no: v.contractNo ?? "", stage: nfStageApi[v.stage] ?? "proposal", sub_status: v.subStatus ?? "",
+  green_path: !!v.greenPath, progress: v.progress ?? 0,
+  team_name: v.team?.name ?? "", team_type: v.team?.type ?? "", team_city: v.team?.city ?? "",
+  team_manager: v.team?.manager ?? "", team_members: v.team?.members ?? 0,
+  finance: v.finance ?? {}, gantt: v.gantt ?? [], timeline: v.timeline ?? [],
+});

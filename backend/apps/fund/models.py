@@ -40,6 +40,16 @@ class NfProject(TenantScopedModel):
     team_name = models.CharField(max_length=200, blank=True)
     team_type = models.CharField(max_length=60, blank=True)
     team_city = models.CharField(max_length=120, blank=True)
+    team_manager = models.CharField(max_length=200, blank=True)
+    team_members = models.PositiveSmallIntegerField(default=0)
+
+    mother_project = models.CharField(max_length=300, blank=True, help_text="پروژه مادر (رویداد/فراخوان)")
+
+    # Display-oriented aggregates edited inline on the dossier (kept as JSON since
+    # they are per-project display rows, not cross-queried entities).
+    finance = models.JSONField(default=dict, blank=True)   # {prepayment, approvedByProgress, paid, ...}
+    gantt = models.JSONField(default=list, blank=True)     # [{title, weight, months, cost, done}]
+    timeline = models.JSONField(default=list, blank=True)  # [{date, time, step, text}]
 
     class Meta(TenantScopedModel.Meta):
         db_table = "fund_nf_project"

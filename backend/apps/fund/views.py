@@ -19,6 +19,9 @@ class NfProjectViewSet(TenantScopedModelViewSet):
         "guarantees", "reports__chain", "payments", "requests"
     ).all()
     owner_field = "fund_manager"
+    # Addressable by the human NF code (unique per tenant) so the prototype, whose
+    # project id IS the code, can PATCH/DELETE without a separate uuid.
+    lookup_field = "code"
     required_perms = {
         "list": "funds.list", "retrieve": "funds.list",
         "create": "funds.submit", "update": "funds.monitor", "partial_update": "funds.monitor",
@@ -30,10 +33,12 @@ class NfProjectViewSet(TenantScopedModelViewSet):
     ordering_fields = ["created_at", "budget", "progress"]
 
     def get_serializer_class(self):
-        return NfProjectListSerializer if self.action == "list" else NfProjectSerializer
+        # The dossier UI needs the full record (finance/gantt/timeline/children)
+        # even in the list, so it can open the detail drawer without a refetch.
+        return NfProjectSerializer
 
     @action(detail=True, methods=["post"])
-    def advance(self, request, pk=None):
+    def advance(self, request, code=None):
         """Move to the next stage — gated by the evaluation thresholds."""
         p = self.get_object()
         idx = NF_STAGE_ORDER.index(p.stage)
@@ -50,7 +55,7 @@ class NfProjectViewSet(TenantScopedModelViewSet):
         return Response({"stage": p.stage})
 
     @action(detail=True, methods=["post"])
-    def score(self, request, pk=None):
+    def score(self, request, code=None):
         p = self.get_object()
         data = request.data or {}
         if "screening_score" in data:
@@ -64,7 +69,7 @@ class NfProjectViewSet(TenantScopedModelViewSet):
         })
 
     @action(detail=True, methods=["post"])
-    def request(self, request, pk=None):
+    def request(self, request, code=None):
         """Log an out-of-contract request (extension / amendment / budget / letter)."""
         p = self.get_object()
         req = NfRequest.objects.create(
