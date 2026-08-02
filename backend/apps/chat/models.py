@@ -45,3 +45,15 @@ class DirectMessage(TenantScopedModel):
         db_table = "chat_direct_message"
         ordering = ["created_at"]
         indexes = [models.Index(fields=["sender", "recipient", "created_at"])]
+
+
+class MessageReaction(TenantScopedModel):
+    """A user's reaction on a channel message (icon-based, matches the prototype)."""
+    ICONS = [("ThumbsUp", "پسند"), ("Heart", "قلب"), ("Smile", "لبخند"), ("CheckCircle2", "تأیید")]
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="message_reactions")
+    icon = models.CharField(max_length=16, choices=ICONS)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "chat_message_reaction"
+        constraints = [models.UniqueConstraint(fields=["message", "user", "icon"], name="uniq_message_reaction")]

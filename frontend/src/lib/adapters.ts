@@ -135,6 +135,7 @@ export const fromChannel = (c: any) => ({
 });
 export const fromChannelMessage = (m: any) => ({
   id: m.id, channelId: m.channel, authorId: m.author?.id ?? "", text: m.text, time: toTime(m.created_at), pinned: m.pinned,
+  reactions: m.reactions ?? [],
   _authorName: m.author?.name ?? "—", _authorColor: m.author?.avatar_color ?? "#1f4f99",
 });
 

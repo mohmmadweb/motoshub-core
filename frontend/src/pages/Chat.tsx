@@ -382,6 +382,8 @@ export default function Chat() {
         return { ...m, reactions: [...reactions, { icon, count: 1, reactedByMe: true }] };
       })
     );
+    // Persist; the WS broadcast carries the authoritative reaction set back.
+    http(`/chat/messages/${msgId}/react`, { method: "POST", body: JSON.stringify({ icon }) }).catch(() => {});
   };
 
   const togglePin = (msgId: string) => setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, pinned: !m.pinned } : m)));

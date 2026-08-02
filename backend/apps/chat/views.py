@@ -45,7 +45,32 @@ from rest_framework.permissions import IsAuthenticated  # noqa: E402
 from rest_framework.views import APIView  # noqa: E402
 
 from apps.accounts.models import User  # noqa: E402
-from .models import DirectMessage  # noqa: E402
+from .models import DirectMessage, Message, MessageReaction  # noqa: E402
+
+
+class MessageReactView(APIView):
+    """Toggle the current user's reaction (icon) on a channel message."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, message_id=None):
+        msg = Message.objects.filter(id=message_id, tenant=request.tenant).select_related("channel").first()
+        if not msg:
+            return Response({"error": {"code": 404, "type": "not_found", "message": "پیام یافت نشد."}}, status=404)
+        icon = (request.data or {}).get("icon")
+        valid = {c[0] for c in MessageReaction.ICONS}
+        if icon not in valid:
+            return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "واکنش نامعتبر است."}}, status=422)
+        existing = MessageReaction.objects.filter(message=msg, user=request.user, icon=icon).first()
+        if existing:
+            existing.delete()
+        else:
+            MessageReaction.objects.create(tenant=request.tenant, message=msg, user=request.user, icon=icon)
+        data = MessageSerializer(msg, context={"request": request}).data
+        # Broadcast the updated reaction set to live channel subscribers.
+        layer = get_channel_layer()
+        if layer is not None:
+            async_to_sync(layer.group_send)(f"chat_{msg.channel_id}", {"type": "chat.message", "message": data})
+        return Response({"id": str(msg.id), "reactions": data["reactions"]})
 
 
 class DmView(APIView):
