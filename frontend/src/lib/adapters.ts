@@ -220,3 +220,18 @@ export const toNfProject = (v: any) => ({
   team_manager: v.team?.manager ?? "", team_members: v.team?.members ?? 0,
   finance: v.finance ?? {}, gantt: v.gantt ?? [], timeline: v.timeline ?? [],
 });
+
+// ── Competitions + challenges ────────────────────────────────────────────────
+const cpStatus: Record<string, string> = { open: "ثبت‌نام باز", judging: "در حال داوری", results: "اعلام نتایج" };
+export const fromCompetition = (c: any) => ({
+  id: c.id, title: c.title, category: c.category, deadline: c.deadline,
+  participants: c.participants, status: cpStatus[c.status] ?? c.status, prize: c.prize,
+  entries: (c.entries ?? []).map((e: any) => ({ id: e.id, by: e.by, title: e.title, votes: e.votes, color: e.color, myVote: e.my_vote })),
+});
+
+const chKind: Record<string, string> = { individual: "فردی", collective: "همگانی" };
+const chStat: Record<string, string> = { active: "فعال", ended: "پایان‌یافته" };
+export const fromChallenge = (c: any) => ({
+  id: c.id, title: c.title, kind: chKind[c.kind] ?? c.kind, category: c.category,
+  joined: c.joined, progress: c.progress ?? undefined, status: chStat[c.status] ?? c.status, isJoined: c.is_joined,
+});

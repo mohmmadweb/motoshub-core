@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trophy, Plus, Image as ImageIcon, ThumbsUp, Flag, Swords, Users2 } from "lucide-react";
+import { http } from "../lib/http";
+import { fromCompetition, fromChallenge } from "../lib/adapters";
+import { voteEntryApi, joinChallengeApi } from "../lib/competitions";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -19,33 +22,6 @@ type Competition = {
   entries: { id: string; by: string; title: string; votes: number; color: string; myVote?: boolean }[];
 };
 
-const initialCompetitions: Competition[] = [
-  {
-    id: "cp1",
-    title: "مسابقه عکاسی «صنعت در قاب» — خطوط تولید شرکت‌های بنیاد",
-    category: "عکاسی",
-    deadline: "۱۴۰۵/۰۵/۲۰",
-    participants: 63,
-    status: "ثبت‌نام باز",
-    prize: "۳ کمک‌هزینه سفر نمایشگاهی",
-    entries: [
-      { id: "e1", by: "دکتر آرین صدرا", title: "ربات جوشکار خط بدنه", votes: 41, color: "#5e7191" },
-      { id: "e2", by: "مهندس پارسا یگانه", title: "برداشت شبانه دشت ناز", votes: 38, color: "#0d9488" },
-      { id: "e3", by: "دکتر مهسا نیک‌اندیش", title: "آزمایشگاه کیت تشخیص", votes: 27, color: "#b45309" },
-    ],
-  },
-  {
-    id: "cp2",
-    title: "مسابقه ایده «یک دقیقه برای بهره‌وری»",
-    category: "ویدیوی کوتاه",
-    deadline: "۱۴۰۵/۰۴/۲۵",
-    participants: 29,
-    status: "در حال داوری",
-    prize: "اعتبار آموزش تخصصی",
-    entries: [],
-  },
-];
-
 type Challenge = {
   id: string;
   title: string;
@@ -54,21 +30,21 @@ type Challenge = {
   joined: number;
   progress?: number;
   status: "فعال" | "پایان‌یافته";
+  isJoined?: boolean;
 };
-
-const challenges: Challenge[] = [
-  { id: "ch1", title: "چالش ۳۰ روز مستندسازی — هر روز یک درس‌آموخته در بانک دانش", kind: "همگانی", category: "مدیریت دانش", joined: 84, progress: 40, status: "فعال" },
-  { id: "ch2", title: "چالش کاهش ۱۰٪ مصرف انرژی واحدها", kind: "همگانی", category: "انرژی", joined: 12, progress: 65, status: "فعال" },
-  { id: "ch3", title: "چالش فردی: تکمیل پروفایل و مهارت‌ها", kind: "فردی", category: "عمومی", joined: 412, progress: 100, status: "پایان‌یافته" },
-];
 
 const compTone: Record<Competition["status"], BadgeTone> = { "ثبت‌نام باز": "success", "در حال داوری": "warning", "اعلام نتایج": "navy" };
 
 export default function Competitions() {
   const [tab, setTab] = useTabParam<"comp" | "challenge">("comp", ["comp", "challenge"]);
-  const [comps, setComps] = useState(initialCompetitions);
-  const [joined, setJoined] = useState<string[]>(["ch1"]);
+  const [comps, setComps] = useState<Competition[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const { notify } = useToast();
+
+  useEffect(() => {
+    http<any[]>("/competitions?page_size=100").then((rows) => setComps(rows.map(fromCompetition) as Competition[])).catch(() => {});
+    http<any[]>("/challenges?page_size=100").then((rows) => setChallenges(rows.map(fromChallenge) as Challenge[])).catch(() => {});
+  }, []);
 
   const voteEntry = (cid: string, eid: string) => {
     setComps((prev) =>
@@ -83,6 +59,7 @@ export default function Competitions() {
           : c
       )
     );
+    voteEntryApi(eid).catch(() => {});
   };
 
   return (
@@ -160,7 +137,7 @@ export default function Competitions() {
       {tab === "challenge" && (
         <div className="card divide-y divide-ink-100">
           {challenges.map((c) => {
-            const isJoined = joined.includes(c.id);
+            const isJoined = !!c.isJoined;
             return (
               <div key={c.id} className="p-4 flex items-center justify-between gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
@@ -187,7 +164,8 @@ export default function Competitions() {
                       variant={isJoined ? "secondary" : "primary"}
                       size="sm"
                       onClick={() => {
-                        setJoined((prev) => (isJoined ? prev.filter((x) => x !== c.id) : [...prev, c.id]));
+                        setChallenges((prev) => prev.map((x) => (x.id === c.id ? { ...x, isJoined: !isJoined, joined: x.joined + (isJoined ? -1 : 1) } : x)));
+                        joinChallengeApi(c.id).catch(() => {});
                         notify(isJoined ? "از چالش خارج شدید." : `به چالش «${c.title}» پیوستید!`, "info");
                       }}
                     >

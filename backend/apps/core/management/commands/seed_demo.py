@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
+from apps.competitions.models import Challenge, Competition, CompetitionEntry
 from apps.contracts.models import (
     Contract,
     ContractApproval,
@@ -238,6 +239,29 @@ class Command(BaseCommand):
                 doc = ESignDocument.objects.create(tenant=tenant, title=ti, kind=ki, related_to=rel, letter_no=ln)
                 for i, (ro, na, sta, da) in enumerate(steps):
                     ESignStep.objects.create(tenant=tenant, document=doc, role=ro, name=na, status=sta, date=da, order=i)
+
+        # ── Competitions + challenges ────────────────────────────────────────────
+        if not Competition.objects.filter(tenant=tenant).exists():
+            cp1 = Competition.objects.create(
+                tenant=tenant, title="مسابقه عکاسی «صنعت در قاب» — خطوط تولید شرکت‌های بنیاد",
+                category="عکاسی", deadline="۱۴۰۵/۰۵/۲۰", participants=63, status="open",
+                prize="۳ کمک‌هزینه سفر نمایشگاهی")
+            for by, ti, col in [("دکتر آرین صدرا", "ربات جوشکار خط بدنه", "#5e7191"),
+                                ("مهندس پارسا یگانه", "برداشت شبانه دشت ناز", "#0d9488"),
+                                ("دکتر مهسا نیک‌اندیش", "آزمایشگاه کیت تشخیص", "#b45309")]:
+                CompetitionEntry.objects.create(tenant=tenant, competition=cp1, by=by, title=ti, color=col)
+            Competition.objects.create(
+                tenant=tenant, title="مسابقه ایده «یک دقیقه برای بهره‌وری»",
+                category="ویدیوی کوتاه", deadline="۱۴۰۵/۰۴/۲۵", participants=29, status="judging",
+                prize="اعتبار آموزش تخصصی")
+
+        if not Challenge.objects.filter(tenant=tenant).exists():
+            Challenge.objects.create(tenant=tenant, title="چالش ۳۰ روز مستندسازی — هر روز یک درس‌آموخته در بانک دانش",
+                                     kind="collective", category="مدیریت دانش", progress=40, status="active")
+            Challenge.objects.create(tenant=tenant, title="چالش کاهش ۱۰٪ مصرف انرژی واحدها",
+                                     kind="collective", category="انرژی", progress=65, status="active")
+            Challenge.objects.create(tenant=tenant, title="چالش فردی: تکمیل پروفایل و مهارت‌ها",
+                                     kind="individual", category="عمومی", progress=100, status="ended")
 
         # ── Social graph: colleagues + friends + follows (Friends/Profile pages) ──
         colleagues = [
