@@ -113,3 +113,18 @@ module map + status is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, contracts, module map, status
 - [CONVENTIONS.md](CONVENTIONS.md) — coding rules for backend & frontend
+
+## Pixel-perfect demo UI (`frontend-demo/`)
+
+`frontend-demo/` is the **exact demo.shub.ir UI** (the `motoshub-prototype` code)
+vendored into this repo so it can be built and deployed as part of the product.
+It builds with Node 20 (`cd frontend-demo && npm install && npm run build`) and is
+served as static files (HashRouter SPA — any static host works).
+
+- **`frontend/`** — the Next.js client wired to the real Django API (functional).
+- **`frontend-demo/`** — the pixel-perfect prototype UI (currently mock-data).
+
+**Roadmap to unify:** replace `frontend-demo`'s mock data layer (`src/lib/api.ts`,
+`src/context/ContentContext.tsx`, `src/data/*`) and per-page CRUD with calls to the
+`/api/v1` backend, module by module (auth/RBAC → content → social → process). The
+result is the demo UI on the real backend.
