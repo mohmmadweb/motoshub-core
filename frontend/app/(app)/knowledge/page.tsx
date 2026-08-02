@@ -15,6 +15,7 @@ const columns: Column<KnowledgeDoc>[] = [
 const createFields = [
   { name: "title", label: "عنوان", required: true },
   { name: "category", label: "دسته" },
+  { name: "file", label: "فایل سند", type: "file" as const },
   { name: "doc_type", label: "نوع", type: "select" as const, default: "report", options: [{ value: "report", label: "گزارش" }, { value: "contract", label: "قرارداد" }, { value: "training", label: "آموزشی" }, { value: "minutes", label: "صورت‌جلسه" }] },
   { name: "visibility", label: "دسترسی", type: "select" as const, default: "private", options: [{ value: "private", label: "خصوصی" }, { value: "public", label: "عمومی" }] },
 ];

@@ -13,6 +13,10 @@ export const api: AxiosInstance = axios.create({
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().access;
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // For file uploads let the browser set the multipart boundary.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 

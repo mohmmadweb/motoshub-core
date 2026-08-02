@@ -18,7 +18,7 @@ export function useList<T>(resource: string, params?: Record<string, unknown>) {
 export function useCreate<T>(resource: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Partial<T>) => {
+    mutationFn: async (payload: Partial<T> | FormData) => {
       const res = await api.post<Envelope<T>>(`/${resource}`, payload);
       return res.data.data;
     },

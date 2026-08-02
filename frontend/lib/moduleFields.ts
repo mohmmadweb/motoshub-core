@@ -44,6 +44,7 @@ export const fields: Record<string, Field[]> = {
     { name: "album", label: "آلبوم" },
     { name: "kind", label: "نوع", type: "select", default: "photo", options: [
       { value: "photo", label: "تصویر" }, { value: "video", label: "ویدیو" }] },
+    { name: "file", label: "فایل", type: "file" },
     vis,
   ],
   funds: [

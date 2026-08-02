@@ -8,7 +8,7 @@ import { useCreate, useUpdate } from "@/hooks/useContent";
 export interface Field {
   name: string;
   label: string;
-  type?: "text" | "textarea" | "number" | "select" | "datetime";
+  type?: "text" | "textarea" | "number" | "select" | "datetime" | "file";
   options?: { value: string; label: string }[];
   required?: boolean;
   placeholder?: string;
@@ -46,10 +46,21 @@ export default function CreateForm({ resource, fields, onDone, transform, editId
         return;
       }
     }
-    const payload = transform ? transform(values) : values;
+    const raw = transform ? transform(values) : values;
     const onError = () => setError("ثبت ناموفق بود (احتمالاً دسترسی لازم را ندارید).");
-    if (editId) update.mutate({ id: editId, payload }, { onSuccess: onDone, onError });
-    else create.mutate(payload, { onSuccess: onDone, onError });
+    const hasFile = Object.values(raw).some((v) => typeof File !== "undefined" && v instanceof File);
+    let payload: Record<string, unknown> | FormData = raw;
+    if (hasFile) {
+      const fd = new FormData();
+      Object.entries(raw).forEach(([k, v]) => {
+        if (v instanceof File) fd.append(k, v);
+        else if (Array.isArray(v)) v.forEach((x) => fd.append(k, String(x)));
+        else if (v !== "" && v != null) fd.append(k, String(v));
+      });
+      payload = fd;
+    }
+    if (editId) update.mutate({ id: editId, payload: payload as never }, { onSuccess: onDone, onError });
+    else create.mutate(payload as never, { onSuccess: onDone, onError });
   };
 
   return (
@@ -70,6 +81,9 @@ export default function CreateForm({ resource, fields, onDone, transform, editId
             >
               {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
+          ) : f.type === "file" ? (
+            <input type="file" className="w-full text-sm text-ink-700 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-brand-700"
+              onChange={(e) => set(f.name, e.target.files?.[0] ?? "")} />
           ) : (
             <Input
               type={f.type === "number" ? "number" : f.type === "datetime" ? "datetime-local" : "text"}
