@@ -49,9 +49,12 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm ci || npm install
-      - name: Unit tests (Vitest)
+      - name: Lint (oxlint)
         working-directory: frontend
-        run: npm test
+        run: npm run lint
       - name: Build (type-check + compile)
         working-directory: frontend
+        # Same-origin default: the browser calls /api/v1, proxied by nginx.
+        env:
+          VITE_API_BASE: /api/v1
         run: npm run build

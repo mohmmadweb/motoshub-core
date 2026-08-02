@@ -112,6 +112,13 @@ transition rules.
   so the client matches demo.shub.ir pixel-for-pixel.
 - `NEXT_PUBLIC_API_BASE_URL` (or a Next rewrite of `/api/v1`) points at the gateway.
 
+> **Note (see §10):** §7 describes the original Next.js client, which has been
+> replaced by the Vite prototype SPA. The delivery/infra notes below are updated
+> for that reality: the `web` container builds the SPA and serves it via nginx,
+> which reverse-proxies `/api`, `/ws`, `/static`, `/media` to the Django `api`
+> container — a single browser origin. CI runs backend (check + migration-drift +
+> pytest) and frontend (oxlint + `tsc`/vite build) jobs.
+
 ## 8. Delivery pipeline (mirrors motoshub-docs)
 
 DoR → `issue-N` branch → L1 unit tests (pytest / component tests + tsc + lint) →
