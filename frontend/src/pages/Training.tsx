@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { GraduationCap, CalendarDays, Users, Award, Gauge, CheckCircle2, Plus } from "lucide-react";
-import { trainingCourses as initialCourses, type TrainingCourse } from "../data/mockDaneshmand";
+import { type TrainingCourse } from "../data/mockDaneshmand";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromCourse, toCourse } from "../lib/adapters";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -19,7 +21,7 @@ const statusTone: Record<TrainingCourse["status"], BadgeTone> = {
 };
 
 export default function Training() {
-  const [courses, setCourses] = useState<TrainingCourse[]>(initialCourses);
+  const [courses, setCourses] = useApiCollection<TrainingCourse>("/training/courses", fromCourse as any, toCourse as any);
   const [selected, setSelected] = useState<TrainingCourse | null>(null);
   const [enrolledIds, setEnrolledIds] = useState<string[]>([]);
   const [open, setOpen] = useState(false);

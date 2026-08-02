@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { KanbanSquare, Plus, Wallet, ListChecks, ClipboardList, PlayCircle, AlertTriangle, Milestone, GanttChartSquare, ListFilter } from "lucide-react";
-import { projects as initialProjects, playbookTemplates as initialPlaybooks, type Project, type PlaybookTemplate } from "../data/mock";
+import { playbookTemplates as initialPlaybooks, type Project, type PlaybookTemplate } from "../data/mock";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromProject, toProject } from "../lib/adapters";
 import { projectDetails } from "../data/mockDetails";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
@@ -19,7 +21,7 @@ const healthTone: Record<string, BadgeTone> = {
 const healthFilters = ["همه", "سبز", "زرد", "قرمز"] as const;
 
 export default function Projects() {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [projects, setProjects] = useApiCollection<Project>("/projects", fromProject as any, toProject as any);
   const [playbooks, setPlaybooks] = useState<PlaybookTemplate[]>(initialPlaybooks);
   const [healthFilter, setHealthFilter] = useState<(typeof healthFilters)[number]>("همه");
   const [projectOpen, setProjectOpen] = useState(false);

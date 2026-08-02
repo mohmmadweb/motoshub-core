@@ -55,3 +55,29 @@ export const fromGroup = (g: any) => ({
   createdAt: toJalali(g.created_at), lastActivityAt: toJalali(g.updated_at ?? g.created_at), lastActivityRel: relativeFa(g.updated_at ?? g.created_at),
 });
 export const toGroup = (v: any) => ({ name: v.name, description: v.description, category: v.category, color: v.color, privacy: v.privacy === "عمومی" ? "public" : "private" });
+
+// ── Process modules ─────────────────────────────────────────────────────────
+const health: Record<string, string> = { green: "سبز", yellow: "زرد", red: "قرمز" };
+const healthApi: Record<string, string> = { "سبز": "green", "زرد": "yellow", "قرمز": "red" };
+export const fromProject = (p: any) => ({
+  id: p.id, name: p.name, client: p.client, health: health[p.health] ?? "سبز",
+  progress: p.progress ?? 0, budgetUsed: Number(p.budget_used ?? 0), deadline: toJalali(p.deadline), tasks: [] as any[],
+});
+export const toProject = (v: any) => ({ name: v.name, client: v.client, health: healthApi[v.health] ?? "green", progress: v.progress, budget_used: v.budgetUsed });
+
+const rStage: Record<string, string> = { open: "فراخوان باز", review: "بررسی درخواست‌ها", judging: "داوری", running: "در حال اجرا", closed: "پایان‌یافته" };
+const rStageApi: Record<string, string> = { "فراخوان باز": "open", "بررسی درخواست‌ها": "review", "داوری": "judging", "در حال اجرا": "running", "پایان‌یافته": "closed" };
+export const fromResearch = (r: any) => ({
+  id: r.id, title: r.title, field: r.field, stage: rStage[r.stage] ?? "فراخوان باز",
+  applicants: r.applicant_count ?? 0, deadline: toJalali(r.deadline),
+});
+export const toResearch = (v: any) => ({ title: v.title, field: v.field, stage: rStageApi[v.stage] ?? "open" });
+
+const cStatus: Record<string, string> = { open: "ثبت‌نام باز", running: "در حال برگزاری", done: "برگزار شده" };
+const cStatusApi: Record<string, string> = { "ثبت‌نام باز": "open", "در حال برگزاری": "running", "برگزار شده": "done" };
+export const fromCourse = (c: any) => ({
+  id: c.id, title: c.title, instructor: c.instructor, date: toJalali(c.starts_at), hours: c.hours ?? 0,
+  capacity: c.capacity ?? 0, enrolled: c.enrolled ?? 0, status: cStatus[c.status] ?? "ثبت‌نام باز",
+  satisfaction: c.satisfaction != null ? Number(c.satisfaction) : undefined,
+});
+export const toCourse = (v: any) => ({ title: v.title, instructor: v.instructor, hours: v.hours, capacity: v.capacity, status: cStatusApi[v.status] ?? "open" });

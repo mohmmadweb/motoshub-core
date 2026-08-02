@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { FlaskConical, Plus, Users, ListFilter, GraduationCap, Wallet, Clock3, FileCheck2, CheckCircle2, XCircle, Megaphone, Trophy, BookMarked } from "lucide-react";
-import { researchOpportunities as initialOpportunities, type ResearchOpportunity } from "../data/mock";
+import { type ResearchOpportunity } from "../data/mock";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromResearch, toResearch } from "../lib/adapters";
 import { researchDetails, type ResearchApplicant } from "../data/mockDetails";
 import { rfpCalls, sabbaticals, type RfpCall, type Sabbatical } from "../data/mockDaneshmand";
 import Tabs from "../components/ui/Tabs";
@@ -41,7 +43,7 @@ export default function Research() {
       />
       <Tabs
         tabs={[
-          { id: "opps", label: "فرصت‌های پژوهشی", count: initialOpportunities.length },
+          { id: "opps", label: "فرصت‌های پژوهشی" },
           { id: "rfp", label: "فراخوان فناور برتر (RFP)", count: rfpCalls.length },
           { id: "sabbatical", label: "فرصت مطالعاتی اساتید", count: sabbaticals.length },
         ]}
@@ -192,7 +194,7 @@ function SabbaticalTab() {
 }
 
 function OpportunitiesTab() {
-  const [opportunities, setOpportunities] = useState<ResearchOpportunity[]>(initialOpportunities);
+  const [opportunities, setOpportunities] = useApiCollection<ResearchOpportunity>("/research", fromResearch as any, toResearch as any);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [field, setField] = useState("");
