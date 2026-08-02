@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserPlus, UserCheck, UserX, Users, Rss, Clock3 } from "lucide-react";
-import { users, userPresence } from "../data/mock";
+import { http, getUser } from "../lib/http";
+import { fromUser } from "../lib/adapters";
+import {
+  getNetwork,
+  requestFriend,
+  acceptFriend,
+  removeFriend,
+  followUser,
+  unfollowUser,
+  type FriendState,
+} from "../lib/friends";
+import type { UserProfile, PresenceStatus } from "../data/mock";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -9,32 +20,42 @@ import Avatar from "../components/Avatar";
 import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 
-// دوستان و دنبال‌کردن — معادل ماژول‌های friends و user-follow در motoshub-web
-type FriendState = "friend" | "incoming" | "outgoing" | "suggested";
-
-const initialStates: Record<string, FriendState> = {
-  u2: "friend",
-  u5: "friend",
-  u6: "friend",
-  u7: "incoming",
-  u9: "incoming",
-  u8: "outgoing",
-  u10: "suggested",
-  u11: "suggested",
-  u12: "suggested",
-  u13: "suggested",
-  u3: "suggested",
-  u4: "friend",
-};
+// دوستان و دنبال‌کردن — معادل ماژول‌های friends و user-follow در motoshub-web (بک‌اند واقعی)
 
 export default function Friends() {
   const [tab, setTab] = useState<"friends" | "requests" | "suggested" | "following">("friends");
-  const [states, setStates] = useState(initialStates);
-  const [following, setFollowing] = useState<string[]>(["u2", "u6", "u7", "u12"]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [presence, setPresence] = useState<Record<string, PresenceStatus>>({});
+  const [states, setStates] = useState<Record<string, FriendState>>({});
+  const [following, setFollowing] = useState<string[]>([]);
   const { notify } = useToast();
+  const meId = getUser()?.id as string | undefined;
+
+  useEffect(() => {
+    (async () => {
+      const raw = await http<any[]>("/users?page_size=100");
+      const others = raw.filter((u) => u.id !== meId);
+      setUsers(others.map(fromUser));
+      setPresence(Object.fromEntries(raw.map((u) => [u.id, u.presence])));
+      const net = await getNetwork();
+      // everyone starts as a suggestion; overlay the real graph
+      const st: Record<string, FriendState> = {};
+      others.forEach((u) => { st[u.id] = "suggested"; });
+      Object.entries(net.states).forEach(([id, s]) => { st[id] = s; });
+      setStates(st);
+      setFollowing(net.following);
+    })();
+  }, [meId]);
 
   const list = (s: FriendState) => users.filter((u) => states[u.id] === s);
-  const set = (id: string, s: FriendState) => setStates((prev) => ({ ...prev, [id]: s }));
+
+  // A single setter that persists the transition, then updates local state.
+  const set = (id: string, s: FriendState) => {
+    setStates((prev) => ({ ...prev, [id]: s }));
+    if (s === "outgoing") requestFriend(id);
+    else if (s === "friend") acceptFriend(id);
+    else if (s === "suggested") removeFriend(id);
+  };
 
   const counts = {
     friends: list("friend").length,
@@ -47,7 +68,7 @@ export default function Friends() {
     const u = users.find((x) => x.id === id)!;
     return (
       <div className="p-3.5 flex items-center gap-3">
-        <Avatar name={u.name} color={u.avatarColor} size={40} status={userPresence[u.id]} />
+        <Avatar name={u.name} color={u.avatarColor} size={40} status={presence[u.id]} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-ink-900 truncate">{u.name}</p>
           <p className="text-[11.5px] text-ink-400 truncate">{u.role} · {u.org}</p>
@@ -153,12 +174,13 @@ export default function Friends() {
               }
             />
           ))}
+          {counts.suggested === 0 && <p className="p-4 text-xs text-ink-400">پیشنهادی موجود نیست.</p>}
         </div>
       )}
 
       {tab === "following" && (
         <div className="card divide-y divide-ink-100">
-          {users.filter((u) => u.id !== "u1").map((u) => {
+          {users.map((u) => {
             const on = following.includes(u.id);
             return (
               <Row
@@ -171,6 +193,7 @@ export default function Friends() {
                     icon={<Rss size={13} />}
                     onClick={() => {
                       setFollowing((prev) => (on ? prev.filter((x) => x !== u.id) : [...prev, u.id]));
+                      if (on) unfollowUser(u.id); else followUser(u.id);
                       notify(on ? `دیگر «${u.name}» را دنبال نمی‌کنید.` : `«${u.name}» را دنبال کردید — فعالیت‌هایش در فید شما می‌آید.`, "info");
                     }}
                   >
@@ -180,6 +203,7 @@ export default function Friends() {
               />
             );
           })}
+          {users.length === 0 && <p className="p-4 text-xs text-ink-400">کاربری موجود نیست.</p>}
         </div>
       )}
     </div>

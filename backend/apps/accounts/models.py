@@ -34,6 +34,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(blank=True)
     name = models.CharField(max_length=200)
     title = models.CharField(max_length=200, blank=True, help_text="سمت/نقش نمایشی")
+    org = models.CharField(max_length=200, blank=True, help_text="سازمان/شرکت نمایشی")
     avatar_color = models.CharField(max_length=9, default="#1f4f99")
     skills = models.JSONField(default=list, blank=True)
     presence = models.CharField(max_length=8, choices=PresenceStatus.choices, default=PresenceStatus.OFFLINE)

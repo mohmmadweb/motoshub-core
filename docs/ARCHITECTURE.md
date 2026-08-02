@@ -182,13 +182,13 @@ no separate Next client and no `frontend-demo/` — those were consolidated away
   create/update/delete API calls by **diffing** old vs new arrays. This makes
   pages real without editing them.
 
-**Real on the backend (17 modules):** auth, news, blog, events, media, knowledge,
+**Real on the backend (18 modules):** auth, news, blog, events, media, knowledge,
 forum, groups, projects, research, training, tickets, polls, notifications,
-contracts (core), roles (RBAC/admin), funds (simple), chat (channels+messages).
+contracts (core), roles (RBAC/admin), funds (simple), chat (channels+messages),
+friends/profile (Friendship + Follow graph + user org/skills/presence).
 
 **Still on mock — each needs a NEW backend model/field, then wiring:**
 - reports: dedicated aggregation endpoints for its charts.
-- profile/friends: a friendship model + `org`/`skills`/presence on the user.
 - rich contract sub-data: e-sign, tenders, tech-transfer models.
 - rich innovation-fund sub-data: gantt/reports/payments sub-UI beyond NfProject.
 - chat DM / reactions / threads; realtime receive over WS.

@@ -137,3 +137,14 @@ export const fromChannelMessage = (m: any) => ({
   id: m.id, channelId: m.channel, authorId: m.author?.id ?? "", text: m.text, time: toTime(m.created_at), pinned: m.pinned,
   _authorName: m.author?.name ?? "—", _authorColor: m.author?.avatar_color ?? "#1f4f99",
 });
+
+// ── Users (people directory: friends / profile) ─────────────────────────────
+export const fromUser = (u: any) => ({
+  id: u.id,
+  name: u.name,
+  role: u.title ?? "",
+  org: u.org ?? "",
+  avatarColor: u.avatar_color ?? "#1f4f99",
+  skills: Array.isArray(u.skills) ? u.skills : [],
+  online: u.presence === "online",
+});

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Briefcase, ShieldCheck, MessageCircle, Laptop, Smartphone, MapPin, LogOut } from "lucide-react";
-import { users, posts, projects, activeSessions } from "../data/mock";
+import { posts, projects, activeSessions, type UserProfile } from "../data/mock";
+import { http, getUser } from "../lib/http";
+import { fromUser } from "../lib/adapters";
 import Avatar from "../components/Avatar";
 import Badge from "../components/ui/Badge";
 import PostCard from "../components/PostCard";
@@ -15,7 +17,16 @@ export default function Profile() {
   const { id } = useParams();
   const [params] = useSearchParams();
   const [tab, setTab] = useState<TabId>((params.get("tab") as TabId) || "activity");
-  const user = users.find((u) => u.id === id) ?? users[0];
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    http<any[]>("/users?page_size=100").then((raw) => setAllUsers(raw.map(fromUser)));
+  }, []);
+
+  const me = getUser();
+  const user: UserProfile =
+    allUsers.find((u) => u.id === id) ??
+    (me ? fromUser(me) : { id: "", name: "—", role: "", org: "", avatarColor: "#1f4f99", skills: [], online: false });
   const userPosts = posts.filter((p) => p.authorId === user.id);
   const userProjects = projects.filter((p) => p.tasks.some((t) => t.assignee === user.name));
 

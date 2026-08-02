@@ -23,7 +23,7 @@ from apps.research.models import ResearchOpportunity
 from apps.rbac.models import Role, RoleAssignment
 from apps.support.models import Ticket, TicketMessage
 from apps.training.models import TrainingCourse
-from apps.social.models import ForumReply, ForumTopic, Group, GroupMembership
+from apps.social.models import Follow, ForumReply, ForumTopic, Friendship, Group, GroupMembership
 from apps.tenancy.models import Company, Holding, Tenant
 
 PASSWORD = "demo1234"
@@ -168,15 +168,38 @@ class Command(BaseCommand):
             Fund.objects.create(tenant=tenant, title="طرح اشتغال‌زایی روستایی", applicant="تعاونی نمونه", stage="judging", amount=150000000, roi="۱۸٪")
             Fund.objects.create(tenant=tenant, title="حمایت از استارتاپ کشاورزی", applicant="شرکت سبز", stage="allocated", amount=300000000, roi="۲۴٪")
 
+        # ── Social graph: colleagues + friends + follows (Friends/Profile pages) ──
+        colleagues = [
+            ("m.rezaei", "محمد رضایی", "رئیس بنیاد", "#0d9488", ["راهبری کلان", "سیاست‌گذاری"], "online"),
+            ("f.karimi", "فاطمه کریمی", "معاون فناوری", "#b45309", ["نوآوری", "تحول دیجیتال"], "online"),
+            ("a.hoseini", "علی حسینی", "مدیر پروژه", "#7c3aed", ["مدیریت پروژه", "اجایل"], "away"),
+            ("z.ahmadi", "زهرا احمدی", "کارشناس محتوا", "#be185d", ["تولید محتوا", "سئو"], "offline"),
+            ("h.moradi", "حسن مرادی", "مدیر مالی", "#1d4ed8", ["حسابداری", "بودجه‌ریزی"], "online"),
+            ("s.jafari", "سمیرا جعفری", "کارشناس منابع انسانی", "#059669", ["جذب", "آموزش"], "offline"),
+            ("r.gholami", "رضا غلامی", "توسعه‌دهنده ارشد", "#ea580c", ["بک‌اند", "معماری"], "dnd"),
+            ("n.sadeghi", "نرگس صادقی", "طراح تجربه کاربری", "#0891b2", ["UI/UX", "پژوهش کاربر"], "online"),
+        ]
+        people = [self._user(un, nm, tenant, company, "member", title=ti,
+                             avatar_color=col, skills=sk, presence=pr)
+                  for un, nm, ti, col, sk, pr in colleagues]
+        if not Friendship.objects.filter(from_user=admin).exists() and people:
+            for u in people[:3]:
+                Friendship.objects.get_or_create(from_user=admin, to_user=u, defaults={"tenant": tenant, "status": "accepted"})
+            for u in people[3:5]:
+                Friendship.objects.get_or_create(from_user=u, to_user=admin, defaults={"tenant": tenant, "status": "pending"})
+            for u in people[5:6]:
+                Friendship.objects.get_or_create(from_user=admin, to_user=u, defaults={"tenant": tenant, "status": "pending"})
+            for u in people[:2]:
+                Follow.objects.get_or_create(follower=admin, followee=u, defaults={"tenant": tenant})
+
         self.stdout.write(self.style.SUCCESS(
             f"Demo seeded: tenant «{tenant.name}» · users admin/member (pw {PASSWORD})"
         ))
 
-    def _user(self, username, name, tenant, company, role_key):
-        user, created = User.objects.get_or_create(
-            username=username,
-            defaults={"name": name, "tenant": tenant, "company": company},
-        )
+    def _user(self, username, name, tenant, company, role_key, **profile):
+        defaults = {"name": name, "tenant": tenant, "company": company,
+                    "org": tenant.name if tenant else "", **profile}
+        user, created = User.objects.get_or_create(username=username, defaults=defaults)
         if created:
             user.set_password(PASSWORD)
             user.save()

@@ -11,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "username", "name", "title", "email", "avatar_color",
+            "id", "username", "name", "title", "org", "email", "avatar_color",
             "skills", "presence", "tenant_id", "company_id", "permissions",
         ]
         read_only_fields = fields
@@ -37,8 +37,8 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "name", "title", "email", "avatar_color",
-                  "is_active", "presence", "role_ids", "password", "date_joined"]
+        fields = ["id", "username", "name", "title", "org", "email", "avatar_color",
+                  "skills", "is_active", "presence", "role_ids", "password", "date_joined"]
         read_only_fields = ["id", "role_ids", "date_joined"]
 
     def get_role_ids(self, obj):

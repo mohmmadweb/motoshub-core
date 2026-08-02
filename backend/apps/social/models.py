@@ -71,3 +71,32 @@ class ForumReply(TenantScopedModel):
     class Meta(TenantScopedModel.Meta):
         db_table = "social_forum_reply"
         ordering = ["created_at"]
+
+
+class Friendship(TenantScopedModel):
+    """A directed friend request that becomes symmetric once accepted.
+
+    `from_user` initiated it. status=pending → an outgoing request for from_user
+    and an incoming one for to_user; status=accepted → the two are friends.
+    """
+    STATUS = [("pending", "در انتظار"), ("accepted", "دوست")]
+    from_user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="friendships_sent")
+    to_user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="friendships_received")
+    status = models.CharField(max_length=10, choices=STATUS, default="pending")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "social_friendship"
+        constraints = [
+            models.UniqueConstraint(fields=["from_user", "to_user"], name="uniq_friendship_pair"),
+        ]
+
+
+class Follow(TenantScopedModel):
+    follower = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="following_set")
+    followee = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="follower_set")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "social_follow"
+        constraints = [
+            models.UniqueConstraint(fields=["follower", "followee"], name="uniq_follow_pair"),
+        ]
