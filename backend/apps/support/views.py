@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from apps.core.viewsets import TenantScopedModelViewSet
 
 from .models import Ticket, TicketMessage
+from apps.notifications.services import notify
+
 from .serializers import TicketMessageSerializer, TicketSerializer
 
 
@@ -33,6 +35,8 @@ class TicketViewSet(TenantScopedModelViewSet):
         msg = TicketMessage.objects.create(ticket=ticket, author=request.user, body=body, tenant=request.tenant)
         ticket.status = "answered"
         ticket.save(update_fields=["status"])
+        if ticket.author and ticket.author != request.user:
+            notify(ticket.author, f"به تیکت «{ticket.subject}» پاسخ داده شد.", kind="comment", tenant=request.tenant)
         return Response(TicketMessageSerializer(msg, context={"request": request}).data, status=201)
 
     @action(detail=True, methods=["post"])

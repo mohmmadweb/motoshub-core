@@ -13,6 +13,7 @@ from .tokens import decode, issue_access, issue_pair
 class LoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_scope = "login"
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
