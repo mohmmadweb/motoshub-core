@@ -29,6 +29,28 @@ export default function Login() {
   const [mode, setMode] = useState<"password" | "otp">("password");
   const tenant = workspaces.find((t) => t.id === tenantId)!;
 
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("demo1234");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function doLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const { http, setSession } = await import("../lib/http");
+      const res = await http.post("/auth/login", { username, password }, { auth: false });
+      const data = res.data ?? res;
+      setSession(data.access, data.refresh, data.user);
+      navigate("/dashboard");
+    } catch {
+      setError("نام کاربری یا گذرواژه نادرست است.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div dir="rtl" className="min-h-screen flex items-center justify-center bg-navy-900 px-4">
       <div className="w-full max-w-sm">
@@ -119,23 +141,20 @@ export default function Login() {
             </button>
           </div>
 
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              navigate("/dashboard");
-            }}
-          >
+          <form className="space-y-3" onSubmit={doLogin}>
             {mode === "password" ? (
               <>
-                <input className="input-field" placeholder="نام کاربری یا ایمیل سازمانی" />
-                <input type="password" className="input-field" placeholder="گذرواژه" />
+                <input className="input-field" placeholder="نام کاربری یا ایمیل سازمانی"
+                  value={username} onChange={(e) => setUsername(e.target.value)} />
+                <input type="password" className="input-field" placeholder="گذرواژه"
+                  value={password} onChange={(e) => setPassword(e.target.value)} />
               </>
             ) : (
               <input className="input-field" placeholder="شماره موبایل (مثلاً 0912xxxxxxx)" />
             )}
-            <Button type="submit" variant="primary" className="w-full justify-center">
-              ورود به سامانه بنیاد
+            {error && <p className="text-xs text-red-600 text-center">{error}</p>}
+            <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading}>
+              {loading ? "در حال ورود…" : "ورود به سامانه بنیاد"}
             </Button>
           </form>
 

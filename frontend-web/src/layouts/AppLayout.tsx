@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, Navigate } from "react-router-dom";
+import { getToken } from "../lib/http";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import CommandPalette from "../components/CommandPalette";
@@ -7,6 +8,9 @@ import CreditFooter from "../components/CreditFooter";
 
 export default function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Auth guard: no token → back to login.
+  if (!getToken()) return <Navigate to="/login" replace />;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
