@@ -131,3 +131,7 @@ export interface ReportSummary {
 export interface ForumReply { id: string; topic: string; author: Author | null; body: string; is_solution: boolean; created_at: string; }
 export interface TicketMessage { id: string; ticket: string; author: Author | null; from_support: boolean; body: string; created_at: string; }
 export interface TicketDetail extends Ticket { messages: TicketMessage[]; }
+
+export interface UserRow { id: string; username: string; name: string; title: string; email: string; is_active: boolean; role_ids: string[]; created_at?: string; date_joined?: string; }
+export interface Role { id: string; key: string; title: string; description: string; scope: string; permissions: string[]; is_system: boolean; member_count: number; created_at: string; }
+export interface PermGroup { group: string; label: string; permissions: { id: string; action: string }[]; }

@@ -29,3 +29,33 @@ class LoginSerializer(serializers.Serializer):
 
 class RefreshSerializer(serializers.Serializer):
     refresh = serializers.CharField()
+
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    role_ids = serializers.SerializerMethodField()
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "name", "title", "email", "avatar_color",
+                  "is_active", "presence", "role_ids", "password", "date_joined"]
+        read_only_fields = ["id", "role_ids", "date_joined"]
+
+    def get_role_ids(self, obj):
+        return [str(a.role_id) for a in obj.role_assignments.all()]
+
+    def create(self, validated_data):
+        pwd = validated_data.pop("password", None) or "changeme123"
+        user = User(**validated_data)
+        user.set_password(pwd)
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        pwd = validated_data.pop("password", None)
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        if pwd:
+            instance.set_password(pwd)
+        instance.save()
+        return instance

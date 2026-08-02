@@ -6,8 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import User
-from .serializers import LoginSerializer, RefreshSerializer, UserSerializer
+from .serializers import LoginSerializer, RefreshSerializer, UserAdminSerializer, UserSerializer
 from .tokens import decode, issue_access, issue_pair
+from apps.core.permissions import HasPerm
+from rest_framework.viewsets import ModelViewSet
 
 
 class LoginView(APIView):
@@ -64,3 +66,21 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user, context={"request": request}).data)
+
+
+class UserViewSet(ModelViewSet):
+    serializer_class = UserAdminSerializer
+    permission_classes = [HasPerm]
+    required_perms = {
+        "list": "users.list", "retrieve": "users.list", "create": "users.create",
+        "update": "users.edit", "partial_update": "users.edit", "destroy": "users.block",
+    }
+    search_fields = ["name", "username", "email"]
+    filterset_fields = ["is_active"]
+
+    def get_queryset(self):
+        tenant = getattr(self.request, "tenant", None)
+        return User.objects.filter(tenant=tenant).prefetch_related("role_assignments") if tenant else User.objects.none()
+
+    def perform_create(self, serializer):
+        serializer.save(tenant=getattr(self.request, "tenant", None))

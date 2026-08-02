@@ -21,4 +21,6 @@ export const routes = {
   chat: "/chat",
   reports: "/reports",
   admin: "/admin",
+  users: "/admin/users",
+  roles: "/admin/roles",
 } as const;
