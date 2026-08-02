@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { login as apiLogin } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { Building2, Lock, Smartphone, ShieldCheck, ChevronDown, Network } from "lucide-react";
 import { tenants } from "../data/mock";
@@ -27,6 +28,17 @@ export default function Login() {
   const [tenantId, setTenantId] = useState(workspaces[0].id);
   const [orgPickerOpen, setOrgPickerOpen] = useState(false);
   const [mode, setMode] = useState<"password" | "otp">("password");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null); setLoading(true);
+    try { await apiLogin(username.trim(), password); navigate("/dashboard"); }
+    catch { setError("نام کاربری یا گذرواژه نادرست است."); }
+    finally { setLoading(false); }
+  };
   const tenant = workspaces.find((t) => t.id === tenantId)!;
 
   return (
@@ -119,24 +131,20 @@ export default function Login() {
             </button>
           </div>
 
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              navigate("/dashboard");
-            }}
-          >
+          <form className="space-y-3" onSubmit={submit}>
             {mode === "password" ? (
               <>
-                <input className="input-field" placeholder="نام کاربری یا ایمیل سازمانی" />
-                <input type="password" className="input-field" placeholder="گذرواژه" />
+                <input className="input-field" placeholder="نام کاربری یا ایمیل سازمانی" value={username} onChange={(e) => setUsername(e.target.value)} />
+                <input type="password" className="input-field" placeholder="گذرواژه" value={password} onChange={(e) => setPassword(e.target.value)} />
               </>
             ) : (
-              <input className="input-field" placeholder="شماره موبایل (مثلاً 0912xxxxxxx)" />
+              <input className="input-field" placeholder="شماره موبایل (مثلاً 0912xxxxxxx)" value={username} onChange={(e) => setUsername(e.target.value)} />
             )}
-            <Button type="submit" variant="primary" className="w-full justify-center">
-              ورود به سامانه بنیاد
+            {error && <p className="text-[12px] text-red-600">{error}</p>}
+            <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading}>
+              {loading ? "در حال ورود…" : "ورود به سامانه بنیاد"}
             </Button>
+            <p className="text-[11px] text-ink-400 text-center">نمونه: admin / demo1234</p>
           </form>
 
           <button className="w-full mt-3 flex items-center justify-center gap-1.5 text-xs text-ink-500 hover:text-ink-700 py-2">

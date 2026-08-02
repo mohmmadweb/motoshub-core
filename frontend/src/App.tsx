@@ -1,5 +1,10 @@
 import { Suspense, lazy } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { isAuthed } from "./lib/auth";
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  return isAuthed() ? <>{children}</> : <Navigate to="/login" replace />;
+}
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmProvider";
 import { ContentProvider } from "./context/ContentContext";
@@ -78,7 +83,7 @@ export default function App() {
         <Route path="/public/:section/:id" element={<PublicItemDetail />} />
         <Route path="/login" element={<Login />} />
 
-        <Route path="/dashboard" element={<AppLayout />}>
+        <Route path="/dashboard" element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Navigate to="/dashboard" replace />} />
           <Route path="news" element={<News />} />
