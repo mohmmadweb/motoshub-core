@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { FileSignature, Plus, Paperclip, CircleDollarSign, Hourglass, ShieldCheck, ListFilter, CheckCircle2, Circle, History, Landmark, PenLine, ArrowLeftRight, Clock3 } from "lucide-react";
-import { contracts as initialContracts, currentUser, type ContractRecord } from "../data/mock";
+import { currentUser, type ContractRecord } from "../data/mock";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromContract, toContract } from "../lib/adapters";
 import { contractDetails, type ContractDetail } from "../data/mockDetails";
 import { techTransferContracts, eSignDocuments, tenders, pendingReviewItems, type TechTransferContract, type TenderRecord } from "../data/mockDaneshmand";
 import Tabs from "../components/ui/Tabs";
@@ -49,7 +51,7 @@ export default function Contracts() {
       />
       <Tabs
         tabs={[
-          { id: "tech", label: "قراردادهای فناورانه", count: initialContracts.length },
+          { id: "tech", label: "قراردادهای فناورانه" },
           { id: "transfer", label: "پورتفولیوی تبادل فناوری", count: techTransferContracts.length },
           { id: "esign", label: "گردش امضای الکترونیک", count: eSignDocuments.length },
           { id: "tender", label: "مناقصه و کمیسیون معاملات", count: tenders.length },
@@ -299,7 +301,7 @@ function ESignTab() {
 }
 
 function TechContractsTab() {
-  const [contracts, setContracts] = useState<ContractRecord[]>(initialContracts);
+  const [contracts, setContracts] = useApiCollection<ContractRecord>("/contracts", fromContract as any, toContract as any);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [vendor, setVendor] = useState("");

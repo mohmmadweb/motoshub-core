@@ -45,3 +45,10 @@ export function relativeFa(iso: string | null | undefined): string {
 
 export const visToFa = (v: string) => (v === "public" ? "عمومی" : "خصوصی");
 export const visToApi = (v: string) => (v === "عمومی" ? "public" : "private");
+
+export const faMoney = (n: number | string) => `${Number(n || 0).toLocaleString("fa-IR")} ریال`;
+export const faToNumber = (s: string | number): number => {
+  if (typeof s === "number") return s;
+  const latin = String(s).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  return Number(latin.replace(/[^0-9.]/g, "")) || 0;
+};

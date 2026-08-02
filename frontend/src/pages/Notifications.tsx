@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { AtSign, Heart, MessageCircle, Settings, CheckSquare, Bell, CheckCheck, Circle, CheckCircle2 } from "lucide-react";
-import { notifications as initialNotifications, type Notification } from "../data/mock";
+import { type Notification } from "../data/mock";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromNotification } from "../lib/adapters";
 import PageHeader from "../components/ui/PageHeader";
 import Tabs from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
@@ -19,7 +21,7 @@ type FilterId = "all" | "unread";
 
 export default function Notifications() {
   const [filter, setFilter] = useState<FilterId>("all");
-  const [items, setItems] = useState<Notification[]>(initialNotifications);
+  const [items, setItems] = useApiCollection<Notification>("/notifications", fromNotification as any, () => ({}));
   const { notify } = useToast();
 
   const unreadCount = items.filter((n) => !n.read).length;

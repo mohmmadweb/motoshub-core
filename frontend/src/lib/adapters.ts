@@ -99,3 +99,15 @@ export const fromPoll = (p: any) => ({
   myVote: p.my_vote ?? undefined,
 });
 export const toPoll = (v: any) => ({ question: v.question, option_labels: (v.options ?? []).map((o: any) => o.label) });
+
+// ── Notifications (read real) + Contracts (core real) ───────────────────────
+import { faMoney, faToNumber } from "./jalali";
+export const fromNotification = (n: any) => ({ id: n.id, text: n.text, time: relativeFa(n.created_at), read: n.read, type: n.kind });
+
+const cStage: Record<string, string> = { negotiation: "مذاکره", rfp: "فراخوان", evaluation: "داوری", executing: "در حال اجرا", settled: "تسویه‌شده" };
+const cStageApi: Record<string, string> = { "مذاکره": "negotiation", "فراخوان": "rfp", "داوری": "evaluation", "در حال اجرا": "executing", "تسویه‌شده": "settled" };
+export const fromContract = (c: any) => ({
+  id: c.id, title: c.title, vendor: c.vendor, stage: cStage[c.stage] ?? "مذاکره",
+  value: faMoney(c.value), deadline: toJalali(c.deadline), owner: c.owner?.name ?? "—",
+});
+export const toContract = (v: any) => ({ title: v.title, vendor: v.vendor, stage: cStageApi[v.stage] ?? "negotiation", value: faToNumber(v.value) });
