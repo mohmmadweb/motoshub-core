@@ -15,3 +15,14 @@ export function openChannelSocket(channelId: string): WebSocket | null {
     return null;
   }
 }
+
+/** Open the current user's DM socket (receives incoming DMs). */
+export function openDmSocket(): WebSocket | null {
+  const token = getToken();
+  if (!token || !WS_BASE) return null;
+  try {
+    return new WebSocket(`${WS_BASE}/ws/dm/?token=${token}`);
+  } catch {
+    return null;
+  }
+}

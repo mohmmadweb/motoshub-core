@@ -69,3 +69,46 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         channel = Channel.objects.get(id=self.channel_id)
         msg = Message.objects.create(channel=channel, author=self.user, text=text, tenant=channel.tenant)
         return MessageSerializer(msg).data
+
+
+class DmConsumer(AsyncJsonWebsocketConsumer):
+    """Per-user DM socket: joins group dm_<user_id>; receives messages addressed
+    to this user (broadcast by DmView on POST). Send still goes over REST."""
+
+    @classmethod
+    async def encode_json(cls, content):
+        return json.dumps(content, default=str, ensure_ascii=False)
+
+    async def connect(self):
+        user = await self._authenticate()
+        if user is None:
+            await self.close(code=4401)
+            return
+        self.user = user
+        self.group = f"dm_{user.id}"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, code):
+        if hasattr(self, "group"):
+            await self.channel_layer.group_discard(self.group, self.channel_name)
+
+    async def dm_message(self, event):
+        await self.send_json(event["message"])
+
+    async def _authenticate(self):
+        qs = self.scope.get("query_string", b"").decode()
+        params = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
+        token = params.get("token")
+        if not token:
+            return None
+        try:
+            payload = decode(token)
+        except jwt.InvalidTokenError:
+            return None
+        return await self._get_user(payload.get("sub"))
+
+    @database_sync_to_async
+    def _get_user(self, user_id):
+        from apps.accounts.models import User
+        return User.objects.filter(id=user_id, is_active=True).first()

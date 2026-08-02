@@ -86,4 +86,11 @@ class DmView(APIView):
         if not peer or peer.id == me.id or not text:
             return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "گیرنده یا متن نامعتبر است."}}, status=422)
         m = DirectMessage.objects.create(tenant=request.tenant, sender=me, recipient=peer, text=text)
+        # Push to the recipient's live DM socket (from their perspective it's incoming).
+        layer = get_channel_layer()
+        if layer is not None:
+            async_to_sync(layer.group_send)(f"dm_{peer.id}", {"type": "dm.message", "message": {
+                "threadId": str(me.id), "with": me.name, "avatarColor": me.avatar_color,
+                "id": str(m.id), "from": "them", "text": m.text, "time": m.created_at.strftime("%H:%M"),
+            }})
         return Response({"id": str(m.id), "from": "me", "text": m.text, "time": m.created_at.strftime("%H:%M"), "status": "delivered"}, status=201)

@@ -52,7 +52,7 @@ import {
 } from "../data/mock";
 import Avatar from "../components/Avatar";
 import { http } from "../lib/http";
-import { openChannelSocket } from "../lib/ws";
+import { openChannelSocket, openDmSocket } from "../lib/ws";
 import { fromChannel, fromChannelMessage } from "../lib/adapters";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
@@ -144,6 +144,30 @@ export default function Chat() {
       setDmThreads(threads);
       setSelection((sel) => (sel.id === "" && threads.length ? { kind: "dm", id: threads[0].id } : sel));
     }).catch(() => {});
+  }, []);
+
+  // Realtime receive: the current user's DM socket appends incoming messages,
+  // creating the thread if it doesn't exist yet.
+  useEffect(() => {
+    const sock = openDmSocket();
+    if (!sock) return;
+    sock.onmessage = (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        const incoming: DmMsg = { id: d.id, from: "them", text: d.text, time: d.time, kind: "text" };
+        setDmThreads((prev) => {
+          const i = prev.findIndex((t) => t.id === d.threadId);
+          if (i === -1) {
+            return [{ id: d.threadId, with: d.with, avatarColor: d.avatarColor, online: true,
+              lastMessage: d.text, time: d.time, unread: 1, messages: [incoming] }, ...prev];
+          }
+          return prev.map((t) => t.id === d.threadId
+            ? { ...t, messages: t.messages.some((m) => m.id === incoming.id) ? t.messages : [...t.messages, incoming], lastMessage: d.text, time: d.time, unread: t.unread + 1 }
+            : t);
+        });
+      } catch { /* ignore */ }
+    };
+    return () => sock.close();
   }, []);
 
   // Load real messages when a channel is selected.
