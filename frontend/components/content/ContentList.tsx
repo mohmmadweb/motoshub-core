@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
+import Skeleton from "@/components/ui/Skeleton";
 import { useList, useRemoveById } from "@/hooks/useContent";
 import { faDate } from "@/lib/format";
 
@@ -84,7 +85,7 @@ export default function ContentList<T extends { id: string; created_at: string; 
         </Modal>
       )}
 
-      {isLoading && <Card className="p-8 text-center text-sm text-ink-400">در حال بارگذاری…</Card>}
+      {isLoading && <Skeleton />}
       {isError && <Card className="p-8 text-center text-sm text-red-600">خطا در دریافت داده.</Card>}
       {!isLoading && !isError && rows.length === 0 && (
         <Card className="p-8 text-center text-sm text-ink-400">موردی یافت نشد.</Card>

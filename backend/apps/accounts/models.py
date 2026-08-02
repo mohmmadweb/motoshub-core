@@ -57,6 +57,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = "accounts_user"
+        ordering = ["-date_joined"]
 
     def __str__(self):
         return self.name or self.username
