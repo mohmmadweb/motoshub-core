@@ -81,3 +81,21 @@ export const fromCourse = (c: any) => ({
   satisfaction: c.satisfaction != null ? Number(c.satisfaction) : undefined,
 });
 export const toCourse = (v: any) => ({ title: v.title, instructor: v.instructor, hours: v.hours, capacity: v.capacity, status: cStatusApi[v.status] ?? "open" });
+
+// ── Tickets & Polls (list + create real; sub-actions reply/vote stay local) ──
+const prio: Record<string, string> = { low: "کم", medium: "متوسط", urgent: "فوری" };
+const prioApi: Record<string, string> = { "کم": "low", "متوسط": "medium", "فوری": "urgent" };
+const tStatus: Record<string, string> = { open: "باز", in_review: "در حال بررسی", answered: "پاسخ داده شد", closed: "بسته" };
+export const fromTicket = (t: any) => ({
+  id: t.id, no: t.number ?? "", subject: t.subject, category: t.category ?? "",
+  priority: prio[t.priority] ?? "متوسط", status: tStatus[t.status] ?? "باز", updated: toJalali(t.updated_at ?? t.created_at),
+  messages: (t.messages ?? []).map((m: any) => ({ from: m.from_support ? "support" : "me", text: m.body, time: toTime(m.created_at) })),
+});
+export const toTicket = (v: any) => ({ subject: v.subject, category: v.category, priority: prioApi[v.priority] ?? "medium" });
+
+export const fromPoll = (p: any) => ({
+  id: p.id, question: p.question, by: p.author?.name ?? "—", ends: toJalali(p.ends_at),
+  options: (p.options ?? []).map((o: any) => ({ id: o.id, label: o.label, votes: o.votes ?? 0 })),
+  myVote: p.my_vote ?? undefined,
+});
+export const toPoll = (v: any) => ({ question: v.question, option_labels: (v.options ?? []).map((o: any) => o.label) });

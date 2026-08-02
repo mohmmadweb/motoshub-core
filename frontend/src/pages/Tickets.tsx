@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromTicket, toTicket } from "../lib/adapters";
 import { LifeBuoy, Plus, Send, Clock3, CheckCircle2, MessageSquareText } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
@@ -23,54 +25,12 @@ type Ticket = {
 
 const categories = ["فنی و سامانه", "دسترسی و نقش‌ها", "مالی و پرداخت", "پیشنهاد و انتقاد"];
 
-const initialTickets: Ticket[] = [
-  {
-    id: "tk1",
-    no: "TK-1405-0214",
-    subject: "خطای بارگذاری فایل بزرگ‌تر از ۵۰ مگابایت در بانک دانش",
-    category: "فنی و سامانه",
-    priority: "فوری",
-    status: "در حال بررسی",
-    updated: "۲ ساعت پیش",
-    messages: [
-      { from: "me", text: "هنگام بارگذاری گزارش ۸۰ مگابایتی خطای ۴۱۳ می‌گیرم.", time: "دیروز ۱۴:۲۰" },
-      { from: "support", text: "سلام، در حال بررسی محدودیت آپلود سرور شما هستیم؛ تا امروز عصر نتیجه را اعلام می‌کنیم.", time: "دیروز ۱۶:۰۵" },
-    ],
-  },
-  {
-    id: "tk2",
-    no: "TK-1405-0198",
-    subject: "درخواست دسترسی «امتیازدهی داوری» برای دو کارشناس جدید",
-    category: "دسترسی و نقش‌ها",
-    priority: "متوسط",
-    status: "پاسخ داده شد",
-    updated: "دیروز",
-    messages: [
-      { from: "me", text: "لطفاً نقش «کارشناس داوری صندوق» به خانم‌ها احمدی و رضوی تخصیص یابد.", time: "۱۴۰۵/۰۴/۲۹" },
-      { from: "support", text: "انجام شد؛ هر دو کاربر اکنون نقش موردنظر را دارند. لطفاً تایید بفرمایید.", time: "۱۴۰۵/۰۴/۲۹" },
-    ],
-  },
-  {
-    id: "tk3",
-    no: "TK-1405-0175",
-    subject: "مغایرت مبلغ پرداختی مرحله ۱ پروژه NF-1404-1004",
-    category: "مالی و پرداخت",
-    priority: "متوسط",
-    status: "بسته",
-    updated: "۱۴۰۵/۰۴/۲۵",
-    messages: [
-      { from: "me", text: "مبلغ واریزی با دستور پرداخت ۱۰ میلیون ریال اختلاف دارد.", time: "۱۴۰۵/۰۴/۲۲" },
-      { from: "support", text: "اختلاف مربوط به کسر حسن انجام کار است؛ ریز محاسبه پیوست شد.", time: "۱۴۰۵/۰۴/۲۴" },
-      { from: "me", text: "ممنون، تایید می‌کنم.", time: "۱۴۰۵/۰۴/۲۵" },
-    ],
-  },
-];
 
 const statusTone: Record<Ticket["status"], BadgeTone> = { باز: "brand", "در حال بررسی": "warning", "پاسخ داده شد": "success", بسته: "neutral" };
 const prioTone: Record<Ticket["priority"], BadgeTone> = { کم: "neutral", متوسط: "warning", فوری: "danger" };
 
 export default function Tickets() {
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [tickets, setTickets] = useApiCollection<Ticket>("/tickets", fromTicket as any, toTicket as any);
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");

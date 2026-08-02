@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromPoll, toPoll } from "../lib/adapters";
 import { ListChecks, Plus, Timer, FileQuestion, CheckCircle2 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
@@ -18,31 +20,6 @@ type Poll = {
   myVote?: string;
 };
 
-const initialPolls: Poll[] = [
-  {
-    id: "pl1",
-    question: "زمان برگزاری جلسات هفتگی هماهنگی هلدینگ‌ها کدام باشد؟",
-    by: "پایگاه اطلاع‌رسانی بنیاد",
-    ends: "۱۴۰۵/۰۵/۰۵",
-    options: [
-      { id: "a", label: "شنبه‌ها ۱۰ صبح", votes: 34 },
-      { id: "b", label: "یکشنبه‌ها ۱۴", votes: 21 },
-      { id: "c", label: "سه‌شنبه‌ها ۹ صبح", votes: 12 },
-    ],
-  },
-  {
-    id: "pl2",
-    question: "کدام حوزه برای فراخوان بعدی صندوق نوآور در اولویت باشد؟",
-    by: "مدیر صندوق نوآور",
-    ends: "۱۴۰۵/۰۵/۱۵",
-    options: [
-      { id: "a", label: "هوش مصنوعی صنعتی", votes: 58 },
-      { id: "b", label: "امنیت غذایی", votes: 41 },
-      { id: "c", label: "انرژی و بهینه‌سازی مصرف", votes: 37 },
-      { id: "d", label: "سلامت دیجیتال", votes: 25 },
-    ],
-  },
-];
 
 type Quiz = {
   id: string;
@@ -65,7 +42,7 @@ const quizTone: Record<Quiz["status"], BadgeTone> = { باز: "success", "در �
 
 export default function Polls() {
   const [tab, setTab] = useTabParam<"polls" | "quiz">("polls", ["polls", "quiz"]);
-  const [polls, setPolls] = useState<Poll[]>(initialPolls);
+  const [polls, setPolls] = useApiCollection<Poll>("/polls", fromPoll as any, toPoll as any);
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [optionsText, setOptionsText] = useState("");
