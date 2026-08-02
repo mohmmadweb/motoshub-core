@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MessagesSquare, NotebookPen, CalendarDays, Image, BookOpen, Newspaper, Users } from "lucide-react";
 import {
   forumTopics as initialForumTopics,
@@ -56,7 +56,33 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNewsItems);
   const [groups, setGroups] = useState<Group[]>(initialGroups);
 
-  return (
+  // Load real data from the backend when authenticated (mock stays as the
+  // fallback for public/unauthenticated pages so nothing breaks).
+  useEffect(() => {
+      let alive = true;
+      (async () => {
+        const { http, getToken } = await import("../lib/http");
+        if (!getToken()) return;
+        const m = await import("../lib/mapFromApi");
+        const load = async (path: string, mapper: (x: any) => any, set: (v: any[]) => void) => {
+          try {
+            const res = await http.get(path);
+            const rows = (res?.data ?? []).map(mapper);
+            if (alive) set(rows);
+          } catch { /* keep mock fallback */ }
+        };
+        load("/news", m.mapNews, setNewsItems);
+        load("/blogs", m.mapBlog, setBlogPosts);
+        load("/events", m.mapEvent, setEvents);
+        load("/media", m.mapMedia, setMediaItems);
+        load("/knowledge", m.mapKnowledge, setKnowledgeDocs);
+        load("/groups", m.mapGroup, setGroups);
+        load("/forum/topics", m.mapForum, setForumTopics);
+      })();
+      return () => { alive = false; };
+    }, []);
+
+    return (
     <ContentContext.Provider
       value={{
         forumTopics, setForumTopics,
