@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import AddButton from "@/components/common/AddButton";
 import Card from "@/components/ui/Card";
@@ -23,7 +24,7 @@ export default function TicketsPage() {
           <div key={t.id} className="flex items-center justify-between gap-3 p-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-ink-900">{t.subject}</span>
+                <Link href={`/tickets/${t.id}`} className="font-medium text-ink-900 hover:text-brand-700">{t.subject}</Link>
                 <Badge tone={prio[t.priority]?.tone}>{prio[t.priority]?.label}</Badge>
               </div>
               <p className="mt-0.5 text-xs text-ink-400">{t.number} · {t.category} · {faDate(t.created_at)}</p>

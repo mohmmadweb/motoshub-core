@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { CheckCircle2, Eye, MessageSquare } from "lucide-react";
 
 import Badge from "@/components/ui/Badge";
@@ -20,7 +21,7 @@ export default function ForumPage() {
           <div key={t.id} className="flex items-center justify-between gap-3 p-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-ink-900">{t.title}</span>
+                <Link href={`/forum/${t.id}`} className="font-medium text-ink-900 hover:text-brand-700">{t.title}</Link>
                 {t.solved && <Badge tone="success"><CheckCircle2 size={11} /> حل‌شده</Badge>}
               </div>
               <p className="mt-0.5 text-xs text-ink-400">{t.author?.name ?? "—"} · {faDate(t.created_at)}</p>

@@ -127,3 +127,7 @@ export interface ReportSummary {
   funds_by_stage: Record<string, number>;
   tickets_by_status: Record<string, number>;
 }
+
+export interface ForumReply { id: string; topic: string; author: Author | null; body: string; is_solution: boolean; created_at: string; }
+export interface TicketMessage { id: string; ticket: string; author: Author | null; from_support: boolean; body: string; created_at: string; }
+export interface TicketDetail extends Ticket { messages: TicketMessage[]; }
