@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fa" dir="rtl">
+    <html lang="fa" dir="rtl" suppressHydrationWarning>
       <head>
         {/* Apply the persisted theme before paint to avoid a flash. */}
         <script
