@@ -42,7 +42,6 @@ import {
   Eraser,
 } from "lucide-react";
 import {
-  chatThreads as initialChatThreads,
   users,
   currentUser,
   userPresence,
@@ -98,23 +97,11 @@ const nowFa = () => new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", mi
 // پس‌زمینه پترن‌دار گفتگو: کلاس chat-surface در index.css (با نسخه تیره)
 
 export default function Chat() {
-  const [selection, setSelection] = useState<Selection>({ kind: "dm", id: initialChatThreads[0].id });
+  const [selection, setSelection] = useState<Selection>({ kind: "dm", id: "" });
   const [messages, setMessages] = useState<ChannelMessage[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [msgAuthors, setMsgAuthors] = useState<Record<string, { name: string; color: string }>>({});
-  const [dmThreads, setDmThreads] = useState<DmThreadState[]>(
-    initialChatThreads.map((t) => ({
-      ...t,
-      messages: t.messages.map((m, i) => ({
-        id: `${t.id}-m${i}`,
-        from: m.from,
-        text: m.text,
-        time: m.time,
-        status: m.from === "me" ? (m.read ? "read" : "delivered") : undefined,
-        kind: "text" as const,
-      })),
-    }))
-  );
+  const [dmThreads, setDmThreads] = useState<DmThreadState[]>([]);
   const [draft, setDraft] = useState("");
   const [threadFor, setThreadFor] = useState<ChannelMessage | null>(null);
   const [panel, setPanel] = useState<"none" | "pinned" | "saved" | "members" | "profile">("none");
@@ -148,6 +135,14 @@ export default function Chat() {
   // Load real channels once.
   useEffect(() => {
     http<any[]>("/chat/channels?page_size=100").then((rows) => setChannels(rows.map(fromChannel) as Channel[])).catch(() => {});
+  }, []);
+
+  // Load real DM threads once; default the selection to the first thread.
+  useEffect(() => {
+    http<DmThreadState[]>("/chat/dms").then((threads) => {
+      setDmThreads(threads);
+      setSelection((sel) => (sel.id === "" && threads.length ? { kind: "dm", id: threads[0].id } : sel));
+    }).catch(() => {});
   }, []);
 
   // Load real messages when a channel is selected.
@@ -238,6 +233,8 @@ export default function Chat() {
       };
       updateDm(activeDm.id, (msgs) => [...msgs, msg], text);
       simulateDelivery(activeDm.id, id);
+      // Persist to the real DM backend (thread id === peer user id).
+      http("/chat/dms", { method: "POST", body: JSON.stringify({ to: activeDm.id, text }) }).catch(() => {});
     }
     setDraft("");
     setReplyTo(null);

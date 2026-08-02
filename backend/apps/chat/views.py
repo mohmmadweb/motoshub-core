@@ -37,3 +37,53 @@ class ChannelViewSet(TenantScopedModelViewSet):
             return Response(data, status=201)
         qs = channel.messages.select_related("author").all()[:200]
         return Response(MessageSerializer(qs, many=True, context={"request": request}).data)
+
+
+# ── Direct messages (1:1) ────────────────────────────────────────────────────
+from django.db.models import Q  # noqa: E402
+from rest_framework.permissions import IsAuthenticated  # noqa: E402
+from rest_framework.views import APIView  # noqa: E402
+
+from apps.accounts.models import User  # noqa: E402
+from .models import DirectMessage  # noqa: E402
+
+
+class DmView(APIView):
+    """GET → the current user's DM threads (grouped by peer, newest last).
+    POST {to, text} → send a direct message. GET ?peer=<id> marks it read."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        me = request.user
+        t = getattr(request, "tenant", None)
+        qs = DirectMessage.objects.filter(tenant=t).filter(Q(sender=me) | Q(recipient=me)).select_related("sender", "recipient")
+        threads = {}
+        for m in qs:
+            peer = m.recipient if m.sender_id == me.id else m.sender
+            th = threads.setdefault(str(peer.id), {
+                "id": str(peer.id), "with": peer.name, "avatarColor": peer.avatar_color,
+                "online": peer.presence == "online", "messages": [], "unread": 0,
+            })
+            th["messages"].append({
+                "id": str(m.id), "from": "me" if m.sender_id == me.id else "them",
+                "text": m.text, "time": m.created_at.strftime("%H:%M"),
+                "status": "read" if m.read else "delivered",
+            })
+            if m.recipient_id == me.id and not m.read:
+                th["unread"] += 1
+        out = []
+        for th in threads.values():
+            th["lastMessage"] = th["messages"][-1]["text"] if th["messages"] else ""
+            th["time"] = th["messages"][-1]["time"] if th["messages"] else ""
+            out.append(th)
+        return Response(out)
+
+    def post(self, request):
+        me = request.user
+        data = request.data or {}
+        peer = User.objects.filter(id=data.get("to")).first()
+        text = (data.get("text") or "").strip()
+        if not peer or peer.id == me.id or not text:
+            return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "گیرنده یا متن نامعتبر است."}}, status=422)
+        m = DirectMessage.objects.create(tenant=request.tenant, sender=me, recipient=peer, text=text)
+        return Response({"id": str(m.id), "from": "me", "text": m.text, "time": m.created_at.strftime("%H:%M"), "status": "delivered"}, status=201)

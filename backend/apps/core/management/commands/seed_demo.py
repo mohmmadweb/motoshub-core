@@ -24,7 +24,7 @@ from apps.contracts.models import (
 )
 from apps.fund.models import Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
 from apps.awards.models import AwardEntry, AwardTrack
-from apps.chat.models import Channel, Message
+from apps.chat.models import Channel, DirectMessage, Message
 from apps.notifications.models import Notification
 from apps.polls.models import Poll, PollOption
 from apps.projects.models import Project, Task
@@ -239,6 +239,12 @@ class Command(BaseCommand):
                 doc = ESignDocument.objects.create(tenant=tenant, title=ti, kind=ki, related_to=rel, letter_no=ln)
                 for i, (ro, na, sta, da) in enumerate(steps):
                     ESignStep.objects.create(tenant=tenant, document=doc, role=ro, name=na, status=sta, date=da, order=i)
+
+        # ── Direct messages (seed a couple of threads for admin) ─────────────────
+        if not DirectMessage.objects.filter(tenant=tenant).exists() and member:
+            DirectMessage.objects.create(tenant=tenant, sender=member, recipient=admin, text="سلام، وقت بخیر 🌱", read=True)
+            DirectMessage.objects.create(tenant=tenant, sender=admin, recipient=member, text="سلام! بله بفرمایید.", read=True)
+            DirectMessage.objects.create(tenant=tenant, sender=member, recipient=admin, text="گزارش این هفته را ارسال کردم، لطفاً بررسی بفرمایید.")
 
         # ── Competitions + challenges ────────────────────────────────────────────
         if not Competition.objects.filter(tenant=tenant).exists():

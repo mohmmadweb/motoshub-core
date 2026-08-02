@@ -211,8 +211,9 @@ first-class models with their own workflow actions (advance/score/request).
   `department` field, a time-series aggregation).
 
 **Still on mock — demo-only (no backend planned yet):**
-- chat DM / reactions / threads; realtime receive over WS.
-- competitions, assistant.
+- chat reactions / threads / voice / typing indicators; realtime *receive* over WS
+  (DMs now **persist** — send + threaded load via `/chat/dms`; channels are real).
+- assistant.
 - a few illustrative widgets (report decorative charts, pending-review queue).
 
 Once a module's backend exists, wiring is a small adapter + a `useApiCollection`

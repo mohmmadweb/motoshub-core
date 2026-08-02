@@ -32,3 +32,16 @@ class Message(TenantScopedModel):
         db_table = "chat_message"
         ordering = ["created_at"]
         indexes = [models.Index(fields=["channel", "created_at"])]
+
+
+class DirectMessage(TenantScopedModel):
+    """One-to-one direct message. A "thread" is all messages between two users."""
+    sender = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="dm_sent")
+    recipient = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="dm_received")
+    text = models.TextField()
+    read = models.BooleanField(default=False)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "chat_direct_message"
+        ordering = ["created_at"]
+        indexes = [models.Index(fields=["sender", "recipient", "created_at"])]
