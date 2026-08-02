@@ -52,6 +52,7 @@ import {
 } from "../data/mock";
 import Avatar from "../components/Avatar";
 import { http } from "../lib/http";
+import { openChannelSocket } from "../lib/ws";
 import { fromChannel, fromChannelMessage } from "../lib/adapters";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
@@ -156,6 +157,24 @@ export default function Chat() {
       setMessages((prev) => [...prev.filter((m) => m.channelId !== selection.id), ...mapped.map(({ _authorName, _authorColor, ...m }: any) => m)]);
     }).catch(() => {});
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
+  // Realtime receive: subscribe to the selected channel's WebSocket group.
+  useEffect(() => {
+    if (selection.kind !== "channel") return;
+    const sock = openChannelSocket(selection.id);
+    if (!sock) return;
+    sock.onmessage = (ev) => {
+      try {
+        const m = fromChannelMessage(JSON.parse(ev.data)) as any;
+        setMsgAuthors((prev) => ({ ...prev, [m.authorId]: { name: m._authorName, color: m._authorColor } }));
+        const { _authorName, _authorColor, ...msg } = m;
+        // Dedup: the sender already appended this message optimistically via REST.
+        setMessages((prev) => (prev.some((x) => x.id === msg.id) ? prev : [...prev, msg]));
+      } catch { /* ignore malformed frames */ }
+    };
+    return () => sock.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
 
