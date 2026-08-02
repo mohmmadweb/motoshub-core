@@ -4,8 +4,9 @@
 
 A clean, modular, production-grade implementation of the **Motoshub** platform —
 a multi-tenant enterprise "communications + organizational processes" product.
-Its goal is to bring the reference prototype at **demo.shub.ir** fully to life:
-a Django REST backend and a Next.js web client that make every screen work for real.
+It brings the reference prototype at **demo.shub.ir** fully to life: a Django REST
++ Channels backend and the **exact prototype UI** (a Vite/React SPA) wired to it,
+so every screen works for real — no mock data.
 
 > **Standalone repo.** This project does not depend on or modify the other
 > Motoshub repositories — they are references only. Architecture is in
@@ -17,22 +18,27 @@ a Django REST backend and a Next.js web client that make every screen work for r
 ```
 motoshub-core/
 ├── backend/     Django 5 + DRF + PostgreSQL + Redis + Celery + Channels  (the API)
-├── frontend/    Next.js (App Router) + TypeScript + Tailwind, RTL/Persian (the web client)
-├── infra/       docker-compose + nginx  (run the whole stack)
+├── frontend/    Vite + React 19 + Tailwind v4, RTL/Persian — the demo.shub.ir UI, wired to the API
+├── infra/       docker-compose + nginx  (run the whole stack behind one origin)
 ├── docs/        architecture & engineering docs
 ├── README.md
 └── CONVENTIONS.md
 ```
+
+There is **one** frontend: `frontend/` is the pixel-for-pixel prototype UI served
+as a static SPA. In production nginx serves it and reverse-proxies `/api`, `/ws`,
+`/static`, `/media` to the Django container, so the browser talks to a single origin.
 
 ## Tech stack
 
 | Layer | Choice | Why |
 |-------|--------|-----|
 | API | Django 5 + Django REST Framework | Batteries-included, great admin, mature RBAC/ORM |
-| DB | PostgreSQL | Clean normalized schema, JSON fields, strong integrity |
-| Cache/queue/realtime | Redis + Celery + Channels | Scheduled workflow rules + realtime chat |
+| DB | PostgreSQL (sqlite for local dev) | Clean normalized schema, JSON fields, strong integrity |
+| Cache/queue/realtime | Redis + Celery + Channels | Scheduled workflow rules + realtime chat (channels + DMs) |
+| ASGI server | daphne | Serves REST **and** WebSockets in one process |
 | Auth | Unified HS256 JWT (shared pepper) | Interops with the gateway ecosystem |
-| Web | Next.js App Router + Tailwind | SSR/RTL-friendly, matches the prototype's design system |
+| Web | Vite + React + Tailwind (RTL) | The prototype's own stack; pixel-matches demo.shub.ir |
 
 ## Run it live (Docker — recommended)
 
@@ -47,46 +53,46 @@ Then open:
 
 | What | URL |
 |------|-----|
-| Web client | http://localhost:3000 |
-| API — Swagger UI (try endpoints) | http://localhost:8000/api/v1/docs/ |
-| API — health | http://localhost:8000/api/v1/health |
+| Web app (SPA + proxied API) | http://localhost |
+| API — Swagger UI | http://localhost/api/v1/docs/ |
+| API — health | http://localhost/api/v1/health |
 
 **Demo login** (seeded automatically): `admin` / `demo1234` (full access) or
 `member` / `demo1234` (regular member).
 
-> While the frontend is still being built, bring up just the backend stack:
-> `docker compose -f infra/docker-compose.yml up --build db redis api worker`
-> and test through Swagger at http://localhost:8000/api/v1/docs/.
+## Run locally without Docker
 
-## Run the backend only (local, no Docker)
+**Backend** (REST + WebSockets on :8000):
 
 ```bash
 cd backend
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env                       # DATABASE_URL can be sqlite:///dev.db for a quick spin
+cp .env.example .env                        # DATABASE_URL=sqlite:///dev.db for a quick spin
 python manage.py migrate
 python manage.py seed_rbac                  # preset roles from the permission catalog
 python manage.py seed_demo                  # demo tenant + users + sample content
-python manage.py runserver                  # http://localhost:8000
+python manage.py runserver 0.0.0.0:8000     # daphne-backed → serves WS too
 ```
+
+**Frontend** (Vite dev server, needs Node 20):
+
+```bash
+cd frontend
+npm install
+# For a direct dev spin against the backend on :8000:
+VITE_API_BASE=http://localhost:8000/api/v1 VITE_WS_BASE=ws://localhost:8000 npm run dev
+```
+
+Production build: `npm run build` → static files in `frontend/dist/` (serve with
+any static host, or the `frontend/docker` nginx image which also proxies the API).
 
 ## How to test
 
 - **Interactively:** open Swagger at `/api/v1/docs/`, call `POST /api/v1/auth/login`
-  with the demo credentials, copy the `access` token into the "Authorize" box,
-  then exercise any endpoint.
-- **From the terminal:**
-  ```bash
-  # login → capture the access token
-  curl -s localhost:8000/api/v1/auth/login \
-       -H 'Content-Type: application/json' \
-       -d '{"username":"admin","password":"demo1234"}' | jq .data.access
-
-  # use it
-  curl -s localhost:8000/api/v1/news -H "Authorization: Bearer <token>" | jq
-  ```
-- **Automated:** `cd backend && pytest`.
+  with the demo credentials, copy the `access` token into "Authorize", then
+  exercise any endpoint.
+- **Automated:** `cd backend && pytest` (L1 suite) · `cd frontend && npm run lint && npm run build`.
 
 Every list response is `{data, links, meta}`; errors are
 `{error: {code, type, message, details?}}`.
@@ -95,36 +101,21 @@ Every list response is `{data, links, meta}`; errors are
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| `POST` | `/api/v1/auth/login` | — | returns `access` + `refresh` + `user` |
-| `POST` | `/api/v1/auth/refresh` | — | new `access` |
-| `GET` | `/api/v1/auth/me` | ✔ | current user + effective permissions |
-| `GET` | `/api/v1/health` | — | liveness |
+| `POST` | `/api/v1/auth/login` · `/auth/refresh` · `GET /auth/me` | —/✔ | unified JWT |
+| `GET` | `/api/v1/health` | — | liveness (pings DB) |
 | CRUD | content: `/news` `/blogs` `/events` `/media` `/knowledge` | ✔ + RBAC | tenant-scoped |
-| CRUD | social: `/groups` (+join/leave) `/forum/topics` (+reply/solve) | ✔ + RBAC | IDOR-safe privacy |
-| CRUD | process: `/projects` `/tasks` `/contracts` `/funds/projects` | ✔ + RBAC | stage machines |
+| CRUD | social: `/groups` (+join/leave) `/forum/topics` (+reply) · `/social/friends` | ✔ | IDOR-safe; friend graph |
+| CRUD | process: `/projects` `/tasks` `/contracts` (+tech-transfer/tenders/esign) | ✔ + RBAC | stage machines |
+| CRUD | `/funds/records` · `/funds/projects` (innovation-fund dossier, by NF code) | ✔ + RBAC | eval gates + workflow |
 | CRUD | `/training/courses` `/tickets` `/polls` `/research` `/awards/*` | ✔ + RBAC | |
-| WS | `/ws/chat/<channel_id>/?token=` + `/chat/channels` | ✔ | realtime |
-| — | `/notifications` `/settings/workflow` `/reports/summary` | ✔ + RBAC | |
+| CRUD | `/competitions` (+vote) · `/challenges` (+join) | ✔ | participatory |
+| REST+WS | `/chat/channels` (+messages) · `/chat/dms` · `ws/chat/<id>/` · `ws/dm/` | ✔ | realtime |
+| — | `/notifications` `/reports/summary` `/assistant/{ask,suggestions}` `/settings/workflow` `/roles` `/users` | ✔ + RBAC | assistant answers from live data |
 
-All prototype modules are implemented end-to-end (backend + frontend); the full
-module map + status is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The full module map + honest per-feature status is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (§9–§10).
 
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design, contracts, module map, status
 - [CONVENTIONS.md](CONVENTIONS.md) — coding rules for backend & frontend
-
-## Pixel-perfect demo UI (`frontend-demo/`)
-
-`frontend-demo/` is the **exact demo.shub.ir UI** (the `motoshub-prototype` code)
-vendored into this repo so it can be built and deployed as part of the product.
-It builds with Node 20 (`cd frontend-demo && npm install && npm run build`) and is
-served as static files (HashRouter SPA — any static host works).
-
-- **`frontend/`** — the Next.js client wired to the real Django API (functional).
-- **`frontend-demo/`** — the pixel-perfect prototype UI (currently mock-data).
-
-**Roadmap to unify:** replace `frontend-demo`'s mock data layer (`src/lib/api.ts`,
-`src/context/ContentContext.tsx`, `src/data/*`) and per-page CRUD with calls to the
-`/api/v1` backend, module by module (auth/RBAC → content → social → process). The
-result is the demo UI on the real backend.

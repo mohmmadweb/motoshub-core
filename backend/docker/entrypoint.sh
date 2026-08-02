@@ -7,7 +7,9 @@ case "${1:-web}" in
     python manage.py migrate --noinput
     python manage.py seed_rbac
     python manage.py seed_demo || true
-    exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --access-logfile -
+    python manage.py collectstatic --noinput || true
+    # ASGI (daphne) so REST *and* WebSockets (chat channels + DMs) are served.
+    exec daphne -b 0.0.0.0 -p 8000 config.asgi:application
     ;;
   worker)
     exec celery -A config worker -l info
