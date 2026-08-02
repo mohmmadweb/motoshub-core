@@ -146,3 +146,22 @@ branches ≤ 3 days; bug fixes start with a failing test.
 **All prototype modules are now implemented end-to-end (backend + frontend).**
 Remaining work is depth per module (richer detail views, more L1 tests, the
 remaining SettingsContext wiring to live theming) rather than new modules.
+
+### Depth completion (all P1/P2/P3 done)
+- Full CRUD from the UI for every module (create/edit/delete/search + pagination)
+- Forum & ticket thread views (view + reply); chat realtime
+- File upload (media, knowledge) via multipart
+- Runtime notifications (ticket reply, task assignment) + Celery beat (fund
+  escalation, report reminders); DRF rate-limiting (anon/user/login scopes)
+- User & role administration UI (invite users, custom roles from the 99-permission
+  catalog, system-role protection)
+- Public unauthenticated showcase (/ + /api/v1/public/feed)
+- Live theming: dark mode + font scale (a11y) + 4 accent presets, all persisted
+- Custom 404, loading skeletons, richer dashboard
+- Tests: 13 pytest (backend) + 5 Vitest (frontend), all green in CI
+
+### Known limitations (deliberate / future)
+- Cross-tenant workspace switching needs multi-tenant user membership (users have
+  one home tenant today) — a data-model extension, not wired.
+- Auth extras (password reset, OTP, SSO/LDAP) are not implemented (username/password).
+- Chat is channel-based (no DMs/reactions/threads yet).
