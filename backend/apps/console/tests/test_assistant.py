@@ -6,6 +6,7 @@ from django.test import Client, override_settings
 from apps.projects.models import Project
 
 
+@override_settings(OPENAI_BASE_URL="", OPENAI_API_KEY="", ANTHROPIC_API_KEY="")
 def test_assistant_answers_from_live_data(admin, tenant, auth):
     Project.objects.create(tenant=tenant, name="پ۱", health="green")
     Project.objects.create(tenant=tenant, name="پ۲", health="red")

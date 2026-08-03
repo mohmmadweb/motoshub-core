@@ -13,6 +13,16 @@ def _seed_roles():
             "permissions": spec["permissions"], "is_system": True})
 
 
+@pytest.fixture(autouse=True)
+def _neutralize_llm(settings):
+    """Tests read the real .env (which may hold a live LLM key). Disable the LLM
+    by default so no test hits the network; tests that exercise it re-enable via
+    @override_settings."""
+    settings.OPENAI_BASE_URL = ""
+    settings.OPENAI_API_KEY = ""
+    settings.ANTHROPIC_API_KEY = ""
+
+
 @pytest.fixture
 def tenant(db):
     _seed_roles()
