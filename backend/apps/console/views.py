@@ -224,3 +224,69 @@ class AssistantView(APIView):
         if llm:
             return Response({"answer": llm, "source": "llm"})
         return Response({"answer": _rule_answer(t, q), "source": "rules"})
+
+
+# ── Global cross-module search ───────────────────────────────────────────────
+class SearchView(APIView):
+    """Server-side search across modules → typed hits {id,type,title,snippet,to}."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+        t = request.tenant
+        q = (request.query_params.get("q") or "").strip()
+        if not q or len(q) < 2:
+            return Response({"results": []})
+        hits = []
+        cap = 8  # per module
+
+        def add(qs, type_, title_f, snip_f, to_f):
+            for o in qs[:cap]:
+                hits.append({"id": str(o.id), "type": type_, "title": title_f(o),
+                             "snippet": snip_f(o), "to": to_f(o)})
+
+        # content
+        from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
+        add(News.objects.filter(tenant=t, title__icontains=q), "news",
+            lambda o: o.title, lambda o: "خبر", lambda o: f"/dashboard/news/{o.id}")
+        add(BlogPost.objects.filter(tenant=t, title__icontains=q), "blog",
+            lambda o: o.title, lambda o: o.excerpt or "بلاگ", lambda o: f"/dashboard/blog/{o.id}")
+        add(Event.objects.filter(tenant=t).filter(Q(title__icontains=q) | Q(location__icontains=q)), "event",
+            lambda o: o.title, lambda o: o.location or "رویداد", lambda o: f"/dashboard/events/{o.id}")
+        add(MediaItem.objects.filter(tenant=t, title__icontains=q), "media",
+            lambda o: o.title, lambda o: o.album or "رسانه", lambda o: "/dashboard/media")
+        add(KnowledgeDoc.objects.filter(tenant=t, title__icontains=q), "doc",
+            lambda o: o.title, lambda o: o.category or "سند", lambda o: "/dashboard/knowledge")
+        # social
+        from apps.social.models import ForumTopic, Group
+        add(Group.objects.filter(tenant=t, name__icontains=q), "group",
+            lambda o: o.name, lambda o: o.category or "گروه", lambda o: f"/dashboard/groups/{o.id}")
+        add(ForumTopic.objects.filter(tenant=t, title__icontains=q), "forum",
+            lambda o: o.title, lambda o: o.category or "انجمن", lambda o: f"/dashboard/forum/{o.id}")
+        from apps.accounts.models import User
+        add(User.objects.filter(tenant=t).filter(Q(name__icontains=q) | Q(title__icontains=q)), "user",
+            lambda o: o.name, lambda o: o.title or o.org or "کاربر", lambda o: f"/dashboard/profile/{o.id}")
+        # process
+        from apps.projects.models import Project
+        add(Project.objects.filter(tenant=t).filter(Q(name__icontains=q) | Q(client__icontains=q)), "project",
+            lambda o: o.name, lambda o: f"کارفرما: {o.client}" if o.client else "پروژه", lambda o: f"/dashboard/projects/{o.id}/board")
+        add(Contract.objects.filter(tenant=t).filter(Q(title__icontains=q) | Q(vendor__icontains=q)), "contract",
+            lambda o: o.title, lambda o: o.vendor or "قرارداد", lambda o: "/dashboard/contracts")
+        add(NfProject.objects.filter(tenant=t).filter(Q(title_fa__icontains=q) | Q(code__icontains=q)), "nf",
+            lambda o: f"{o.code} — {o.title_fa}", lambda o: o.team_name or "صندوق نوآور", lambda o: "/dashboard/funds")
+        from apps.training.models import TrainingCourse
+        add(TrainingCourse.objects.filter(tenant=t, title__icontains=q), "training",
+            lambda o: o.title, lambda o: o.instructor or "دوره", lambda o: "/dashboard/training")
+        from apps.chat.models import Channel
+        add(Channel.objects.filter(tenant=t).filter(Q(name__icontains=q) | Q(topic__icontains=q)), "channel",
+            lambda o: o.name, lambda o: o.topic or "کانال", lambda o: "/dashboard/chat")
+        from apps.awards.models import AwardEntry
+        add(AwardEntry.objects.filter(tenant=t).filter(Q(title__icontains=q) | Q(company__icontains=q)), "award",
+            lambda o: o.title, lambda o: o.company or "جایزه", lambda o: "/dashboard/award")
+        from apps.contracts.models import TechTransferContract
+        add(TechTransferContract.objects.filter(tenant=t).filter(Q(title__icontains=q) | Q(company__icontains=q)), "transfer",
+            lambda o: o.title, lambda o: o.company or "تبادل فناوری", lambda o: "/dashboard/contracts?tab=transfer")
+        from apps.research.models import ResearchOpportunity
+        add(ResearchOpportunity.objects.filter(tenant=t, title__icontains=q), "rfp",
+            lambda o: o.title, lambda o: o.field or "فراخوان", lambda o: "/dashboard/research")
+        return Response({"results": hits})

@@ -21,8 +21,12 @@ import {
   MoonStar,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { groups, users, currentUser, notifications, chatThreads, channels, type Post } from "../data/mock";
-import { nfProjects } from "../data/mockInnovationFund";
+import { type Post, type Group, type UserProfile, type Notification as NotificationItem } from "../data/mock";
+import { http, getUser } from "../lib/http";
+import { fromNotification, fromNfProject, fromGroup, fromUser } from "../lib/adapters";
+
+const me = getUser() as { name?: string; avatar_color?: string } | null;
+const currentUser = { name: me?.name ?? "همکار", avatarColor: me?.avatar_color ?? "#1f4f99" };
 import { useContent } from "../context/ContentContext";
 import PostCard from "../components/PostCard";
 import Avatar from "../components/Avatar";
@@ -138,20 +142,30 @@ function PersonalToday() {
   const [doneIds, setDoneIds] = useState<string[]>([]);
   const toggleDone = (id: string) => setDoneIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const { events } = useContent();
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [chatThreads, setChatThreads] = useState<{ id: string; with: string; unread: number; lastMessage: string }[]>([]);
+  const [nfProjects, setNfProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    http<any[]>("/notifications?page_size=50").then((r) => setNotifications(r.map(fromNotification) as NotificationItem[])).catch(() => {});
+    http<any[]>("/chat/dms").then((r) => setChatThreads(r as any)).catch(() => {});
+    http<any[]>("/funds/projects?page_size=100").then((r) => setNfProjects(r.map(fromNfProject))).catch(() => {});
+  }, []);
+
   const unreadNotifs = notifications.filter((n) => !n.read);
   const unreadChats = chatThreads.filter((c) => c.unread > 0);
   const unreadMessages = chatThreads.reduce((s, c) => s + c.unread, 0);
-  const mentions = channels.reduce((s, c) => s + c.mentions, 0);
+  const mentions = 0; // channel @mentions tracking has no backend yet
 
-  // اقدامات در انتظار این کاربر (نمونه: گزارش‌های صندوق که در صف بررسی‌اند)
+  // اقدامات در انتظار این کاربر (گزارش‌های صندوق که در صف بررسی‌اند)
   const pendingActions = nfProjects
-    .flatMap((p) =>
-      p.reports
-        .filter((r) => r.status === "در حال بررسی" || r.status === "در انتظار بارگذاری")
-        .map((r) => ({
+    .flatMap((p: any) =>
+      (p.reports ?? [])
+        .filter((r: any) => r.status === "در حال بررسی" || r.status === "در انتظار بارگذاری")
+        .map((r: any) => ({
           id: `${p.id}-${r.id}`,
           text: r.status === "در حال بررسی" ? `گزارش «${r.title}» پروژه ${p.id} در صف تایید است` : `«${r.title}» پروژه ${p.id} هنوز بارگذاری نشده — سررسید ${r.due}`,
-          late: r.chain.some((c) => c.late),
+          late: (r.chain ?? []).some((c: any) => c.late),
           to: "/dashboard/funds",
         }))
     )
@@ -251,10 +265,14 @@ function PersonalToday() {
 export default function Dashboard() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const { events } = useContent();
   const nextEvent = events[0];
 
   useEffect(() => {
+    http<any[]>("/groups?page_size=8").then((r) => setGroups(r.map(fromGroup) as Group[])).catch(() => {});
+    http<any[]>("/users?page_size=100").then((r) => setUsers(r.map(fromUser) as UserProfile[])).catch(() => {});
     api.feed.list().then((data) => {
       setPosts(data);
       setLoading(false);
