@@ -213,11 +213,14 @@ Nested guarantees/reports/payments/requests are served real (read) and remain
 first-class models with their own workflow actions (advance/score/request).
 
 **Partly real:**
-- reports: KPI cards + the report-builder (projects/contracts/funds/research
-  grouped by status) run off live `/reports/summary` aggregates. The decorative
-  charts (by-department, monthly trend, holding funnel, cross-tab) stay
-  illustrative — they need dimensions the schema doesn't model yet (a
-  `department` field, a time-series aggregation).
+- reports: KPI cards, the report-builder, and the **monthly activity trend**
+  (`/reports/timeseries`) are live. The remaining decorative charts
+  (by-department, holding funnel, cross-tab) stay illustrative — they need
+  dimensions the schema doesn't model yet (e.g. a `department` field).
+
+Also real: the **activity feed** (`/posts` with likes — dashboard, profile and
+group streams), **project milestones/risks** (`/milestones`, `/risks`), and
+**global search** (`/search`).
 
 **Still on mock — demo-only (no backend planned yet):**
 - chat threads / voice / typing indicators (inherently client-side polish).
