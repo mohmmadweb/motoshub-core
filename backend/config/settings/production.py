@@ -1,7 +1,15 @@
 """Production settings — hardened. Never runs with DEBUG on."""
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *  # noqa: F401,F403
 
 DEBUG = False
+
+# Refuse to boot with development secrets in production.
+if SECRET_KEY == "insecure-dev-key":  # noqa: F405
+    raise ImproperlyConfigured("SECRET_KEY must be set to a real value in production.")
+if OW_PASSWORD_PEPPER == "shared-secret-must-match-php-backend":  # noqa: F405
+    raise ImproperlyConfigured("OW_PASSWORD_PEPPER must be set (shared with the PHP backend) in production.")
 
 # ALLOWED_HOSTS / CSRF_TRUSTED_ORIGINS / CORS_ALLOWED_ORIGINS come from the env.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
