@@ -236,3 +236,26 @@ export const fromChallenge = (c: any) => ({
   id: c.id, title: c.title, kind: chKind[c.kind] ?? c.kind, category: c.category,
   joined: c.joined, progress: c.progress ?? undefined, status: chStat[c.status] ?? c.status, isJoined: c.is_joined,
 });
+
+// ── Awards (innovation award: tracks + entries) ─────────────────────────────
+const awStatus: Record<string, string> = { submitted: "ثبت‌شده", validating: "صحت‌سنجی هلدینگ", judging: "در حال داوری", scored: "امتیازدهی شده", finalist: "منتخب مرحله نهایی" };
+export const fromAwardTrack = (t: any) => ({
+  id: t.id, title: t.title, categories: Array.isArray(t.categories) ? t.categories : [],
+  submissions: t.submission_count ?? (t.entries?.length ?? 0),
+  judged: (t.entries ?? []).filter((e: any) => ["scored", "finalist"].includes(e.status)).length,
+});
+export const fromAwardEntry = (e: any, trackTitle = "") => ({
+  id: e.id, title: e.title, track: trackTitle, company: e.company ?? "",
+  status: awStatus[e.status] ?? e.status, score: e.score ?? undefined, editUsed: e.edit_used,
+});
+
+// ── Project tasks (Kanban board) ────────────────────────────────────────────
+const tkStatus: Record<string, string> = { planning: "برنامه‌ریزی", in_progress: "در حال انجام", review: "بازبینی", done: "انجام‌شده" };
+export const tkStatusApi: Record<string, string> = { "برنامه‌ریزی": "planning", "در حال انجام": "in_progress", "بازبینی": "review", "انجام‌شده": "done" };
+const tkPrio: Record<string, string> = { low: "کم", medium: "متوسط", high: "زیاد" };
+export const tkPrioApi: Record<string, string> = { "کم": "low", "متوسط": "medium", "زیاد": "high" };
+export const fromTask = (t: any) => ({
+  id: t.id, title: t.title, status: tkStatus[t.status] ?? "برنامه‌ریزی",
+  assignee: t.assignee?.name ?? "بدون مسئول", priority: tkPrio[t.priority] ?? "متوسط",
+  due: t.due ? toJalali(t.due) : "نامشخص", progress: t.progress ?? 0,
+});

@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { Trophy, PencilLine, ShieldQuestion } from "lucide-react";
-import { awardTracks, awardEntries, type AwardEntry } from "../data/mockDaneshmand";
+import { type AwardTrack, type AwardEntry } from "../data/mockDaneshmand";
+import { http } from "../lib/http";
+import { fromAwardTrack, fromAwardEntry } from "../lib/adapters";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import StatCard from "../components/ui/StatCard";
@@ -19,6 +22,16 @@ const entryStatusTone = {
 
 export default function Award() {
   const { notify } = useToast();
+  const [awardTracks, setAwardTracks] = useState<AwardTrack[]>([]);
+  const [awardEntries, setAwardEntries] = useState<AwardEntry[]>([]);
+
+  useEffect(() => {
+    http<any[]>("/awards/tracks?page_size=100").then((rows) => {
+      setAwardTracks(rows.map(fromAwardTrack) as AwardTrack[]);
+      setAwardEntries(rows.flatMap((t) => (t.entries ?? []).map((e: any) => fromAwardEntry(e, t.title))) as AwardEntry[]);
+    }).catch(() => {});
+  }, []);
+
   const totalSubmissions = awardTracks.reduce((s, t) => s + t.submissions, 0);
   const totalJudged = awardTracks.reduce((s, t) => s + t.judged, 0);
 

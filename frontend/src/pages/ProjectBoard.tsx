@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   LayoutGrid,
@@ -13,8 +13,10 @@ import {
   CircleDollarSign,
   CalendarCheck2,
 } from "lucide-react";
-import { projects, type Task } from "../data/mock";
+import { type Task, type Project } from "../data/mock";
 import { projectDetails, type ProjectMilestone, type ProjectRisk } from "../data/mockDetails";
+import { http } from "../lib/http";
+import { fromTask, fromProject, tkStatusApi, tkPrioApi } from "../lib/adapters";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
 import Tabs from "../components/ui/Tabs";
@@ -62,10 +64,11 @@ type ViewId = "board" | "gantt" | "milestones" | "budget" | "risks" | "team" | "
 
 export default function ProjectBoard() {
   const { id } = useParams();
-  const project = projects.find((p) => p.id === id);
   const detail = id ? projectDetails[id] : undefined;
   const [view, setView] = useState<ViewId>("board");
-  const [tasks, setTasks] = useState<Task[]>(project?.tasks ?? []);
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskAssignee, setTaskAssignee] = useState("");
@@ -74,6 +77,20 @@ export default function ProjectBoard() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { notify } = useToast();
 
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const p = await http<any>(`/projects/${id}`);
+        setProject(fromProject(p) as Project);
+        const rows = await http<any[]>(`/tasks?project=${id}&page_size=100`);
+        setTasks(rows.map(fromTask) as Task[]);
+      } catch { /* not found / unauth */ }
+      setLoading(false);
+    })();
+  }, [id]);
+
+  if (loading) return <p className="text-sm text-ink-400">در حال بارگذاری…</p>;
   if (!project) return <p>پروژه پیدا نشد.</p>;
 
   const submitTask = () => {
@@ -81,17 +98,15 @@ export default function ProjectBoard() {
       notify("عنوان تسک الزامی است.", "warning");
       return;
     }
-    const newTask: Task = {
-      id: `t-${Date.now()}`,
-      title: taskTitle.trim(),
-      status: "برنامه‌ریزی",
-      assignee: taskAssignee.trim() || "بدون مسئول",
-      priority: taskPriority,
-      due: taskDue.trim() || "نامشخص",
-      progress: 0,
-    };
-    setTasks((prev) => [newTask, ...prev]);
-    notify(`تسک «${newTask.title}» به ستون «برنامه‌ریزی» اضافه شد.`);
+    const typed = taskAssignee.trim();
+    // Persist to the real backend; keep the typed assignee name locally for the session.
+    http<any>("/tasks", { method: "POST", body: JSON.stringify({
+      project: project.id, title: taskTitle.trim(), status: "planning", priority: tkPrioApi[taskPriority] ?? "medium",
+    }) }).then((created) => {
+      const t = { ...fromTask(created), assignee: typed || "بدون مسئول", due: taskDue.trim() || "نامشخص" } as Task;
+      setTasks((prev) => [t, ...prev]);
+    }).catch(() => {});
+    notify(`تسک «${taskTitle.trim()}» به ستون «برنامه‌ریزی» اضافه شد.`);
     setTaskOpen(false);
     setTaskTitle("");
     setTaskAssignee("");
@@ -106,6 +121,9 @@ export default function ProjectBoard() {
       )
     );
     setSelectedTask((prev) => (prev && prev.id === task.id ? { ...prev, status } : prev));
+    http(`/tasks/${task.id}`, { method: "PATCH", body: JSON.stringify({
+      status: tkStatusApi[status] ?? "planning", ...(status === "انجام‌شده" ? { progress: 100 } : {}),
+    }) }).catch(() => {});
     notify(`تسک «${task.title}» به وضعیت «${status}» منتقل شد.`, "info");
   };
 
