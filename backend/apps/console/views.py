@@ -165,6 +165,11 @@ def _openai_answer(question, context):
     key = getattr(settings, "OPENAI_API_KEY", "")
     if key:
         headers["authorization"] = f"Bearer {key}"
+    # OpenRouter (optional): identify the app for its rankings; ignored elsewhere.
+    if getattr(settings, "OPENAI_HTTP_REFERER", ""):
+        headers["HTTP-Referer"] = settings.OPENAI_HTTP_REFERER
+    if getattr(settings, "OPENAI_APP_TITLE", ""):
+        headers["X-Title"] = settings.OPENAI_APP_TITLE
     try:
         data = _http_json(
             base.rstrip("/") + "/chat/completions", headers,

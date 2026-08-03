@@ -186,6 +186,9 @@ CHANNEL_LAYERS = {
 OPENAI_BASE_URL = env("OPENAI_BASE_URL", default="")
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
+# Optional OpenRouter ranking headers (sent only if set); harmless elsewhere.
+OPENAI_HTTP_REFERER = env("OPENAI_HTTP_REFERER", default="")
+OPENAI_APP_TITLE = env("OPENAI_APP_TITLE", default="")
 # 2) Anthropic (Claude):
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
 ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-sonnet-5")

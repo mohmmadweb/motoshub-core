@@ -41,9 +41,12 @@ def test_assistant_uses_llm_when_key_set(admin, tenant, auth, monkeypatch):
     assert captured["url"].endswith("/v1/messages") and captured["key"] == "test-key"
 
 
-@override_settings(OPENAI_BASE_URL="http://localhost:11434/v1", OPENAI_MODEL="qwen2.5")
+@override_settings(OPENAI_BASE_URL="https://openrouter.ai/api/v1", OPENAI_API_KEY="sk-or-x",
+                   OPENAI_MODEL="meta-llama/llama-3.3-70b-instruct:free",
+                   OPENAI_HTTP_REFERER="https://motonextfront.shub.ir", OPENAI_APP_TITLE="Motoshub")
 def test_assistant_uses_openai_compatible_provider(admin, tenant, auth, monkeypatch):
-    """An OpenAI-compatible endpoint (e.g. local Ollama) also drives the assistant."""
+    """OpenRouter / Ollama / any OpenAI-compatible endpoint drives the assistant,
+    with the optional OpenRouter ranking headers sent when configured."""
     captured = {}
 
     class FakeResp(io.BytesIO):
@@ -52,15 +55,20 @@ def test_assistant_uses_openai_compatible_provider(admin, tenant, auth, monkeypa
 
     def fake_urlopen(req, timeout=None):
         captured["url"] = req.full_url
-        payload = {"choices": [{"message": {"content": "پاسخ از مدل محلی."}}]}
+        captured["auth"] = req.headers.get("Authorization")
+        captured["referer"] = req.headers.get("Http-referer")
+        captured["title"] = req.headers.get("X-title")
+        payload = {"choices": [{"message": {"content": "پاسخ از OpenRouter."}}]}
         return FakeResp(json.dumps(payload).encode())
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     r = Client().post("/api/v1/assistant/ask", json.dumps({"question": "وضعیت؟"}),
                       content_type="application/json", **auth(admin, tenant))
     body = r.json()["data"]
-    assert body["source"] == "llm" and body["answer"] == "پاسخ از مدل محلی."
+    assert body["source"] == "llm" and body["answer"] == "پاسخ از OpenRouter."
     assert captured["url"].endswith("/chat/completions")
+    assert captured["auth"] == "Bearer sk-or-x"
+    assert captured["referer"] == "https://motonextfront.shub.ir" and captured["title"] == "Motoshub"
 
 
 @override_settings(ANTHROPIC_API_KEY="test-key")
