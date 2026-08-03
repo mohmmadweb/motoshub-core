@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.content.serializers import AuthorField
 
-from .models import ForumReply, ForumTopic, Group
+from .models import ForumReply, ForumTopic, Group, Post
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -43,3 +43,27 @@ class ForumTopicSerializer(serializers.ModelSerializer):
             "solved", "visibility", "reply_count", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "author", "views", "reply_count", "created_at", "updated_at"]
+
+
+class PostSerializer(serializers.ModelSerializer):
+    author = AuthorField(read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True, default="")
+    likes = serializers.SerializerMethodField()
+    my_like = serializers.SerializerMethodField()
+    comments = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = ["id", "author", "group", "group_name", "content", "tags", "pinned",
+                  "attachment", "likes", "my_like", "comments", "created_at"]
+        read_only_fields = ["id", "author", "group_name", "likes", "my_like", "comments", "created_at"]
+
+    def get_likes(self, obj):
+        return obj.post_likes.count()
+
+    def get_my_like(self, obj):
+        user = getattr(self.context.get("request"), "user", None)
+        return bool(user and obj.post_likes.filter(user=user).exists())
+
+    def get_comments(self, obj):
+        return obj.post_comments.count()

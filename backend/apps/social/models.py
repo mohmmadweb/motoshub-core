@@ -100,3 +100,39 @@ class Follow(TenantScopedModel):
         constraints = [
             models.UniqueConstraint(fields=["follower", "followee"], name="uniq_follow_pair"),
         ]
+
+
+class Post(TenantScopedModel):
+    """Feed post (dashboard/profile/groups) — the social activity stream."""
+    author = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="posts")
+    group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name="posts")
+    content = models.TextField()
+    tags = models.JSONField(default=list, blank=True)
+    pinned = models.BooleanField(default=False)
+    attachment = models.JSONField(null=True, blank=True)  # {type: poll|image|doc, label}
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "social_post"
+        ordering = ["-pinned", "-created_at"]
+
+    def __str__(self):
+        return self.content[:40]
+
+
+class PostLike(TenantScopedModel):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_likes")
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="post_likes")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "social_post_like"
+        constraints = [models.UniqueConstraint(fields=["post", "user"], name="uniq_post_like")]
+
+
+class PostComment(TenantScopedModel):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="post_comments")
+    author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="post_comments")
+    body = models.TextField()
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "social_post_comment"
+        ordering = ["created_at"]

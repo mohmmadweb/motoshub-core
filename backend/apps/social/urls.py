@@ -1,10 +1,11 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import ForumTopicViewSet, FriendsView, GroupViewSet
+from .views import ForumTopicViewSet, FriendsView, GroupViewSet, PostViewSet
 
 router = DefaultRouter(trailing_slash=False)
 router.register("groups", GroupViewSet, basename="group")
+router.register("posts", PostViewSet, basename="post")
 router.register("forum/topics", ForumTopicViewSet, basename="forum-topic")
 
 urlpatterns = router.urls + [

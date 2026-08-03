@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from apps.content.views import _crud_perms
 from apps.core.viewsets import TenantScopedModelViewSet
 
-from .models import ForumReply, ForumTopic, Group, GroupMembership
-from .serializers import ForumReplySerializer, ForumTopicSerializer, GroupSerializer
+from .models import ForumReply, ForumTopic, Group, GroupMembership, Post, PostLike
+from .serializers import ForumReplySerializer, ForumTopicSerializer, GroupSerializer, PostSerializer
 
 
 class GroupViewSet(TenantScopedModelViewSet):
@@ -139,3 +139,25 @@ class FriendsView(APIView):
             return Response({"following": False})
         return Response({"error": {"code": 422, "type": "unprocessable_entity",
                                    "message": "عملیات نامعتبر."}}, status=422)
+
+
+class PostViewSet(TenantScopedModelViewSet):
+    """The activity feed. List = tenant feed (pinned first, newest first);
+    filter by ?author= or ?group=. POST <id>/like toggles the user's like."""
+    queryset = Post.objects.select_related("author", "group").prefetch_related("post_likes", "post_comments").all()
+    serializer_class = PostSerializer
+    owner_field = "author"
+    filterset_fields = ["author", "group", "pinned"]
+    search_fields = ["content"]
+
+    @action(detail=True, methods=["post"])
+    def like(self, request, pk=None):
+        post = self.get_object()
+        existing = PostLike.objects.filter(post=post, user=request.user).first()
+        if existing:
+            existing.delete()
+            mine = False
+        else:
+            PostLike.objects.create(tenant=request.tenant, post=post, user=request.user)
+            mine = True
+        return Response({"likes": PostLike.objects.filter(post=post).count(), "my_like": mine})

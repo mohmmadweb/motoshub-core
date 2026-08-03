@@ -259,3 +259,24 @@ export const fromTask = (t: any) => ({
   assignee: t.assignee?.name ?? "بدون مسئول", priority: tkPrio[t.priority] ?? "متوسط",
   due: t.due ? toJalali(t.due) : "نامشخص", progress: t.progress ?? 0,
 });
+
+// ── Feed posts (dashboard / profile / group activity stream) ────────────────
+export const fromPost = (p: any) => ({
+  id: p.id, authorId: p.author?.id ?? "", groupId: p.group ?? undefined,
+  content: p.content, time: relativeFa(p.created_at),
+  likes: p.likes ?? 0, comments: p.comments ?? 0, tags: p.tags ?? [], pinned: p.pinned,
+  attachment: p.attachment ?? undefined,
+  _authorName: p.author?.name ?? "—", _authorColor: p.author?.avatar_color ?? "#1f4f99",
+  _groupName: p.group_name ?? "", _myLike: p.my_like ?? false,
+});
+
+// ── Project milestones & risks (board tabs) ─────────────────────────────────
+const msStatus: Record<string, string> = { done: "انجام‌شده", in_progress: "در حال انجام", upcoming: "پیش‌رو", at_risk: "در خطر" };
+export const fromMilestone = (m: any) => ({ id: m.id, title: m.title, due: m.due || "—", status: msStatus[m.status] ?? "پیش‌رو" });
+const rkSev: Record<string, string> = { low: "کم", medium: "متوسط", critical: "بحرانی" };
+const rkProb: Record<string, string> = { low: "کم", medium: "متوسط", high: "زیاد" };
+const rkStatus: Record<string, string> = { open: "باز", mitigating: "در حال رفع", closed: "بسته" };
+export const fromRisk = (r: any) => ({
+  id: r.id, title: r.title, severity: rkSev[r.severity] ?? "متوسط", probability: rkProb[r.probability] ?? "متوسط",
+  status: rkStatus[r.status] ?? "باز", owner: r.owner ?? "", mitigation: r.mitigation ?? "",
+});

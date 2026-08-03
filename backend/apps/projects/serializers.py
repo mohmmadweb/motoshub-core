@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.content.serializers import AuthorField
 
-from .models import Project, Task
+from .models import Milestone, Project, Risk, Task
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -25,3 +25,18 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "client", "health", "progress", "budget_total",
                   "budget_used", "deadline", "manager", "task_count", "created_at", "updated_at"]
         read_only_fields = ["id", "manager", "task_count", "created_at", "updated_at"]
+
+
+class MilestoneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Milestone
+        fields = ["id", "project", "title", "due", "status", "order", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class RiskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Risk
+        fields = ["id", "project", "title", "severity", "probability", "status",
+                  "owner", "mitigation", "created_at"]
+        read_only_fields = ["id", "created_at"]

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Briefcase, ShieldCheck, MessageCircle, Laptop, Smartphone, MapPin, LogOut } from "lucide-react";
-import { posts, projects, activeSessions, type UserProfile } from "../data/mock";
+import { projects, activeSessions, type UserProfile, type Post } from "../data/mock";
 import { http, getUser } from "../lib/http";
-import { fromUser } from "../lib/adapters";
+import { fromUser, fromPost } from "../lib/adapters";
 import Avatar from "../components/Avatar";
 import Badge from "../components/ui/Badge";
 import PostCard from "../components/PostCard";
@@ -27,8 +27,15 @@ export default function Profile() {
   const user: UserProfile =
     allUsers.find((u) => u.id === id) ??
     (me ? fromUser(me) : { id: "", name: "—", role: "", org: "", avatarColor: "#1f4f99", skills: [], online: false });
-  const userPosts = posts.filter((p) => p.authorId === user.id);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
   const userProjects = projects.filter((p) => p.tasks.some((t) => t.assignee === user.name));
+
+  useEffect(() => {
+    if (!user.id) return;
+    http<any[]>(`/posts?author=${user.id}&page_size=20`)
+      .then((r) => setUserPosts(r.map(fromPost) as Post[]))
+      .catch(() => setUserPosts([]));
+  }, [user.id]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">

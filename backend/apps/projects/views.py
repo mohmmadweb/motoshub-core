@@ -1,10 +1,10 @@
 from apps.content.views import _crud_perms
 from apps.core.viewsets import TenantScopedModelViewSet
 
-from .models import Project, Task
+from .models import Milestone, Project, Risk, Task
 from apps.notifications.services import notify
 
-from .serializers import ProjectSerializer, TaskSerializer
+from .serializers import MilestoneSerializer, ProjectSerializer, RiskSerializer, TaskSerializer
 
 
 class ProjectViewSet(TenantScopedModelViewSet):
@@ -32,3 +32,21 @@ class TaskViewSet(TenantScopedModelViewSet):
     }
     filterset_fields = ["project", "status", "priority", "assignee"]
     search_fields = ["title"]
+
+
+class MilestoneViewSet(TenantScopedModelViewSet):
+    queryset = Milestone.objects.all()
+    serializer_class = MilestoneSerializer
+    owner_field = None
+    required_perms = _crud_perms("projects")
+    filterset_fields = ["project", "status"]
+    search_fields = ["title"]
+
+
+class RiskViewSet(TenantScopedModelViewSet):
+    queryset = Risk.objects.all()
+    serializer_class = RiskSerializer
+    owner_field = None
+    required_perms = _crud_perms("projects")
+    filterset_fields = ["project", "status", "severity"]
+    search_fields = ["title", "owner"]

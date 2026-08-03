@@ -27,12 +27,12 @@ from apps.awards.models import AwardEntry, AwardTrack
 from apps.chat.models import Channel, DirectMessage, Message
 from apps.notifications.models import Notification
 from apps.polls.models import Poll, PollOption
-from apps.projects.models import Project, Task
+from apps.projects.models import Milestone, Project, Risk, Task
 from apps.research.models import ResearchOpportunity
 from apps.rbac.models import Role, RoleAssignment
 from apps.support.models import Ticket, TicketMessage
 from apps.training.models import TrainingCourse
-from apps.social.models import Follow, ForumReply, ForumTopic, Friendship, Group, GroupMembership
+from apps.social.models import Follow, ForumReply, ForumTopic, Friendship, Group, GroupMembership, Post, PostLike
 from apps.tenancy.models import Company, Holding, Tenant
 
 PASSWORD = "demo1234"
@@ -115,6 +115,19 @@ class Command(BaseCommand):
             Task.objects.create(tenant=tenant, project=proj, title="ماژول‌های محتوا", status="in_progress", assignee=member, priority="medium", progress=60)
             Task.objects.create(tenant=tenant, project=proj, title="فرانت‌اند Next", status="in_progress", assignee=admin, priority="high", progress=40)
             Task.objects.create(tenant=tenant, project=proj, title="آزمون پذیرش", status="planning", priority="medium", progress=0)
+            for i, (mt, due, st) in enumerate([
+                ("تحویل معماری و طرح فنی", "۱۴۰۴/۱۱/۳۰", "done"),
+                ("راه‌اندازی نسخهٔ آزمایشی", "۱۴۰۵/۰۳/۱۵", "in_progress"),
+                ("آزمون پذیرش کاربران", "۱۴۰۵/۰۶/۰۱", "upcoming"),
+                ("استقرار نهایی و تحویل", "۱۴۰۵/۰۸/۳۰", "at_risk"),
+            ]):
+                Milestone.objects.create(tenant=tenant, project=proj, title=mt, due=due, status=st, order=i)
+            Risk.objects.create(tenant=tenant, project=proj, title="تأخیر در تأمین زیرساخت ابری",
+                                severity="critical", probability="medium", status="mitigating",
+                                owner="مدیر فنی", mitigation="قرارداد پشتیبان با تأمین‌کنندهٔ دوم در حال مذاکره است.")
+            Risk.objects.create(tenant=tenant, project=proj, title="کمبود نیروی متخصص فرانت‌اند",
+                                severity="medium", probability="high", status="open",
+                                owner="منابع انسانی", mitigation="آگهی جذب منتشر شد؛ همکاری پاره‌وقت در دست بررسی.")
 
         if not Contract.objects.filter(tenant=tenant).exists():
             ct = Contract.objects.create(
@@ -268,6 +281,25 @@ class Command(BaseCommand):
                                      kind="collective", category="انرژی", progress=65, status="active")
             Challenge.objects.create(tenant=tenant, title="چالش فردی: تکمیل پروفایل و مهارت‌ها",
                                      kind="individual", category="عمومی", progress=100, status="ended")
+
+
+        # ── Activity feed posts ──────────────────────────────────────────────────
+        if not Post.objects.filter(tenant=tenant).exists():
+            grp = Group.objects.filter(tenant=tenant).first()
+            p1 = Post.objects.create(
+                tenant=tenant, author=admin, group=grp, pinned=True,
+                content="سامانهٔ جدید موتوشاب راه‌اندازی شد. از امروز همهٔ فرآیندهای سازمانی — پروژه‌ها، قراردادها، صندوق نوآور و ارتباطات — در یک بستر واحد در دسترس است.",
+                tags=["اطلاعیه", "موتوشاب"])
+            p2 = Post.objects.create(
+                tenant=tenant, author=member,
+                content="گزارش مرحله‌ای طرح NF-1405-0001 بارگذاری شد و در انتظار بررسی ناظر فنی است.",
+                tags=["صندوق نوآور"])
+            Post.objects.create(
+                tenant=tenant, author=admin, group=grp,
+                content="نشست فصلی مدیران هفتهٔ آینده برگزار می‌شود؛ دستور جلسه در بخش رویدادها منتشر شد.",
+                tags=["رویداد"], attachment={"type": "doc", "label": "دستور جلسهٔ نشست فصلی.pdf"})
+            PostLike.objects.get_or_create(tenant=tenant, post=p1, user=member)
+            PostLike.objects.get_or_create(tenant=tenant, post=p2, user=admin)
 
         # ── Social graph: colleagues + friends + follows (Friends/Profile pages) ──
         colleagues = [

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Flag, UserPlus, FileText, MessagesSquare } from "lucide-react";
-import { posts, users } from "../data/mock";
+import { type Post, type UserProfile } from "../data/mock";
+import { http } from "../lib/http";
+import { fromPost, fromUser } from "../lib/adapters";
 import { useContent } from "../context/ContentContext";
 import PostCard from "../components/PostCard";
 import Badge from "../components/ui/Badge";
@@ -20,10 +22,17 @@ export default function GroupDetail() {
   const { notify } = useToast();
   const group = groups.find((g) => g.id === id);
   const [tab, setTab] = useState<TabId>("posts");
+  const [groupPosts, setGroupPosts] = useState<Post[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    http<any[]>(`/posts?group=${id}&page_size=20`).then((r) => setGroupPosts(r.map(fromPost) as Post[])).catch(() => {});
+    http<any[]>("/users?page_size=100").then((r) => setUsers(r.map(fromUser) as UserProfile[])).catch(() => {});
+  }, [id]);
 
   if (!group) return <p>گروه پیدا نشد.</p>;
 
-  const groupPosts = posts.filter((p) => p.groupId === group.id);
   const members = users.slice(0, group.members > 4 ? 4 : group.members);
 
   const togglePrivacy = () => {

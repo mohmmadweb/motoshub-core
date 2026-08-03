@@ -1,23 +1,36 @@
+import { useState } from "react";
 import { Heart, MessageCircle, Share2, BarChart3, FileText, Pin } from "lucide-react";
 import Avatar from "./Avatar";
 import Badge from "./ui/Badge";
-import { users, groups, type Post } from "../data/mock";
+import { type Post } from "../data/mock";
+import { http } from "../lib/http";
 
-export default function PostCard({ post }: { post: Post }) {
-  const author = users.find((u) => u.id === post.authorId);
-  const group = groups.find((g) => g.id === post.groupId);
+// Real posts carry their author/group/like-state inline (see fromPost).
+type FeedPost = Post & { _authorName?: string; _authorColor?: string; _groupName?: string; _myLike?: boolean };
+
+export default function PostCard({ post }: { post: FeedPost }) {
+  const [likes, setLikes] = useState(post.likes);
+  const [mine, setMine] = useState(!!post._myLike);
+
+  const toggleLike = () => {
+    setLikes((n) => n + (mine ? -1 : 1));
+    setMine((v) => !v);
+    http<{ likes: number; my_like: boolean }>(`/posts/${post.id}/like`, { method: "POST" })
+      .then((r) => { setLikes(r.likes); setMine(r.my_like); })
+      .catch(() => {});
+  };
 
   return (
     <article className="card p-4">
       <div className="flex items-start gap-3">
-        <Avatar name={author?.name ?? "?"} color={author?.avatarColor} />
+        <Avatar name={post._authorName ?? "?"} color={post._authorColor} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-sm flex-wrap">
-            <span className="font-semibold text-ink-900">{author?.name}</span>
-            {group && (
+            <span className="font-semibold text-ink-900">{post._authorName}</span>
+            {post._groupName && (
               <>
                 <span className="text-ink-300">در</span>
-                <span className="text-brand-600 font-medium">{group.name}</span>
+                <span className="text-brand-600 font-medium">{post._groupName}</span>
               </>
             )}
             {post.pinned && (
@@ -60,8 +73,8 @@ export default function PostCard({ post }: { post: Post }) {
           </div>
 
           <div className="mt-3 flex items-center gap-5 text-ink-400 text-xs border-t border-ink-100 pt-3">
-            <button className="flex items-center gap-1.5 hover:text-rose-600">
-              <Heart size={14} /> {post.likes}
+            <button onClick={toggleLike} className={`flex items-center gap-1.5 hover:text-rose-600 ${mine ? "text-rose-600" : ""}`}>
+              <Heart size={14} fill={mine ? "currentColor" : "none"} /> {likes.toLocaleString("fa-IR")}
             </button>
             <button className="flex items-center gap-1.5 hover:text-brand-600">
               <MessageCircle size={14} /> {post.comments}

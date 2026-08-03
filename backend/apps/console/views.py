@@ -290,3 +290,38 @@ class SearchView(APIView):
         add(ResearchOpportunity.objects.filter(tenant=t, title__icontains=q), "rfp",
             lambda o: o.title, lambda o: o.field or "فراخوان", lambda o: "/dashboard/research")
         return Response({"results": hits})
+
+
+class ReportTimeseriesView(APIView):
+    """Monthly activity across modules for the last N Jalali-ish months.
+
+    Buckets by Gregorian month (labelled with the Persian month name of that
+    bucket's start) — enough for the dashboard trend line, and fully real.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.content.models import News
+        from apps.social.models import ForumTopic, Post
+
+        if not _require(request, "reports.view"):
+            return Response({"error": {"code": 403, "type": "forbidden", "message": "دسترسی لازم را ندارید."}}, status=403)
+        t = request.tenant
+        months = min(int(request.query_params.get("months", 6)), 12)
+        now = timezone.now()
+        # Bucket edges: start of each of the last `months` 30-day windows.
+        buckets = []
+        for i in range(months - 1, -1, -1):
+            end = now - timedelta(days=30 * i)
+            start = end - timedelta(days=30)
+            label = end.astimezone().strftime("%Y-%m")
+            counted = sum(
+                model.objects.filter(tenant=t, created_at__gte=start, created_at__lt=end).count()
+                for model in (Project, Contract, News, Post, ForumTopic, Ticket)
+            )
+            buckets.append({"label": label, "value": counted})
+        return Response({"monthly": buckets})

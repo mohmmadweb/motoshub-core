@@ -52,6 +52,9 @@ jobs:
       - name: Lint (oxlint)
         working-directory: frontend
         run: npm run lint
+      - name: Unit tests (Vitest)
+        working-directory: frontend
+        run: npm test
       - name: Build (type-check + compile)
         working-directory: frontend
         # Same-origin default: the browser calls /api/v1, proxied by nginx.

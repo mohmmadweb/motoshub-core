@@ -20,10 +20,9 @@ import {
   Sunset,
   MoonStar,
 } from "lucide-react";
-import { api } from "../lib/api";
 import { type Post, type Group, type UserProfile, type Notification as NotificationItem } from "../data/mock";
 import { http, getUser } from "../lib/http";
-import { fromNotification, fromNfProject, fromGroup, fromUser } from "../lib/adapters";
+import { fromNotification, fromNfProject, fromGroup, fromUser, fromPost } from "../lib/adapters";
 
 const me = getUser() as { name?: string; avatar_color?: string } | null;
 const currentUser = { name: me?.name ?? "همکار", avatarColor: me?.avatar_color ?? "#1f4f99" };
@@ -273,10 +272,10 @@ export default function Dashboard() {
   useEffect(() => {
     http<any[]>("/groups?page_size=8").then((r) => setGroups(r.map(fromGroup) as Group[])).catch(() => {});
     http<any[]>("/users?page_size=100").then((r) => setUsers(r.map(fromUser) as UserProfile[])).catch(() => {});
-    api.feed.list().then((data) => {
-      setPosts(data);
+    http<any[]>("/posts?page_size=20").then((r) => {
+      setPosts(r.map(fromPost) as Post[]);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, []);
 
   return (

@@ -15,7 +15,7 @@ import {
   CalendarClock,
   Table2,
 } from "lucide-react";
-import { reportByDepartment, reportByStatus, monthlyActivity } from "../data/mock";
+import { reportByDepartment, reportByStatus } from "../data/mock";
 import {
   contractFunnel,
   holdingComparison,
@@ -69,13 +69,18 @@ export default function Reports() {
   const [saved, setSaved] = useState<SavedReport[]>(initialSavedReports);
   const [exportOpen, setExportOpen] = useState(false);
   const [summary, setSummary] = useState<ReportSummary | null>(null);
+  const [monthlyActivity, setMonthlyActivity] = useState<{ month: string; value: number }[]>([]);
   const { notify } = useToast();
 
   useEffect(() => {
     http<ReportSummary>("/reports/summary").then(setSummary).catch(() => setSummary(null));
+    // Real monthly activity across modules (last 6 buckets).
+    http<{ monthly: { label: string; value: number }[] }>("/reports/timeseries?months=6")
+      .then((d) => setMonthlyActivity(d.monthly.map((b) => ({ month: b.label, value: b.value }))))
+      .catch(() => setMonthlyActivity([]));
   }, []);
 
-  const maxMonthly = Math.max(...monthlyActivity.map((m) => m.value));
+  const maxMonthly = Math.max(1, ...monthlyActivity.map((m) => m.value));
   const maxDept = Math.max(...reportByDepartment.map((d) => d.value));
   const maxFunnel = Math.max(...contractFunnel.map((f) => f.count));
   const maxHolding = Math.max(...holdingComparison.flatMap((h) => [h.projects, h.contracts, h.funds]));

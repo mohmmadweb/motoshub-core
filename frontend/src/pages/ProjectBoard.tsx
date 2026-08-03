@@ -16,7 +16,7 @@ import {
 import { type Task, type Project } from "../data/mock";
 import { projectDetails, type ProjectMilestone, type ProjectRisk } from "../data/mockDetails";
 import { http } from "../lib/http";
-import { fromTask, fromProject, tkStatusApi, tkPrioApi } from "../lib/adapters";
+import { fromTask, fromProject, fromMilestone, fromRisk, tkStatusApi, tkPrioApi } from "../lib/adapters";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
 import Tabs from "../components/ui/Tabs";
@@ -69,6 +69,8 @@ export default function ProjectBoard() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [risks, setRisks] = useState<ProjectRisk[]>([]);
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskAssignee, setTaskAssignee] = useState("");
@@ -85,6 +87,8 @@ export default function ProjectBoard() {
         setProject(fromProject(p) as Project);
         const rows = await http<any[]>(`/tasks?project=${id}&page_size=100`);
         setTasks(rows.map(fromTask) as Task[]);
+        http<any[]>(`/milestones?project=${id}&page_size=50`).then((r) => setMilestones(r.map(fromMilestone) as ProjectMilestone[])).catch(() => {});
+        http<any[]>(`/risks?project=${id}&page_size=50`).then((r) => setRisks(r.map(fromRisk) as ProjectRisk[])).catch(() => {});
       } catch { /* not found / unauth */ }
       setLoading(false);
     })();
@@ -166,9 +170,9 @@ export default function ProjectBoard() {
         tabs={[
           { id: "board", label: "بورد وظایف", count: tasks.length },
           { id: "gantt", label: "گانت چارت" },
-          { id: "milestones", label: "مایل‌ستون‌ها", count: detail?.milestones.length },
+          { id: "milestones", label: "مایل‌ستون‌ها", count: milestones.length },
           { id: "budget", label: "مالی و بودجه", count: detail?.expenses.length },
-          { id: "risks", label: "ریسک‌ها", count: detail?.risks.filter((r) => r.status !== "بسته").length },
+          { id: "risks", label: "ریسک‌ها", count: risks.filter((r) => r.status !== "بسته").length },
           { id: "team", label: "تیم پروژه", count: detail?.team.length },
           { id: "minutes", label: "صورت‌جلسات", count: detail?.minutes.length },
         ]}
@@ -232,10 +236,10 @@ export default function ProjectBoard() {
       )}
 
       {view === "milestones" &&
-        (detail && detail.milestones.length > 0 ? (
+        (milestones.length > 0 ? (
           <div className="card p-5">
             <div className="space-y-0">
-              {detail.milestones.map((m, i) => (
+              {milestones.map((m, i) => (
                 <div key={m.id} className="flex gap-3">
                   <div className="flex flex-col items-center">
                     <span
@@ -243,7 +247,7 @@ export default function ProjectBoard() {
                         m.status === "انجام‌شده" ? "bg-emerald-500" : m.status === "در حال انجام" ? "bg-brand-600" : m.status === "در خطر" ? "bg-rose-500" : "bg-ink-300"
                       }`}
                     />
-                    {i < detail.milestones.length - 1 && <span className="w-px flex-1 bg-ink-200" />}
+                    {i < milestones.length - 1 && <span className="w-px flex-1 bg-ink-200" />}
                   </div>
                   <div className="pb-6 flex-1">
                     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -277,9 +281,9 @@ export default function ProjectBoard() {
         ))}
 
       {view === "risks" &&
-        (detail && detail.risks.length > 0 ? (
+        (risks.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {detail.risks.map((r) => (
+            {risks.map((r) => (
               <div key={r.id} className="card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium text-ink-900 flex items-center gap-1.5">

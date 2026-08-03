@@ -60,3 +60,41 @@ class Task(TenantScopedModel):
 
     def __str__(self):
         return self.title
+
+
+class Milestone(TenantScopedModel):
+    """Project milestone (the board's «نقاط عطف» tab)."""
+    STATUS = [("done", "انجام‌شده"), ("in_progress", "در حال انجام"),
+              ("upcoming", "پیش‌رو"), ("at_risk", "در خطر")]
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="milestones")
+    title = models.CharField(max_length=300)
+    due = models.CharField(max_length=20, blank=True, help_text="سررسید (جلالی نمایشی)")
+    status = models.CharField(max_length=12, choices=STATUS, default="upcoming")
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "projects_milestone"
+        ordering = ["order", "created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class Risk(TenantScopedModel):
+    """Project risk register (the board's «ریسک‌ها» tab)."""
+    SEVERITY = [("low", "کم"), ("medium", "متوسط"), ("critical", "بحرانی")]
+    PROBABILITY = [("low", "کم"), ("medium", "متوسط"), ("high", "زیاد")]
+    STATUS = [("open", "باز"), ("mitigating", "در حال رفع"), ("closed", "بسته")]
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="risks")
+    title = models.CharField(max_length=300)
+    severity = models.CharField(max_length=8, choices=SEVERITY, default="medium")
+    probability = models.CharField(max_length=6, choices=PROBABILITY, default="medium")
+    status = models.CharField(max_length=10, choices=STATUS, default="open")
+    owner = models.CharField(max_length=200, blank=True)
+    mitigation = models.TextField(blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "projects_risk"
+
+    def __str__(self):
+        return self.title
