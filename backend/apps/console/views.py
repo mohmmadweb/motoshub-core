@@ -139,40 +139,68 @@ def _live_context(t):
     )
 
 
-def _llm_answer(question, context):
-    """Ask Claude, grounded in the live-data context. Returns text or None on any
-    failure / when no API key is configured (caller then uses the rule matcher)."""
+SYSTEM_PROMPT = (
+    "تو «دستیار هوشمند موتوشاب» هستی؛ به فارسی، کوتاه و دقیق پاسخ بده. "
+    "فقط بر پایهٔ «دادهٔ زندهٔ سامانه» که در اختیارت گذاشته می‌شود پاسخ بده و چیزی از خودت نساز. "
+    "اگر داده پاسخ را پوشش نمی‌دهد، صادقانه بگو که در دادهٔ فعلی موجود نیست."
+)
+
+
+def _http_json(url, headers, payload, timeout=30):
     import json as _json
     import urllib.request
-    from django.conf import settings
+    req = urllib.request.Request(url, data=_json.dumps(payload).encode(), method="POST",
+                                 headers={"content-type": "application/json", **headers})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return _json.loads(resp.read())
 
+
+def _openai_answer(question, context):
+    """OpenAI-compatible chat API (Ollama, gateways, most providers)."""
+    from django.conf import settings
+    base = getattr(settings, "OPENAI_BASE_URL", "")
+    if not base:
+        return None
+    headers = {}
+    key = getattr(settings, "OPENAI_API_KEY", "")
+    if key:
+        headers["authorization"] = f"Bearer {key}"
+    try:
+        data = _http_json(
+            base.rstrip("/") + "/chat/completions", headers,
+            {"model": getattr(settings, "OPENAI_MODEL", "gpt-4o-mini"), "max_tokens": 600,
+             "messages": [{"role": "system", "content": SYSTEM_PROMPT + "\n\n" + context},
+                          {"role": "user", "content": question}]},
+        )
+        return (data["choices"][0]["message"]["content"] or "").strip() or None
+    except Exception:
+        return None
+
+
+def _anthropic_answer(question, context):
+    """Anthropic (Claude) Messages API."""
+    from django.conf import settings
     key = getattr(settings, "ANTHROPIC_API_KEY", "")
     if not key:
         return None
-    system = (
-        "تو «دستیار هوشمند موتوشاب» هستی؛ به فارسی، کوتاه و دقیق پاسخ بده. "
-        "فقط بر پایهٔ «دادهٔ زندهٔ سامانه» که در اختیارت گذاشته می‌شود پاسخ بده و چیزی از خودت نساز. "
-        "اگر داده پاسخ را پوشش نمی‌دهد، صادقانه بگو که در دادهٔ فعلی موجود نیست.\n\n" + context
-    )
-    body = _json.dumps({
-        "model": getattr(settings, "ANTHROPIC_MODEL", "claude-sonnet-5"),
-        "max_tokens": 600,
-        "system": system,
-        "messages": [{"role": "user", "content": question}],
-    }).encode()
-    req = urllib.request.Request(
-        getattr(settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/") + "/v1/messages",
-        data=body, method="POST",
-        headers={"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            data = _json.loads(resp.read())
-        blocks = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
-        text = "".join(blocks).strip()
+        data = _http_json(
+            getattr(settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/") + "/v1/messages",
+            {"x-api-key": key, "anthropic-version": "2023-06-01"},
+            {"model": getattr(settings, "ANTHROPIC_MODEL", "claude-sonnet-5"), "max_tokens": 600,
+             "system": SYSTEM_PROMPT + "\n\n" + context,
+             "messages": [{"role": "user", "content": question}]},
+        )
+        text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
         return text or None
     except Exception:
         return None
+
+
+def _llm_answer(question, context):
+    """Try a configured LLM (OpenAI-compatible first, then Anthropic), grounded in
+    live data. Returns None when none configured / on any error → caller uses rules."""
+    return _openai_answer(question, context) or _anthropic_answer(question, context)
 
 
 class AssistantView(APIView):

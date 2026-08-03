@@ -177,6 +177,16 @@ CHANNEL_LAYERS = {
 }
 
 # ── Assistant (optional LLM; falls back to the deterministic matcher) ────────
+# Two interchangeable providers — configure EITHER. If both are set, the
+# OpenAI-compatible one wins. If neither, a deterministic matcher answers.
+#
+# 1) OpenAI-compatible (works with local Ollama, and most gateways/providers):
+#    set OPENAI_BASE_URL (e.g. http://localhost:11434/v1 for Ollama) + OPENAI_MODEL.
+#    OPENAI_API_KEY is optional (Ollama needs none).
+OPENAI_BASE_URL = env("OPENAI_BASE_URL", default="")
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
+# 2) Anthropic (Claude):
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
 ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-sonnet-5")
 ANTHROPIC_BASE_URL = env("ANTHROPIC_BASE_URL", default="https://api.anthropic.com")

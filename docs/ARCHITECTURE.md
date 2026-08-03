@@ -200,9 +200,11 @@ competitions/challenges (vote + join), friends/profile (Friendship + Follow grap
 
 **Assistant.** `/assistant/ask` answers in Persian grounded in a live-data
 snapshot of the tenant (project/fund/contract/report/payment/competition counts).
-When `ANTHROPIC_API_KEY` is set it calls Claude with that snapshot as system
-context; otherwise a deterministic keyword matcher answers. Any LLM error falls
-back to the matcher, so the endpoint always responds. Model via `ANTHROPIC_MODEL`.
+It is provider-agnostic: set an **OpenAI-compatible** endpoint (`OPENAI_BASE_URL`
++ `OPENAI_MODEL`, key optional — e.g. a **free local Ollama**) *or* Anthropic
+(`ANTHROPIC_API_KEY`). The chosen model gets that snapshot as system context.
+With neither configured — or on any LLM error — a deterministic keyword matcher
+answers, so the endpoint always responds. Uses stdlib `urllib` (no new dep).
 
 The innovation-fund dossier persists top-level fields + finance/gantt/timeline
 JSON via the diff-persist `useApiCollection` setter (NfProjectViewSet uses
