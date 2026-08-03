@@ -108,13 +108,20 @@ class Command(BaseCommand):
         if not Project.objects.filter(tenant=tenant).exists():
             proj = Project.objects.create(
                 tenant=tenant, manager=admin, author=admin, name="پیاده‌سازی سامانهٔ موتوشاب",
-                client="بنیاد مستضعفان", health="yellow", progress=45, budget_total=800000000, budget_used=360000000,
+                client="بنیاد مستضعفان", department="اقتصادی و هلدینگ‌ها", health="yellow", progress=45, budget_total=800000000, budget_used=360000000,
             )
             Task.objects.create(tenant=tenant, project=proj, title="طراحی معماری بک‌اند", status="done", assignee=admin, priority="high", progress=100)
             Task.objects.create(tenant=tenant, project=proj, title="پیاده‌سازی احراز هویت", status="done", assignee=admin, priority="high", progress=100)
             Task.objects.create(tenant=tenant, project=proj, title="ماژول‌های محتوا", status="in_progress", assignee=member, priority="medium", progress=60)
             Task.objects.create(tenant=tenant, project=proj, title="فرانت‌اند Next", status="in_progress", assignee=admin, priority="high", progress=40)
             Task.objects.create(tenant=tenant, project=proj, title="آزمون پذیرش", status="planning", priority="medium", progress=0)
+            # A couple more projects so the department/status charts have real spread.
+            Project.objects.create(tenant=tenant, manager=admin, author=admin, name="طرح محرومیت‌زدایی سیستان",
+                                   client="معاونت محرومیت‌زدایی", department="محرومیت‌زدایی", health="green",
+                                   progress=70, budget_total=500000000, budget_used=300000000)
+            Project.objects.create(tenant=tenant, manager=admin, author=admin, name="سامانهٔ فرهنگی نشر",
+                                   client="معاونت فرهنگی", department="فرهنگی و اجتماعی", health="red",
+                                   progress=20, budget_total=300000000, budget_used=90000000)
             for i, (mt, due, st) in enumerate([
                 ("تحویل معماری و طرح فنی", "۱۴۰۴/۱۱/۳۰", "done"),
                 ("راه‌اندازی نسخهٔ آزمایشی", "۱۴۰۵/۰۳/۱۵", "in_progress"),

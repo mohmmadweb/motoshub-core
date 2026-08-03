@@ -13,6 +13,7 @@ class Health(models.TextChoices):
 class Project(TenantScopedModel):
     name = models.CharField(max_length=300)
     client = models.CharField(max_length=200, blank=True)
+    department = models.CharField(max_length=120, blank=True, help_text="معاونت/دپارتمان مالک پروژه")
     health = models.CharField(max_length=6, choices=Health.choices, default=Health.GREEN)
     progress = models.PositiveSmallIntegerField(default=0)
     budget_total = models.DecimalField(max_digits=16, decimal_places=0, default=0)

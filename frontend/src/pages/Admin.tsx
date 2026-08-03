@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Settings,
   Building2,
@@ -33,7 +33,7 @@ import {
   Activity,
 } from "lucide-react";
 import { SystemSection, StorageSection } from "./AdminSections";
-import { holdings as daneshmandHoldings } from "../data/mockDaneshmand";
+import { http } from "../lib/http";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromRole, toRole } from "../lib/adapters";
 import LiveUsagePanel from "../components/LiveUsagePanel";
@@ -263,21 +263,40 @@ function WorkflowParamsSection({ notify }: { notify: Notify }) {
 // ---------------------------------------------------------------------------
 // ساختار هلدینگ‌ها و شرکت‌های زیرمجموعه — مبنای تفکیک محتوا و دسترسی شرکتی
 // ---------------------------------------------------------------------------
+type HoldingRow = { id: string; name: string; color: string; companies: { id: string; name: string }[] };
+
 function HoldingsSection({ notify }: { notify: Notify }) {
-  const [holdingsList, setHoldingsList] = useState(daneshmandHoldings);
+  const [holdingsList, setHoldingsList] = useState<HoldingRow[]>([]);
   const [open, setOpen] = useState(false);
   const [companyName, setCompanyName] = useState("");
-  const [holdingId, setHoldingId] = useState(daneshmandHoldings[0].id);
+  const [holdingId, setHoldingId] = useState("");
+
+  // Real org tree from /holdings (each holding carries its companies).
+  useEffect(() => {
+    http<HoldingRow[]>("/holdings?page_size=100").then((r) => {
+      setHoldingsList(r);
+      setHoldingId((cur) => cur || (r[0]?.id ?? ""));
+    }).catch(() => {});
+  }, []);
 
   const addCompany = () => {
     if (!companyName.trim()) {
       notify("نام شرکت الزامی است.", "warning");
       return;
     }
+    if (!holdingId) {
+      notify("ابتدا یک هلدینگ انتخاب کنید.", "warning");
+      return;
+    }
     const clean = companyName.trim();
-    setHoldingsList((prev) =>
-      prev.map((h) => (h.id === holdingId ? { ...h, companies: [...h.companies, { id: `c-${Date.now()}`, name: clean }] } : h))
-    );
+    // Persist, then reflect the server's row in the tree.
+    http<{ id: string; name: string }>("/companies", {
+      method: "POST", body: JSON.stringify({ name: clean, holding: holdingId }),
+    })
+      .then((created) =>
+        setHoldingsList((prev) =>
+          prev.map((h) => (h.id === holdingId ? { ...h, companies: [...h.companies, created] } : h))))
+      .catch(() => notify("ثبت شرکت ناموفق بود — دسترسی لازم را ندارید.", "warning"));
     const holdingName = holdingsList.find((h) => h.id === holdingId)?.name ?? "";
     notify(`شرکت «${clean}» به «${holdingName}» افزوده شد. از این پس محتوای اختصاصی و کاربران این شرکت قابل تعریف است.`);
     setOpen(false);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { FileSignature, Plus, Paperclip, CircleDollarSign, Hourglass, ShieldCheck, ListFilter, CheckCircle2, Circle, History, Landmark, PenLine, ArrowLeftRight, Clock3 } from "lucide-react";
-import { currentUser, type ContractRecord } from "../data/mock";
+import {type ContractRecord} from "../data/mock";
+import { me } from "../lib/me";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromContract, toContract } from "../lib/adapters";
 import { contractDetails, type ContractDetail } from "../data/mockDetails";
@@ -341,7 +342,7 @@ function TechContractsTab() {
         stage: method === "فراخوان عمومی" ? "فراخوان" : "مذاکره",
         value: value.trim() || "—",
         deadline: deadline.trim() || "نامشخص",
-        owner: currentUser.name,
+        owner: me().name,
       };
       setContracts((prev) => [newItem, ...prev]);
       notify(`قرارداد «${newItem.title}» (${contractType} — ${method}) ثبت شد و در وضعیت «${newItem.stage}» قرار گرفت.`);

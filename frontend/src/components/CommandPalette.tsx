@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Hash, User, Compass } from "lucide-react";
-import { channels, users } from "../data/mock";
+import { http } from "../lib/http";
 import { navSections } from "./Sidebar";
 
 type Item = { id: string; label: string; hint: string; icon: typeof Hash; to: string };
@@ -11,6 +11,13 @@ const pages: Item[] = navSections.flatMap((s) =>
   s.items.map((i) => ({ id: i.to, label: i.label, hint: "صفحه", icon: Compass, to: i.to }))
 );
 
+const HINTS: Record<string, string> = {
+  news: "خبر", blog: "بلاگ", event: "رویداد", media: "رسانه", doc: "سند دانش",
+  group: "گروه", forum: "انجمن", user: "کاربر", project: "پروژه", contract: "قرارداد",
+  nf: "صندوق نوآور", training: "دوره", channel: "کانال", award: "جایزه",
+  transfer: "تبادل فناوری", rfp: "فراخوان",
+};
+
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [q, setQ] = useState("");
   const navigate = useNavigate();
@@ -19,13 +26,32 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     if (!open) setQ("");
   }, [open]);
 
-  const items: Item[] = useMemo(() => {
-    const channelItems: Item[] = channels.map((c) => ({ id: c.id, label: `${c.name}`, hint: "کانال", icon: Hash, to: "/dashboard/chat" }));
-    const userItems: Item[] = users.map((u) => ({ id: u.id, label: u.name, hint: "کاربر", icon: User, to: `/dashboard/profile/${u.id}` }));
-    const all = [...pages, ...channelItems, ...userItems];
-    if (!q) return all.slice(0, 8);
-    return all.filter((i) => i.label.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  // Real cross-module hits from /search, merged with the static page shortcuts.
+  const [hits, setHits] = useState<Item[]>([]);
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) { setHits([]); return; }
+    const timer = setTimeout(() => {
+      http<{ results: { id: string; type: string; title: string; snippet: string; to: string }[] }>(
+        `/search?q=${encodeURIComponent(term)}`,
+      )
+        .then((d) => setHits(d.results.slice(0, 8).map((h) => ({
+          id: `${h.type}-${h.id}`,
+          label: h.title,
+          hint: HINTS[h.type] ?? h.snippet,
+          icon: h.type === "user" ? User : h.type === "channel" ? Hash : Compass,
+          to: h.to,
+        }))))
+        .catch(() => setHits([]));
+    }, 200);
+    return () => clearTimeout(timer);
   }, [q]);
+
+  const items: Item[] = useMemo(() => {
+    if (!q) return pages.slice(0, 8);
+    const matchedPages = pages.filter((i) => i.label.toLowerCase().includes(q.toLowerCase()));
+    return [...matchedPages, ...hits].slice(0, 8);
+  }, [q, hits]);
 
   if (!open) return null;
 

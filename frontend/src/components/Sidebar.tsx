@@ -25,7 +25,7 @@ import {
   LifeBuoy,
   Award,
 } from "lucide-react";
-import { currentTenant } from "../data/mock";
+import { useTenant } from "../lib/useTenant";
 
 type Item = { to: string; label: string; icon: typeof Users; end?: boolean };
 
@@ -79,6 +79,7 @@ export const navSections: { title: string; items: Item[] }[] = [
 const sections = navSections;
 
 export default function Sidebar() {
+  const currentTenant = useTenant();
   return (
     <aside className="hidden lg:flex flex-col w-[260px] shrink-0 border-l border-ink-200 bg-navy-900 h-screen sticky top-0">
       <div className="flex items-center gap-2.5 px-4 h-16 border-b border-white/10">

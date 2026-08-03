@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { NotebookPen, Star, Hash, Send, MessageCircle } from "lucide-react";
 import { useContent } from "../context/ContentContext";
-import { users } from "../data/mock";
+import { type UserProfile } from "../data/mock";
+import { http } from "../lib/http";
+import { fromUser } from "../lib/adapters";
 import Avatar from "../components/Avatar";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
@@ -13,13 +16,18 @@ export default function BlogPostDetail() {
   const { id } = useParams();
   const { blogPosts, setBlogPosts } = useContent();
   const { notify } = useToast();
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  useEffect(() => {
+    http<any[]>("/users?page_size=100").then((r) => setUsers(r.map(fromUser) as UserProfile[])).catch(() => {});
+  }, []);
   const post = blogPosts.find((b) => b.id === id);
 
   if (!post) return (
     <div className="card p-8 text-center text-sm text-ink-400">یادداشت پیدا نشد.</div>
   );
 
-  const author = users.find((u) => u.name === post.author) ?? users[0];
+  // Real directory lookup; falls back to the name carried on the record itself.
+  const author = users.find((u: UserProfile) => u.name === post.author) ?? { name: post.author, avatarColor: "#1f4f99" };
 
   const toggleVisibility = () => {
     const next = post.visibility === "عمومی" ? "خصوصی" : "عمومی";

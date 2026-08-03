@@ -8,6 +8,7 @@ api_v1 = [
     path("health", HealthView.as_view(), name="health"),
     path("", include("apps.accounts.urls")),
     path("", include("apps.rbac.urls")),
+    path("", include("apps.tenancy.urls")),
     path("", include("apps.content.urls")),
     path("", include("apps.social.urls")),
     path("", include("apps.projects.urls")),

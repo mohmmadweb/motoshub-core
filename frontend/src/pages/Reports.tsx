@@ -15,7 +15,6 @@ import {
   CalendarClock,
   Table2,
 } from "lucide-react";
-import { reportByDepartment, reportByStatus } from "../data/mock";
 import {
   contractFunnel,
   holdingComparison,
@@ -52,6 +51,8 @@ interface ReportSummary {
   contracts_by_stage: Record<string, number>;
   funds_by_stage: Record<string, number>;
   research_by_stage: Record<string, number>;
+  projects_by_department: Record<string, number>;
+  tasks_by_status: Record<string, number>;
 }
 const L_HEALTH: Record<string, string> = { green: "سبز", yellow: "زرد", red: "قرمز" };
 const L_CONTRACT: Record<string, string> = { negotiation: "مذاکره", rfp: "فراخوان", evaluation: "داوری", executing: "در حال اجرا", settled: "تسویه‌شده" };
@@ -80,8 +81,26 @@ export default function Reports() {
       .catch(() => setMonthlyActivity([]));
   }, []);
 
+  // Both charts are derived from the live /reports/summary dimensions.
+  const reportByDepartment = useMemo(
+    () => Object.entries(summary?.projects_by_department ?? {}).map(([label, value]) => ({ label, value })),
+    [summary],
+  );
+  const TASK_LABEL: Record<string, { label: string; tone: "brand" | "success" | "danger" | "neutral" }> = {
+    in_progress: { label: "در حال انجام", tone: "brand" },
+    done: { label: "انجام‌شده", tone: "success" },
+    review: { label: "بازبینی", tone: "danger" },
+    planning: { label: "برنامه‌ریزی", tone: "neutral" },
+  };
+  const reportByStatus = useMemo(
+    () => Object.entries(summary?.tasks_by_status ?? {}).map(([k, value]) => ({
+      label: TASK_LABEL[k]?.label ?? k, value, tone: TASK_LABEL[k]?.tone ?? ("neutral" as const),
+    })),
+    [summary],
+  );
+
   const maxMonthly = Math.max(1, ...monthlyActivity.map((m) => m.value));
-  const maxDept = Math.max(...reportByDepartment.map((d) => d.value));
+  const maxDept = Math.max(1, ...reportByDepartment.map((d) => d.value));
   const maxFunnel = Math.max(...contractFunnel.map((f) => f.count));
   const maxHolding = Math.max(...holdingComparison.flatMap((h) => [h.projects, h.contracts, h.funds]));
 

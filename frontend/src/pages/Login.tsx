@@ -1,31 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { login as apiLogin } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { Building2, Lock, Smartphone, ShieldCheck, ChevronDown, Network } from "lucide-react";
-import { tenants } from "../data/mock";
-import { holdings } from "../data/mockDaneshmand";
+import { http } from "../lib/http";
 import Button from "../components/ui/Button";
 
 // فضای کاری = سازمان مشتری (tenant) یا یکی از شرکت‌های زیرمجموعه‌ی آن —
 // هماهنگ با «پنل راهبری ← سازمان‌های مشتری» و «هلدینگ‌ها و شرکت‌ها»
 type Workspace = { id: string; name: string; domain: string; color: string; parent?: string };
 
-const workspaces: Workspace[] = [
-  ...tenants.map((t) => ({ id: t.id, name: t.name, domain: t.domain, color: t.logoColor })),
-  ...holdings.flatMap((h) =>
-    h.companies.map((c) => ({
-      id: c.id,
-      name: c.name,
-      domain: `${c.id.replace("c-", "")}.${tenants[0].domain}`,
-      color: h.color,
-      parent: h.name,
-    }))
-  ),
-];
+// Loaded from the unauthenticated /public/tenants endpoint (no mock org list).
+function usePublicWorkspaces(): Workspace[] {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  useEffect(() => {
+    http<{ id: string; name: string; domain: string; logo_color: string }[]>("/public/tenants")
+      .then((rows) => setWorkspaces(rows.map((t) => ({ id: t.id, name: t.name, domain: t.domain, color: t.logo_color }))))
+      .catch(() => setWorkspaces([]));
+  }, []);
+  return workspaces;
+}
 
 export default function Login() {
   const navigate = useNavigate();
-  const [tenantId, setTenantId] = useState(workspaces[0].id);
+  const workspaces = usePublicWorkspaces();
+  const [tenantId, setTenantId] = useState("");
   const [orgPickerOpen, setOrgPickerOpen] = useState(false);
   const [mode, setMode] = useState<"password" | "otp">("password");
   const [username, setUsername] = useState("");
@@ -39,7 +37,11 @@ export default function Login() {
     catch { setError("نام کاربری یا گذرواژه نادرست است."); }
     finally { setLoading(false); }
   };
-  const tenant = workspaces.find((t) => t.id === tenantId)!;
+  // Default to the first org once the list arrives.
+  useEffect(() => {
+    setTenantId((cur) => cur || (workspaces[0]?.id ?? ""));
+  }, [workspaces]);
+  const tenant = workspaces.find((t) => t.id === tenantId) ?? { id: "", name: "سازمان", domain: "", color: "#1f4f99" };
 
   return (
     <div dir="rtl" className="min-h-screen flex items-center justify-center bg-navy-900 px-4">
@@ -73,7 +75,7 @@ export default function Login() {
             {orgPickerOpen && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-ink-200 rounded-lg shadow-lg py-1 max-h-72 overflow-y-auto">
                 <p className="px-3 py-1 text-[10.5px] font-bold text-ink-400">سازمان‌های مشتری</p>
-                {tenants.map((t) => (
+                {workspaces.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => {
@@ -82,32 +84,13 @@ export default function Login() {
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-ink-50 text-right ${tenantId === t.id ? "bg-brand-50 font-bold" : ""}`}
                   >
-                    <span className="w-5 h-5 rounded shrink-0" style={{ backgroundColor: t.logoColor }} />
+                    <span className="w-5 h-5 rounded shrink-0" style={{ backgroundColor: t.color }} />
                     {t.name}
                   </button>
                 ))}
-                <p className="px-3 pt-2 pb-1 text-[10.5px] font-bold text-ink-400 border-t border-ink-100 mt-1">
-                  هلدینگ‌ها و شرکت‌های زیرمجموعه‌ی {tenants[0].name}
-                </p>
-                {holdings.map((h) => (
-                  <div key={h.id}>
-                    <p className="px-3 py-1 text-[10.5px] text-ink-400 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: h.color }} /> {h.name}
-                    </p>
-                    {h.companies.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          setTenantId(c.id);
-                          setOrgPickerOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2 pr-8 pl-3 py-1.5 text-xs hover:bg-ink-50 text-right ${tenantId === c.id ? "bg-brand-50 font-bold" : "text-ink-600"}`}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                ))}
+                {workspaces.length === 0 && (
+                  <p className="px-3 py-2 text-[11px] text-ink-400">سازمانی در دسترس نیست.</p>
+                )}
               </div>
             )}
           </div>

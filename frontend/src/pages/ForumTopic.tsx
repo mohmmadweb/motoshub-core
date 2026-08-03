@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, Bell, BellOff, Send } from "lucide-react";
-import { users } from "../data/mock";
+import { type UserProfile } from "../data/mock";
+import { http } from "../lib/http";
+import { fromUser } from "../lib/adapters";
 import { useContent } from "../context/ContentContext";
 import Avatar from "../components/Avatar";
 import Badge from "../components/ui/Badge";
@@ -14,12 +16,17 @@ export default function ForumTopic() {
   const { id } = useParams();
   const { forumTopics, setForumTopics } = useContent();
   const { notify } = useToast();
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  useEffect(() => {
+    http<any[]>("/users?page_size=100").then((r) => setUsers(r.map(fromUser) as UserProfile[])).catch(() => {});
+  }, []);
   const topic = forumTopics.find((t) => t.id === id);
   const [following, setFollowing] = useState(false);
 
   if (!topic) return <p>موضوع پیدا نشد.</p>;
 
-  const author = users.find((u) => u.name === topic.author) ?? users[0];
+  // Real directory lookup; falls back to the name carried on the record itself.
+  const author = users.find((u: UserProfile) => u.name === topic.author) ?? { name: topic.author, avatarColor: "#1f4f99" };
 
   const toggleVisibility = () => {
     const next = topic.visibility === "عمومی" ? "خصوصی" : "عمومی";

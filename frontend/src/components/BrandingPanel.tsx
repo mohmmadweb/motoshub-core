@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
-import { currentTenant } from "../data/mock";
+import { useTenant, invalidateTenant } from "../lib/useTenant";
+import { http } from "../lib/http";
 import { useTheme, accentPresets } from "../context/ThemeContext";
 import Button from "./ui/Button";
 import { useToast } from "./ui/ToastProvider";
@@ -10,8 +11,15 @@ import { useToast } from "./ui/ToastProvider";
 export default function BrandingPanel() {
   const { accent, setAccent } = useTheme();
   const { notify } = useToast();
-  const [domain, setDomain] = useState(currentTenant.domain);
-  const [displayName, setDisplayName] = useState("بنیاد مستضعفان");
+  const currentTenant = useTenant();
+  const [domain, setDomain] = useState("");
+  const [displayName, setDisplayName] = useState("");
+
+  // Seed the inputs once the real tenant arrives.
+  useEffect(() => {
+    setDomain(currentTenant.domain);
+    setDisplayName(currentTenant.name);
+  }, [currentTenant.domain, currentTenant.name]);
   const [logoName, setLogoName] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const activePreset = accentPresets.find((p) => p.id === accent) ?? accentPresets[0];
@@ -25,7 +33,15 @@ export default function BrandingPanel() {
     e.target.value = "";
   };
 
-  const save = () => notify(`تغییرات برندسازی سازمان «${currentTenant.name}» ذخیره شد.`);
+  // Persists the organization's display name + brand colour to the backend.
+  const save = () => {
+    http("/tenant", { method: "PATCH", body: JSON.stringify({ name: displayName, logo_color: color }) })
+      .then(() => {
+        invalidateTenant(); // shell (sidebar/topbar) re-reads the new branding
+        notify(`تغییرات برندسازی سازمان «${displayName}» ذخیره شد.`);
+      })
+      .catch(() => notify("ذخیرهٔ برندسازی ناموفق بود — دسترسی لازم را ندارید.", "warning"));
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">

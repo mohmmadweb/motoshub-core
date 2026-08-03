@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from apps.awards.models import AwardEntry
 from apps.contracts.models import Contract
 from apps.fund.models import Fund, NfProject
-from apps.projects.models import Project
+from apps.projects.models import Project, Task
 from apps.research.models import ResearchOpportunity
 from apps.support.models import Ticket
 
@@ -66,6 +66,9 @@ class ReportSummaryView(APIView):
             "funds_by_stage": by(Fund.objects, "stage"),
             "tickets_by_status": by(Ticket.objects, "status"),
             "research_by_stage": by(ResearchOpportunity.objects, "stage"),
+            # Dimensions for the report charts (department split + task pipeline).
+            "projects_by_department": {k: v for k, v in by(Project.objects, "department").items() if k},
+            "tasks_by_status": by(Task.objects, "status"),
         })
 
 
@@ -267,7 +270,7 @@ class SearchView(APIView):
         add(User.objects.filter(tenant=t).filter(Q(name__icontains=q) | Q(title__icontains=q)), "user",
             lambda o: o.name, lambda o: o.title or o.org or "کاربر", lambda o: f"/dashboard/profile/{o.id}")
         # process
-        from apps.projects.models import Project
+        from apps.projects.models import Project, Task
         add(Project.objects.filter(tenant=t).filter(Q(name__icontains=q) | Q(client__icontains=q)), "project",
             lambda o: o.name, lambda o: f"کارفرما: {o.client}" if o.client else "پروژه", lambda o: f"/dashboard/projects/{o.id}/board")
         add(Contract.objects.filter(tenant=t).filter(Q(title__icontains=q) | Q(vendor__icontains=q)), "contract",

@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Bell, Search, ChevronDown, LogOut, UserCircle, Settings, ShieldCheck, Command, Menu, X, Sun, Moon, Palette } from "lucide-react";
 import Avatar from "./Avatar";
-import { currentUser, notifications, userPresence, currentTenant, type PresenceStatus } from "../data/mock";
+import { type PresenceStatus } from "../data/mock";
+import { http, getUser } from "../lib/http";
+import { useTenant } from "../lib/useTenant";
 import { navSections } from "./Sidebar";
 import { useTheme } from "../context/ThemeContext";
 
@@ -14,10 +16,24 @@ const statusOptions: { id: PresenceStatus; label: string; dot: string }[] = [
 ];
 
 export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
-  const unread = notifications.filter((n) => !n.read).length;
+  const me = getUser() as { id?: string; name?: string; avatar_color?: string; presence?: PresenceStatus } | null;
+  const currentUser = { id: me?.id ?? "", name: me?.name ?? "کاربر", avatarColor: me?.avatar_color ?? "#1f4f99" };
+  const currentTenant = useTenant();
+  const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  const [status, setStatus] = useState<PresenceStatus>(userPresence[currentUser.id] ?? "online");
+  const [status, setStatus] = useState<PresenceStatus>(me?.presence ?? "online");
+
+  // Real unread-notification badge; refreshed on focus so it stays current.
+  useEffect(() => {
+    const refresh = () =>
+      http<any[]>("/notifications?page_size=100")
+        .then((r) => setUnread(r.filter((n) => !n.read).length))
+        .catch(() => {});
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
   const navigate = useNavigate();
   const { resolved, setMode } = useTheme();
 
