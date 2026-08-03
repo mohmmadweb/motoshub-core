@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Briefcase, ShieldCheck, MessageCircle, Laptop, Smartphone, MapPin, LogOut } from "lucide-react";
-import { projects, activeSessions, type UserProfile, type Post } from "../data/mock";
+import { activeSessions, type UserProfile, type Post } from "../data/mock";
 import { http, getUser } from "../lib/http";
 import { fromUser, fromPost } from "../lib/adapters";
 import Avatar from "../components/Avatar";
@@ -28,13 +28,21 @@ export default function Profile() {
     allUsers.find((u) => u.id === id) ??
     (me ? fromUser(me) : { id: "", name: "—", role: "", org: "", avatarColor: "#1f4f99", skills: [], online: false });
   const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const userProjects = projects.filter((p) => p.tasks.some((t) => t.assignee === user.name));
+  const [userProjects, setUserProjects] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!user.id) return;
     http<any[]>(`/posts?author=${user.id}&page_size=20`)
       .then((r) => setUserPosts(r.map(fromPost) as Post[]))
       .catch(() => setUserPosts([]));
+    // Projects this user is actually working on = projects of their open tasks.
+    http<any[]>(`/tasks?assignee=${user.id}&page_size=100`)
+      .then(async (tasks) => {
+        const ids = Array.from(new Set(tasks.map((t) => t.project).filter(Boolean)));
+        const rows = await http<any[]>("/projects?page_size=100").catch(() => []);
+        setUserProjects(rows.filter((p) => ids.includes(p.id)).map((p) => ({ id: p.id, name: p.name })));
+      })
+      .catch(() => setUserProjects([]));
   }, [user.id]);
 
   return (

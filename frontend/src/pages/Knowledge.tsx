@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BookOpen, FileText, Upload, Clock, User, History, Download, Lightbulb } from "lucide-react";
-import {knowledgeDocs as allDocsForCategories, type KnowledgeDoc, type Visibility} from "../data/mock";
+import { type KnowledgeDoc, type Visibility } from "../data/mock";
 import { me } from "../lib/me";
 import { rndOpportunityDocs, rndDocStates, supportedProducts, supportedVentures, partnerTechnologists } from "../data/mockDaneshmand";
 import Tabs from "../components/ui/Tabs";
@@ -28,6 +28,7 @@ const jalaliToday = "۱۴۰۵/۰۴/۰۷";
 
 export default function Knowledge() {
   const [tab, setTab] = useTabParam<"bank" | "rnd" | "registry">("bank", ["bank", "rnd", "registry"]);
+  const { knowledgeDocs } = useContent(); // real doc count for the tab badge
   return (
     <div>
       <PageHeader
@@ -37,7 +38,7 @@ export default function Knowledge() {
       />
       <Tabs
         tabs={[
-          { id: "bank", label: "بانک دانش", count: allDocsForCategories.length },
+          { id: "bank", label: "بانک دانش", count: knowledgeDocs.length },
           { id: "rnd", label: "سندهای فرصت‌های تحقیق و توسعه", count: rndOpportunityDocs.length },
           { id: "registry", label: "شناسنامه‌ها", count: supportedProducts.length + supportedVentures.length + partnerTechnologists.length },
         ]}
@@ -170,7 +171,8 @@ function KnowledgeBankTab() {
   const { notify } = useToast();
   const confirm = useConfirm();
 
-  const categories = ["همه", ...Array.from(new Set(allDocsForCategories.map((d) => d.category)))];
+  // Categories come from the real documents themselves.
+  const categories = ["همه", ...Array.from(new Set(docs.map((d) => d.category).filter(Boolean)))];
   const filtered = active === "همه" ? docs : docs.filter((d) => d.category === active);
 
   const confirmUpload = () => {
