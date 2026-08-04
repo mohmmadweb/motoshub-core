@@ -404,3 +404,28 @@ export const toSavedReport = (v: any) => ({
   name: v.name, module: v.module, group_by: v.groupBy,
   schedule: schedApi[v.schedule] ?? "none", last_run: v.lastRun ?? "", format: v.format ?? "Excel",
 });
+
+// ── Fund network + seed pipeline + admin integrations/guests ───────────────
+export const fromFundEntity = (f: any) => ({
+  id: f.id, name: f.name, focus: f.focus, trlRange: f.trl_range,
+  manager: f.manager, activeProjects: f.active_projects, capital: f.capital,
+});
+const seedStage: Record<string, string> = { screening: "غربالگری", evaluation: "ارزیابی", due_diligence: "ارزیابی موشکافانه", contract: "قرارداد", monitoring: "نظارت و راهبری", exit: "خروج" };
+export const fromSeedInvestment = (s: any) => ({
+  id: s.id, startup: s.startup, field: s.field, stage: seedStage[s.stage] ?? s.stage,
+  requested: s.requested, approved: s.approved || undefined,
+  equityPercent: s.equity_percent ?? undefined, valuation: s.valuation || undefined,
+  kpiStatus: s.kpi_status || undefined, exitPlan: s.exit_plan || undefined,
+});
+const igType: Record<string, string> = { in_webhook: "وب‌هوک ورودی", out_webhook: "وب‌هوک خروجی", bot: "بات", slash: "دستور اسلش" };
+const igTypeApi: Record<string, string> = Object.fromEntries(Object.entries(igType).map(([k, v]) => [v, k]));
+export const fromIntegration = (i: any) => ({
+  id: i.id, name: i.name, type: igType[i.integration_type] ?? i.integration_type,
+  channel: i.channel, status: i.active ? "فعال" : "غیرفعال", createdBy: i.created_by,
+});
+export const toIntegration = (v: any) => ({
+  name: v.name, integration_type: igTypeApi[v.type] ?? "in_webhook",
+  channel: v.channel, active: v.status !== "غیرفعال", created_by: v.createdBy ?? "",
+});
+export const fromGuestAccount = (g: any) => ({ id: g.id, name: g.name, org: g.org, channels: g.channels ?? [], expires: g.expires });
+export const toGuestAccount = (v: any) => ({ name: v.name, org: v.org, channels: v.channels ?? [], expires: v.expires ?? "" });

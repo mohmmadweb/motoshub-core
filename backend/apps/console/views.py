@@ -10,8 +10,9 @@ from apps.projects.models import Project, Task
 from apps.research.models import ResearchOpportunity
 from apps.support.models import Ticket
 
-from .models import SavedReport, WorkflowSettings
-from .serializers import SavedReportSerializer, WorkflowSettingsSerializer
+from .models import GuestAccount, Integration, SavedReport, WorkflowSettings
+from .serializers import (GuestAccountSerializer, IntegrationSerializer, SavedReportSerializer,
+                          WorkflowSettingsSerializer)
 
 
 def _require(request, perm):
@@ -380,3 +381,20 @@ class ReportDimensionsView(APIView):
             "holding_comparison": list(holdings.values()),
             "cross_tab": {"statuses": statuses, "rows": cross},
         })
+
+
+class IntegrationViewSet(TenantScopedModelViewSet):
+    queryset = Integration.objects.all()
+    serializer_class = IntegrationSerializer
+    owner_field = None
+    required_perms = {"list": "chat.integrations", "retrieve": "chat.integrations", "create": "chat.integrations",
+                      "update": "chat.integrations", "partial_update": "chat.integrations", "destroy": "chat.integrations"}
+    filterset_fields = ["integration_type", "active"]
+
+
+class GuestAccountViewSet(TenantScopedModelViewSet):
+    queryset = GuestAccount.objects.all()
+    serializer_class = GuestAccountSerializer
+    owner_field = None
+    required_perms = {"list": "users.guest", "retrieve": "users.guest", "create": "users.guest",
+                      "update": "users.guest", "partial_update": "users.guest", "destroy": "users.guest"}

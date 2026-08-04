@@ -28,8 +28,9 @@ from apps.contracts.models import (
     TechTransferContract,
     Tender,
 )
-from apps.fund.models import FundKpi, FundTranche, ReviewSession, Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
+from apps.fund.models import FundEntity, SeedInvestment, FundKpi, FundTranche, ReviewSession, Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
 from apps.awards.models import AwardEntry, AwardTrack
+from apps.console.models import GuestAccount, Integration
 from apps.chat.models import Channel, DirectMessage, Message
 from apps.notifications.models import Notification
 from apps.polls.models import Poll, PollOption
@@ -389,6 +390,44 @@ class Command(BaseCommand):
                                          date="۱۴۰۵/۰۴/۱۸", items=6, committee="کارگروه اشتغال روستایی")
             ReviewSession.objects.create(tenant=tenant, title="بررسی طرح‌های کشاورزی نیمه اول سال",
                                          date="۱۴۰۵/۰۴/۲۵", items=4, committee="کارگروه کشاورزی")
+
+
+        # ── Fund network + Bavar seed pipeline ───────────────────────────────────
+        if not FundEntity.objects.filter(tenant=tenant).exists():
+            for nm, fo, tr, mg, ap, cp in [
+                ("صندوق نوآور", "پیش‌شتابدهی — ساخت پروتوتایپ و منتورینگ", "TRL 3-6", "مدیر صندوق نوآور", 5, "۱۴٬۰۰۰ میلیون ریال"),
+                ("صندوق باور", "بذرمایه و شتابدهی — تملک سهام", "TRL 4-7", "مدیر مرکز شتابدهی", 3, "۲۰٬۰۰۰ میلیون ریال"),
+                ("صندوق فرصت", "فرصت مطالعاتی صنعتی اعضای هیئت علمی", "TRL 2-5", "مدیر صندوق فرصت", 4, "۶٬۰۰۰ میلیون ریال"),
+                ("سینا وی‌سی (CVC)", "سرمایه‌گذاری خطرپذیر شرکتی", "TRL 6-9", "شرکت توسعه دانش‌بنیان سینا", 2, "۱۲۰٬۰۰۰ میلیون ریال"),
+                ("صندوق سرمایه‌گذاری تحقیق و توسعه بنیاد", "پوشش کامل زنجیره", "TRL 1-9", "هیئت مدیره موسسه", 0, "در حال تاسیس"),
+                ("صندوق پژوهش و فناوری", "ضمانت‌نامه و تسهیلات فناوران", "—", "صندوق پژوهش و فناوری", 6, "۴۵٬۰۰۰ میلیون ریال"),
+                ("صندوق نیکوکاری", "حمایت از نوآوری‌های اجتماعی", "—", "معاونت ترویج نوآوری", 1, "۳٬۰۰۰ میلیون ریال"),
+            ]:
+                FundEntity.objects.create(tenant=tenant, name=nm, focus=fo, trl_range=tr,
+                                          manager=mg, active_projects=ap, capital=cp)
+            for st, fl, sg, rq, ap_, eq, vl, kp, ex in [
+                ("زیست‌پالا (تصفیه پساب صنعتی)", "محیط زیست", "monitoring", "۴٬۰۰۰ میلیون ریال", "۳٬۲۰۰ میلیون ریال", 12, "۲۶٬۶۰۰ میلیون ریال", "۲ از ۳ KPI محقق — قسط سوم آزاد شد", ""),
+                ("آی‌داک (نسخه‌نویسی الکترونیک)", "سلامت دیجیتال", "contract", "۶٬۰۰۰ میلیون ریال", "۵٬۰۰۰ میلیون ریال", 15, "۳۳٬۰۰۰ میلیون ریال", "در انتظار مصوبه هیئت مدیره و تضامین", ""),
+                ("رهیاب‌انرژی (بهینه‌سازی مصرف)", "انرژی", "exit", "۲٬۵۰۰ میلیون ریال", "۲٬۵۰۰ میلیون ریال", 10, "۴۸٬۰۰۰ میلیون ریال", "همه KPIها محقق", "فروش سهام به سینا وی‌سی — بازده ۱.۹ برابر"),
+            ]:
+                SeedInvestment.objects.create(tenant=tenant, startup=st, field=fl, stage=sg, requested=rq,
+                                              approved=ap_, equity_percent=eq, valuation=vl, kpi_status=kp, exit_plan=ex)
+
+        # ── Integrations + guest accounts (admin console) ────────────────────────
+        if not Integration.objects.filter(tenant=tenant).exists():
+            for nm, ty, ch, ac in [
+                ("اعلان بارگذاری گزارش‌های مناطق", "in_webhook", "ستاد-محرومیت‌زدایی", True),
+                ("ارسال گزارش روزانه به دفتر ریاست", "out_webhook", "همگانی", True),
+                ("ربات یادآور جلسات و وظایف", "bot", "ستاد-محرومیت‌زدایی", True),
+                ("/task — ایجاد سریع تسک از چت", "slash", "همه‌ی کانال‌ها", True),
+                ("/poll — نظرسنجی سریع", "slash", "همه‌ی کانال‌ها", False),
+            ]:
+                Integration.objects.create(tenant=tenant, name=nm, integration_type=ty, channel=ch,
+                                           active=ac, created_by="تیم سامانه")
+        if not GuestAccount.objects.filter(tenant=tenant).exists():
+            GuestAccount.objects.create(tenant=tenant, name="ناظر میدانی طرح‌های قلعه‌گنج",
+                                        org="خارج از سازمان", channels=["ستاد-محرومیت‌زدایی"],
+                                        expires="۱۴۰۵/۰۴/۳۰")
 
         # ── RFP (فراخوان فناور برتر) ─────────────────────────────────────────────
         if not RfpCall.objects.filter(tenant=tenant).exists():

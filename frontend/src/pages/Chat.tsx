@@ -42,7 +42,6 @@ import {
   Eraser,
 } from "lucide-react";
 import {
-  integrations,
   type Channel,
   type ChannelMessage,
   type ReactionIcon,
@@ -50,7 +49,8 @@ import {
 import Avatar from "../components/Avatar";
 import { http } from "../lib/http";
 import { openChannelSocket, openDmSocket } from "../lib/ws";
-import { fromChannel, fromChannelMessage, fromUser } from "../lib/adapters";
+import { fromChannel, fromChannelMessage, fromUser, fromIntegration } from "../lib/adapters";
+import { useApiList } from "../lib/useApiList";
 import { me } from "../lib/me";
 import type { UserProfile, PresenceStatus } from "../data/mock";
 import Badge from "../components/ui/Badge";
@@ -104,6 +104,7 @@ export default function Chat() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [userPresence, setUserPresence] = useState<Record<string, PresenceStatus>>({});
   const currentUser = me();
+  const integrations = useApiList<any>("/integrations", fromIntegration as any);
 
   // Real member directory (names, avatars, presence) for the chat UI.
   useEffect(() => {

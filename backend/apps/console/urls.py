@@ -6,6 +6,8 @@ from .views import (
     ReportDimensionsView,
     ReportSummaryView,
     ReportTimeseriesView,
+    GuestAccountViewSet,
+    IntegrationViewSet,
     SavedReportViewSet,
     SearchView,
     WorkflowSettingsView,
@@ -13,6 +15,8 @@ from .views import (
 
 router = DefaultRouter(trailing_slash=False)
 router.register("reports/saved", SavedReportViewSet, basename="saved-report")
+router.register("integrations", IntegrationViewSet, basename="integration")
+router.register("guest-accounts", GuestAccountViewSet, basename="guest-account")
 
 urlpatterns = router.urls + [
     path("settings/workflow", WorkflowSettingsView.as_view(), name="workflow-settings"),

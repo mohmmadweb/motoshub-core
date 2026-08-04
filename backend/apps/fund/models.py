@@ -196,3 +196,40 @@ class ReviewSession(TenantScopedModel):
 
     def __str__(self):
         return self.title
+
+
+class FundEntity(TenantScopedModel):
+    """One fund in the foundation's network (Bavar, Forsat, CVC, …)."""
+    name = models.CharField(max_length=200)
+    focus = models.CharField(max_length=300, blank=True)
+    trl_range = models.CharField(max_length=40, blank=True)
+    manager = models.CharField(max_length=200, blank=True)
+    active_projects = models.PositiveSmallIntegerField(default=0)
+    capital = models.CharField(max_length=80, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "fund_entity"
+
+    def __str__(self):
+        return self.name
+
+
+class SeedInvestment(TenantScopedModel):
+    """Bavar seed pipeline: screening → … → exit (equity + valuation tracked)."""
+    STAGES = [("screening", "غربالگری"), ("evaluation", "ارزیابی"), ("due_diligence", "ارزیابی موشکافانه"),
+              ("contract", "قرارداد"), ("monitoring", "نظارت و راهبری"), ("exit", "خروج")]
+    startup = models.CharField(max_length=200)
+    field = models.CharField(max_length=120, blank=True)
+    stage = models.CharField(max_length=14, choices=STAGES, default="screening")
+    requested = models.CharField(max_length=80, blank=True)
+    approved = models.CharField(max_length=80, blank=True)
+    equity_percent = models.PositiveSmallIntegerField(null=True, blank=True)
+    valuation = models.CharField(max_length=80, blank=True)
+    kpi_status = models.CharField(max_length=300, blank=True)
+    exit_plan = models.CharField(max_length=300, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "fund_seed_investment"
+
+    def __str__(self):
+        return self.startup

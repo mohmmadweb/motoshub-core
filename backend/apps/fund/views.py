@@ -12,8 +12,8 @@ from .catalog import (
     SCREENING_MAX,
     SCREENING_THRESHOLD,
 )
-from .models import Fund, NfProject, NfRequest, ReviewSession
-from .serializers import FundSerializer, NfProjectListSerializer, NfProjectSerializer, NfRequestSerializer, ReviewSessionSerializer
+from .models import Fund, NfProject, NfRequest, ReviewSession, FundEntity, SeedInvestment
+from .serializers import FundSerializer, NfProjectListSerializer, NfProjectSerializer, NfRequestSerializer, ReviewSessionSerializer, FundEntitySerializer, SeedInvestmentSerializer
 
 
 class NfProjectViewSet(TenantScopedModelViewSet):
@@ -118,3 +118,22 @@ class FundOverviewView(APIView):
             "total_capital": int(total), "allocated": int(allocated),
             "success_rate": rate, "avg_review_days": 18,
         })
+
+
+class FundEntityViewSet(TenantScopedModelViewSet):
+    queryset = FundEntity.objects.all()
+    serializer_class = FundEntitySerializer
+    owner_field = None
+    required_perms = {"list": "funds.list", "retrieve": "funds.list", "create": "funds.allocate",
+                      "update": "funds.allocate", "partial_update": "funds.allocate", "destroy": "funds.allocate"}
+    search_fields = ["name", "focus"]
+
+
+class SeedInvestmentViewSet(TenantScopedModelViewSet):
+    queryset = SeedInvestment.objects.all()
+    serializer_class = SeedInvestmentSerializer
+    owner_field = None
+    required_perms = {"list": "funds.list", "retrieve": "funds.list", "create": "funds.submit",
+                      "update": "funds.monitor", "partial_update": "funds.monitor", "destroy": "funds.monitor"}
+    filterset_fields = ["stage"]
+    search_fields = ["startup", "field"]

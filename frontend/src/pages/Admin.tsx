@@ -36,7 +36,7 @@ import { SystemSection, StorageSection } from "./AdminSections";
 import { http } from "../lib/http";
 import { me } from "../lib/me";
 import { useApiList } from "../lib/useApiList";
-import { fromUser } from "../lib/adapters";
+import { fromUser, fromIntegration, toIntegration, fromGuestAccount, toGuestAccount } from "../lib/adapters";
 import { useTenant } from "../lib/useTenant";
 
 // The RBAC catalog is served by the backend (apps/rbac/catalog.py is the source of
@@ -65,8 +65,6 @@ import {
   adminPages as initialPages,
   adminMenus,
   allowedFileExtensions as initialExtensions,
-  integrations as initialIntegrations,
-  guestAccounts as initialGuests,
   type RoleAssignment,
   type ModuleDef,
   type Tenant,
@@ -122,8 +120,8 @@ export default function Admin() {
   const [roles, setRoles] = useApiCollection<RoleDef>("/roles", fromRole as any, toRole as any);
   const [pages, setPages] = useState<AdminPageDef[]>(initialPages);
   const [extensions, setExtensions] = useState<string[]>(initialExtensions);
-  const [integrations, setIntegrations] = useState<Integration[]>(initialIntegrations);
-  const [guestAccounts, setGuestAccounts] = useState<GuestAccount[]>(initialGuests);
+  const [integrations, setIntegrations] = useApiCollection<Integration>("/integrations", fromIntegration as any, toIntegration as any);
+  const [guestAccounts, setGuestAccounts] = useApiCollection<GuestAccount>("/guest-accounts", fromGuestAccount as any, toGuestAccount as any);
   const { notify } = useToast();
 
   const toggleModule = (id: string) => {

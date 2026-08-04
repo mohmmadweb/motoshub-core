@@ -45,3 +45,34 @@ class SavedReport(TenantScopedModel):
 
     def __str__(self):
         return self.name
+
+
+class Integration(TenantScopedModel):
+    """Webhook / bot / slash-command registered for a channel."""
+    TYPES = [("in_webhook", "وب‌هوک ورودی"), ("out_webhook", "وب‌هوک خروجی"),
+             ("bot", "بات"), ("slash", "دستور اسلش")]
+    name = models.CharField(max_length=200)
+    integration_type = models.CharField(max_length=12, choices=TYPES, default="in_webhook")
+    channel = models.CharField(max_length=200, blank=True)
+    active = models.BooleanField(default=True)
+    created_by = models.CharField(max_length=200, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "console_integration"
+
+    def __str__(self):
+        return self.name
+
+
+class GuestAccount(TenantScopedModel):
+    """External collaborator with time-boxed access to specific channels."""
+    name = models.CharField(max_length=200)
+    org = models.CharField(max_length=200, blank=True)
+    channels = models.JSONField(default=list, blank=True)
+    expires = models.CharField(max_length=20, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "console_guest_account"
+
+    def __str__(self):
+        return self.name

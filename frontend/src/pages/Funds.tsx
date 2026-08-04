@@ -22,6 +22,7 @@ import { type FundRecord } from "../data/mock";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromFund, toFund, fromNfProject, toNfProject, fromFundOverview, fromReviewSession } from "../lib/adapters";
 import { useApiList } from "../lib/useApiList";
+import { fromFundEntity, fromSeedInvestment } from "../lib/adapters";
 import { http } from "../lib/http";
 
 import {
@@ -29,15 +30,11 @@ import {
   type NfProject,
   type NfStage,
 } from "../data/mockInnovationFund";
-import {
-  nfEvaluations,
+import {nfEvaluations,
   nfSubStatuses,
   screeningCriteriaCatalog,
   screeningScores,
-  fundCatalog,
-  seedInvestments,
-  type SeedInvestment,
-} from "../data/mockDaneshmand";
+  type SeedInvestment} from "../data/mockDaneshmand";
 import { useSettings, type WorkflowSettings } from "../context/SettingsContext";
 import RowActions from "../components/ui/RowActions";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -103,7 +100,7 @@ export default function Funds() {
       <Tabs
         tabs={[
           { id: "nf", label: "صندوق نوآور — روند کامل" },
-          { id: "allFunds", label: "شبکه صندوق‌ها و بذرمایه باور", count: fundCatalog.length },
+          { id: "allFunds", label: "شبکه صندوق‌ها و بذرمایه باور" },
           { id: "employment", label: "طرح‌های اشتغال‌زایی" },
         ]}
         active={tab}
@@ -130,6 +127,8 @@ const seedStageTone: Record<SeedInvestment["stage"], BadgeTone> = {
 
 function AllFundsTab() {
   const { notify } = useToast();
+  const fundCatalog = useApiList<any>("/funds/network", fromFundEntity as any);
+  const seedInvestments = useApiList<SeedInvestment>("/funds/seed", fromSeedInvestment as any);
   return (
     <div className="space-y-5">
       <div className="card p-4 bg-brand-50 border-brand-200 flex items-start gap-3">
