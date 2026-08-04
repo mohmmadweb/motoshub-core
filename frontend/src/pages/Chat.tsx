@@ -42,9 +42,6 @@ import {
   Eraser,
 } from "lucide-react";
 import {
-  users,
-  currentUser,
-  userPresence,
   integrations,
   type Channel,
   type ChannelMessage,
@@ -53,7 +50,9 @@ import {
 import Avatar from "../components/Avatar";
 import { http } from "../lib/http";
 import { openChannelSocket, openDmSocket } from "../lib/ws";
-import { fromChannel, fromChannelMessage } from "../lib/adapters";
+import { fromChannel, fromChannelMessage, fromUser } from "../lib/adapters";
+import { me } from "../lib/me";
+import type { UserProfile, PresenceStatus } from "../data/mock";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Drawer from "../components/ui/Drawer";
@@ -102,6 +101,17 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChannelMessage[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [msgAuthors, setMsgAuthors] = useState<Record<string, { name: string; color: string }>>({});
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [userPresence, setUserPresence] = useState<Record<string, PresenceStatus>>({});
+  const currentUser = me();
+
+  // Real member directory (names, avatars, presence) for the chat UI.
+  useEffect(() => {
+    http<any[]>("/users?page_size=100").then((raw) => {
+      setUsers(raw.map(fromUser) as UserProfile[]);
+      setUserPresence(Object.fromEntries(raw.map((u) => [u.id, u.presence])) as Record<string, PresenceStatus>);
+    }).catch(() => {});
+  }, []);
   const [dmThreads, setDmThreads] = useState<DmThreadState[]>([]);
   const [draft, setDraft] = useState("");
   const [threadFor, setThreadFor] = useState<ChannelMessage | null>(null);

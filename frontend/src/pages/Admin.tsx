@@ -34,6 +34,26 @@ import {
 } from "lucide-react";
 import { SystemSection, StorageSection } from "./AdminSections";
 import { http } from "../lib/http";
+import { me } from "../lib/me";
+import { useApiList } from "../lib/useApiList";
+import { fromUser } from "../lib/adapters";
+import { useTenant } from "../lib/useTenant";
+
+// The RBAC catalog is served by the backend (apps/rbac/catalog.py is the source of
+// truth); mapped here into the shape this screen renders.
+type PermGroup = { id: string; label: string; actions: { id: string; label: string }[] };
+function usePermissionCatalog(): { catalog: PermGroup[]; allIds: string[] } {
+  const [catalog, setCatalog] = useState<PermGroup[]>([]);
+  useEffect(() => {
+    http<{ group: string; label: string; permissions: { id: string; action: string }[] }[]>("/permissions/catalog")
+      .then((rows) => setCatalog(rows.map((g) => ({
+        id: g.group, label: g.label,
+        actions: g.permissions.map((p) => ({ id: p.id, label: p.action })),
+      }))))
+      .catch(() => setCatalog([]));
+  }, []);
+  return { catalog, allIds: catalog.flatMap((g) => g.actions.map((a) => a.id)) };
+}
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromRole, toRole } from "../lib/adapters";
 import LiveUsagePanel from "../components/LiveUsagePanel";
@@ -41,18 +61,12 @@ import BrandingPanel from "../components/BrandingPanel";
 import { useSettings, settingsMeta, defaultSettings, type WorkflowSettings } from "../context/SettingsContext";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 import {
-  tenants as initialTenants,
   moduleCatalog,
   adminPages as initialPages,
   adminMenus,
   allowedFileExtensions as initialExtensions,
   integrations as initialIntegrations,
   guestAccounts as initialGuests,
-  currentUser,
-  users as orgUsers,
-  permissionCatalog,
-  allPermissionIds,
-  initialRoleAssignments,
   type RoleAssignment,
   type ModuleDef,
   type Tenant,
@@ -92,9 +106,17 @@ const tenantPalette = ["#1f4f99", "#2a66bd", "#0d9488", "#7c3aed", "#b45309", "#
 
 export default function Admin() {
   const [section, setSection] = useState<SectionId>("tenants");
-  const [tenants, setTenants] = useState<Tenant[]>(initialTenants);
-  const [activeTenant, setActiveTenant] = useState(initialTenants[0].id);
-  const tenant = tenants.find((t) => t.id === activeTenant) ?? tenants[0];
+  const realTenant = useTenant();
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [activeTenant, setActiveTenant] = useState("");
+  useEffect(() => {
+    if (!realTenant.id) return;
+    setTenants([{ id: realTenant.id, name: realTenant.name, domain: realTenant.domain,
+                  logoColor: realTenant.logoColor, plan: realTenant.plan,
+                  users: realTenant.users, modules: realTenant.modules } as Tenant]);
+    setActiveTenant((cur) => cur || realTenant.id);
+  }, [realTenant]);
+  const tenant = tenants.find((t) => t.id === activeTenant) ?? tenants[0] ?? ({ id: "", name: "سازمان", domain: "", logoColor: "#1f4f99", plan: "—", users: 0, modules: [] } as unknown as Tenant);
   const [enabledModules, setEnabledModules] = useState<string[]>(["social", "knowledge", "projects", "reports"]);
   const [crossTenant, setCrossTenant] = useState(false);
   const [roles, setRoles] = useApiCollection<RoleDef>("/roles", fromRole as any, toRole as any);
@@ -594,7 +616,8 @@ function RoleEditor({ role, onSave, onCancel }: { role: RoleDef | null; onSave: 
       return next;
     });
 
-  const toggleGroup = (group: (typeof permissionCatalog)[number]) => {
+  const { catalog: permissionCatalog, allIds: allPermissionIds } = usePermissionCatalog();
+  const toggleGroup = (group: PermGroup) => {
     const ids = group.actions.map((a) => a.id);
     const allOn = ids.every((id) => selected.has(id));
     setSelected((prev) => {
@@ -845,7 +868,15 @@ function PagesSection({
 
 function UsersSection({ tenant, roles, notify }: { tenant: Tenant; roles: RoleDef[]; notify: Notify }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [assignments, setAssignments] = useState<RoleAssignment>(initialRoleAssignments);
+  const orgUsers = useApiList<{ id: string; name: string; role: string; org: string; avatarColor: string }>(
+    "/users", fromUser as any);
+  // Role assignments come from each user's role_ids on /users.
+  const [assignments, setAssignments] = useState<RoleAssignment>({});
+  useEffect(() => {
+    http<any[]>("/users?page_size=100")
+      .then((rows) => setAssignments(Object.fromEntries(rows.map((u) => [u.id, (u.role_ids ?? [])[0] ?? ""])) as RoleAssignment))
+      .catch(() => {});
+  }, []);
 
   const assignRole = (userId: string, roleId: string) => {
     setAssignments((prev) => ({ ...prev, [userId]: roleId }));
@@ -965,7 +996,7 @@ function IntegrationsSection({
       notify("نام و کانال هدف الزامی است.", "warning");
       return;
     }
-    const newIntegration: Integration = { id: `ig-${Date.now()}`, name: name.trim(), type, channel: channel.trim(), status: "فعال", createdBy: currentUser.name };
+    const newIntegration: Integration = { id: `ig-${Date.now()}`, name: name.trim(), type, channel: channel.trim(), status: "فعال", createdBy: me().name };
     setIntegrations((prev) => [newIntegration, ...prev]);
     notify(`یکپارچه‌سازی «${newIntegration.name}» ایجاد شد و اکنون فعال است.`);
     setOpen(false);

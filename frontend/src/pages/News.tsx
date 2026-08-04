@@ -1,15 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Newspaper, Pin, MessageCircle, Plus, Building2, Eye, Globe2, Network } from "lucide-react";
 import { Link } from "react-router-dom";
 import { type NewsItem, type Visibility } from "../data/mock";
-import {
-  holdings,
-  allCompanies,
-  scopedNews as initialScopedNews,
+import {scopedNews as initialScopedNews,
   type ScopedNews,
-  type ContentScope,
-} from "../data/mockDaneshmand";
+  type ContentScope} from "../data/mockDaneshmand";
 import { useContent } from "../context/ContentContext";
+import { http } from "../lib/http";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -226,10 +223,19 @@ const scopeTone = { سراسری: "brand", هلدینگ: "navy", شرکت: "warn
 function ScopedNewsSection() {
   const [items, setItems] = useState<ScopedNews[]>(initialScopedNews);
   const [viewer, setViewer] = useState<string>("hq"); // hq = ستاد بنیاد
+  // Real org tree: holdings carry their companies (see /holdings).
+  const [holdings, setHoldings] = useState<{ id: string; name: string; color: string; companies: { id: string; name: string }[] }[]>([]);
+  const allCompanies = useMemo(
+    () => holdings.flatMap((h) => h.companies.map((c) => ({ ...c, holdingId: h.id, holdingName: h.name }))),
+    [holdings],
+  );
+  useEffect(() => {
+    http<any[]>("/holdings?page_size=100").then(setHoldings).catch(() => {});
+  }, []);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
-  const [ownerCompany, setOwnerCompany] = useState(allCompanies[0].id);
+  const [ownerCompany, setOwnerCompany] = useState("");
   const [scope, setScope] = useState<ContentScope>("شرکت");
   const { notify } = useToast();
   const confirmDialog = useConfirm();
@@ -253,7 +259,8 @@ function ScopedNewsSection() {
       notify("عنوان و متن خبر الزامی است.", "warning");
       return;
     }
-    const owner = allCompanies.find((c) => c.id === ownerCompany)!;
+    const owner = allCompanies.find((c) => c.id === ownerCompany);
+    if (!owner) { notify("ابتدا شرکت مالک را انتخاب کنید.", "warning"); return; }
     const item: ScopedNews = {
       id: `sn-${Date.now()}`,
       title: title.trim(),
