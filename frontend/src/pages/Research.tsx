@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { FlaskConical, Plus, Users, ListFilter, GraduationCap, Wallet, Clock3, FileCheck2, CheckCircle2, XCircle, Megaphone, Trophy, BookMarked } from "lucide-react";
 import { type ResearchOpportunity } from "../data/mock";
 import { useApiCollection } from "../lib/useApiCollection";
+import { useApiList } from "../lib/useApiList";
+import { fromRfpCall, fromSabbatical } from "../lib/adapters";
 import { fromResearch, toResearch } from "../lib/adapters";
 import { researchDetails, type ResearchApplicant } from "../data/mockDetails";
-import { rfpCalls, sabbaticals, type RfpCall, type Sabbatical } from "../data/mockDaneshmand";
+import {type RfpCall, type Sabbatical} from "../data/mockDaneshmand";
 import Tabs from "../components/ui/Tabs";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
@@ -34,6 +36,8 @@ const stages: ResearchOpportunity["stage"][] = ["فراخوان باز", "برر
 
 export default function Research() {
   const [tab, setTab] = useTabParam<"opps" | "rfp" | "sabbatical">("opps", ["opps", "rfp", "sabbatical"]);
+  const rfpCalls = useApiList<RfpCall>("/research/rfp", fromRfpCall as any);
+  const sabbaticals = useApiList<Sabbatical>("/research/sabbaticals", fromSabbatical as any);
   return (
     <div>
       <PageHeader
@@ -51,8 +55,8 @@ export default function Research() {
         onChange={setTab}
       />
       {tab === "opps" && <OpportunitiesTab />}
-      {tab === "rfp" && <RfpTab />}
-      {tab === "sabbatical" && <SabbaticalTab />}
+      {tab === "rfp" && <RfpTab calls={rfpCalls} />}
+      {tab === "sabbatical" && <SabbaticalTab items={sabbaticals} />}
     </div>
   );
 }
@@ -70,7 +74,7 @@ const rfpStageTone: Record<RfpCall["stage"], BadgeTone> = {
   "فناور برتر انتخاب شد": "success",
 };
 
-function RfpTab() {
+function RfpTab({ calls }: { calls: RfpCall[] }) {
   const { notify } = useToast();
   return (
     <div className="space-y-4">
@@ -84,7 +88,7 @@ function RfpTab() {
           RFP جدید
         </Button>
       </div>
-      {rfpCalls.map((call) => (
+      {calls.map((call) => (
         <div key={call.id} className="card p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
             <p className="text-sm font-bold text-ink-900 flex items-center gap-1.5">
@@ -147,7 +151,7 @@ const sabbReportTone: Record<string, BadgeTone> = {
   "تایید و پرداخت شد": "success",
 };
 
-function SabbaticalTab() {
+function SabbaticalTab({ items }: { items: Sabbatical[] }) {
   const { notify } = useToast();
   return (
     <div className="space-y-4">
@@ -161,7 +165,7 @@ function SabbaticalTab() {
           فراخوان فرصت مطالعاتی
         </Button>
       </div>
-      {sabbaticals.map((sb) => (
+      {items.map((sb) => (
         <div key={sb.id} className="card p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
             <p className="text-sm font-bold text-ink-900 flex items-center gap-1.5">

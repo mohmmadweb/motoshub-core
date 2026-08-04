@@ -120,3 +120,79 @@ class KnowledgeDoc(TenantScopedModel):
 
     def __str__(self):
         return self.title
+
+
+# ── نشریات سازمانی (ماهنامه بنیاد / نشریه بنیادتک) ──────────────────────────
+class PublicationIssue(TenantScopedModel):
+    MAGAZINES = [("bonyad", "ماهنامه بنیاد"), ("bonyadtech", "نشریه بنیادتک")]
+    STAGES = [("collect", "گردآوری محتوا"), ("edit", "ویراستاری"), ("layout", "صفحه‌آرایی"),
+              ("print", "چاپ و توزیع"), ("published", "منتشر شده")]
+    magazine = models.CharField(max_length=12, choices=MAGAZINES, default="bonyad")
+    issue_no = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=300)
+    season = models.CharField(max_length=60, blank=True)
+    stage = models.CharField(max_length=10, choices=STAGES, default="collect")
+    articles = models.PositiveSmallIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "content_publication_issue"
+        ordering = ["-issue_no"]
+
+    def __str__(self):
+        return f"{self.get_magazine_display()} — {self.issue_no}"
+
+
+# ── سند فرصت‌های تحقیق و توسعه (تدوین سند برای هر شرکت) ─────────────────────
+class RndDoc(TenantScopedModel):
+    company = models.CharField(max_length=200)
+    holding = models.CharField(max_length=200, blank=True)
+    progress = models.PositiveSmallIntegerField(default=0, help_text="۰ تا ۱۰۰ روی ماشین وضعیت تدوین")
+    status_label = models.CharField(max_length=200, blank=True)
+    obstacles = models.CharField(max_length=300, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "content_rnd_doc"
+
+    def __str__(self):
+        return self.company
+
+
+# ── شناسنامه‌ها: محصولات، واحدهای فناور، فناوران همکار ──────────────────────
+class SupportedProduct(TenantScopedModel):
+    name = models.CharField(max_length=300)
+    company = models.CharField(max_length=200, blank=True)
+    trl = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=200, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "content_supported_product"
+
+    def __str__(self):
+        return self.name
+
+
+class SupportedVenture(TenantScopedModel):
+    SUPPORT = [("tech_contract", "قرارداد فناورانه"), ("seed", "بذرمایه"), ("vc", "سرمایه خطرپذیر")]
+    name = models.CharField(max_length=200)
+    support_type = models.CharField(max_length=16, choices=SUPPORT, default="seed")
+    field = models.CharField(max_length=120, blank=True)
+    year = models.CharField(max_length=12, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "content_supported_venture"
+
+    def __str__(self):
+        return self.name
+
+
+class PartnerTechnologist(TenantScopedModel):
+    name = models.CharField(max_length=200)
+    expertise = models.CharField(max_length=200, blank=True)
+    projects = models.PositiveSmallIntegerField(default=0)
+    rating = models.DecimalField(max_digits=3, decimal_places=1, default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "content_partner_technologist"
+
+    def __str__(self):
+        return self.name

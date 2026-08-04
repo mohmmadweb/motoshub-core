@@ -100,3 +100,57 @@ class PublicFeedView(APIView):
             "blogs": BlogPostSerializer(blogs.select_related("author")[:10], many=True, context={"request": request}).data,
             "events": EventSerializer(events.select_related("author")[:10], many=True, context={"request": request}).data,
         })
+
+
+# ── Publications / R&D docs / registries ────────────────────────────────────
+from .models import PartnerTechnologist, PublicationIssue, RndDoc, SupportedProduct, SupportedVenture  # noqa: E402
+from .serializers import (  # noqa: E402
+    PartnerTechnologistSerializer,
+    PublicationIssueSerializer,
+    RndDocSerializer,
+    SupportedProductSerializer,
+    SupportedVentureSerializer,
+)
+
+
+class PublicationIssueViewSet(TenantScopedModelViewSet):
+    queryset = PublicationIssue.objects.all()
+    serializer_class = PublicationIssueSerializer
+    owner_field = None
+    required_perms = _crud_perms("blog")
+    filterset_fields = ["magazine", "stage"]
+    search_fields = ["title", "season"]
+
+
+class RndDocViewSet(TenantScopedModelViewSet):
+    queryset = RndDoc.objects.all()
+    serializer_class = RndDocSerializer
+    owner_field = None
+    required_perms = _crud_perms("knowledge")
+    filterset_fields = ["holding"]
+    search_fields = ["company", "holding"]
+
+
+class SupportedProductViewSet(TenantScopedModelViewSet):
+    queryset = SupportedProduct.objects.all()
+    serializer_class = SupportedProductSerializer
+    owner_field = None
+    required_perms = _crud_perms("knowledge")
+    search_fields = ["name", "company"]
+
+
+class SupportedVentureViewSet(TenantScopedModelViewSet):
+    queryset = SupportedVenture.objects.all()
+    serializer_class = SupportedVentureSerializer
+    owner_field = None
+    required_perms = _crud_perms("knowledge")
+    filterset_fields = ["support_type"]
+    search_fields = ["name", "field"]
+
+
+class PartnerTechnologistViewSet(TenantScopedModelViewSet):
+    queryset = PartnerTechnologist.objects.all()
+    serializer_class = PartnerTechnologistSerializer
+    owner_field = None
+    required_perms = _crud_perms("knowledge")
+    search_fields = ["name", "expertise"]

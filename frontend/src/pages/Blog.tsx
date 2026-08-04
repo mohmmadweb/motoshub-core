@@ -3,7 +3,9 @@ import { NotebookPen, Star, Plus, Hash, BookMarked } from "lucide-react";
 import { Link } from "react-router-dom";
 import {type BlogPost, type Visibility} from "../data/mock";
 import { me } from "../lib/me";
-import { publicationIssues, type PublicationIssue } from "../data/mockDaneshmand";
+import { type PublicationIssue } from "../data/mockDaneshmand";
+import { useApiList } from "../lib/useApiList";
+import { fromPublication } from "../lib/adapters";
 import Tabs from "../components/ui/Tabs";
 import RowActions from "../components/ui/RowActions";
 import DataTable from "../components/ui/DataTable";
@@ -27,7 +29,7 @@ const pubStageTone = {
   "منتشر شده": "success",
 } as const;
 
-function PublicationsTab() {
+function PublicationsTab({ issues }: { issues: PublicationIssue[] }) {
   const { notify } = useToast();
   const grouped: PublicationIssue["magazine"][] = ["ماهنامه بنیاد", "نشریه بنیادتک"];
   return (
@@ -50,7 +52,7 @@ function PublicationsTab() {
             </button>
           </div>
           <div className="card divide-y divide-ink-100">
-            {publicationIssues.filter((p) => p.magazine === mag).map((p) => (
+            {issues.filter((p) => p.magazine === mag).map((p) => (
               <div key={p.id} className="p-3.5 flex items-center justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-ink-900">شماره {p.issueNo.toLocaleString("fa-IR")} — {p.title}</p>
@@ -67,6 +69,7 @@ function PublicationsTab() {
 }
 
 export default function Blog() {
+  const publications = useApiList<PublicationIssue>("/publications", fromPublication as any);
   const [tab, setTab] = useTabParam<"blog" | "pubs">("blog", ["blog", "pubs"]);
   const { blogPosts: posts, setBlogPosts: setPosts } = useContent();
   const [open, setOpen] = useState(false);
@@ -148,13 +151,13 @@ export default function Blog() {
       <Tabs
         tabs={[
           { id: "blog", label: "یادداشت‌های بلاگ", count: posts.length },
-          { id: "pubs", label: "نشریات (بنیاد / بنیادتک)", count: publicationIssues.length },
+          { id: "pubs", label: "نشریات (بنیاد / بنیادتک)", count: publications.length },
         ]}
         active={tab}
         onChange={setTab}
       />
 
-      {tab === "pubs" && <PublicationsTab />}
+      {tab === "pubs" && <PublicationsTab issues={publications} />}
 
       {tab === "blog" && (
       <DataTable

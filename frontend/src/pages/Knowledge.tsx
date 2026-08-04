@@ -2,7 +2,22 @@ import { useState } from "react";
 import { BookOpen, FileText, Upload, Clock, User, History, Download, Lightbulb } from "lucide-react";
 import { type KnowledgeDoc, type Visibility } from "../data/mock";
 import { me } from "../lib/me";
-import { rndOpportunityDocs, rndDocStates, supportedProducts, supportedVentures, partnerTechnologists } from "../data/mockDaneshmand";
+import { useApiList } from "../lib/useApiList";
+import { fromRndDoc, fromSupportedProduct, fromSupportedVenture, fromPartnerTechnologist } from "../lib/adapters";
+
+// ماشین وضعیتِ تدوین سند (تعریف ثابت فرآیند — نه دادهٔ نمونه)
+const rndDocStates: { threshold: number; label: string }[] = [
+  { threshold: 10, label: "بازدید و احصاء عناوین" },
+  { threshold: 20, label: "عناوین احصاء شده — در بررسی" },
+  { threshold: 45, label: "ویرایش اول ارائه شده" },
+  { threshold: 65, label: "اصلاحات توسط تیم راهبر" },
+  { threshold: 85, label: "پیش‌نویس نهایی در بررسی" },
+  { threshold: 100, label: "سند تدوین، تایید و تحویل شده" },
+];
+type RndDoc = { id: string; company: string; holding: string; progress: number; statusLabel: string; obstacles?: string };
+type SupportedProduct = { id: string; name: string; company: string; trl: number; status: string };
+type SupportedVenture = { id: string; name: string; supportType: string; field: string; year: string };
+type PartnerTechnologist = { id: string; name: string; expertise: string; projects: number; rating: number };
 import Tabs from "../components/ui/Tabs";
 import RowActions from "../components/ui/RowActions";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -29,6 +44,10 @@ const jalaliToday = "۱۴۰۵/۰۴/۰۷";
 export default function Knowledge() {
   const [tab, setTab] = useTabParam<"bank" | "rnd" | "registry">("bank", ["bank", "rnd", "registry"]);
   const { knowledgeDocs } = useContent(); // real doc count for the tab badge
+  const rndDocs = useApiList<RndDoc>("/knowledge/rnd-docs", fromRndDoc as any);
+  const products = useApiList<SupportedProduct>("/knowledge/products", fromSupportedProduct as any);
+  const ventures = useApiList<SupportedVenture>("/knowledge/ventures", fromSupportedVenture as any);
+  const technologists = useApiList<PartnerTechnologist>("/knowledge/technologists", fromPartnerTechnologist as any);
   return (
     <div>
       <PageHeader
@@ -39,15 +58,15 @@ export default function Knowledge() {
       <Tabs
         tabs={[
           { id: "bank", label: "بانک دانش", count: knowledgeDocs.length },
-          { id: "rnd", label: "سندهای فرصت‌های تحقیق و توسعه", count: rndOpportunityDocs.length },
-          { id: "registry", label: "شناسنامه‌ها", count: supportedProducts.length + supportedVentures.length + partnerTechnologists.length },
+          { id: "rnd", label: "سندهای فرصت‌های تحقیق و توسعه", count: rndDocs.length },
+          { id: "registry", label: "شناسنامه‌ها", count: products.length + ventures.length + technologists.length },
         ]}
         active={tab}
         onChange={setTab}
       />
       {tab === "bank" && <KnowledgeBankTab />}
-      {tab === "rnd" && <RndDocsTab />}
-      {tab === "registry" && <RegistryTab />}
+      {tab === "rnd" && <RndDocsTab docs={rndDocs} />}
+      {tab === "registry" && <RegistryTab products={products} ventures={ventures} technologists={technologists} />}
     </div>
   );
 }
@@ -55,13 +74,13 @@ export default function Knowledge() {
 // ---------------------------------------------------------------------------
 // شناسنامه‌های تجمیعی: محصولات حمایت‌شده، واحدهای دانش‌بنیان، فناوران همکار
 // ---------------------------------------------------------------------------
-function RegistryTab() {
+function RegistryTab({ products, ventures, technologists }: { products: SupportedProduct[]; ventures: SupportedVenture[]; technologists: PartnerTechnologist[] }) {
   return (
     <div className="space-y-5">
       <div>
         <h3 className="text-sm font-bold text-ink-900 mb-2">شناسنامه محصولات و فناوری‌های حمایت‌شده</h3>
         <div className="card divide-y divide-ink-100">
-          {supportedProducts.map((p) => (
+          {products.map((p) => (
             <div key={p.id} className="p-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ink-900">{p.name}</p>
@@ -79,7 +98,7 @@ function RegistryTab() {
       <div>
         <h3 className="text-sm font-bold text-ink-900 mb-2">شناسنامه واحدهای دانش‌بنیان حمایت‌شده</h3>
         <div className="card divide-y divide-ink-100">
-          {supportedVentures.map((v) => (
+          {ventures.map((v) => (
             <div key={v.id} className="p-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ink-900">{v.name}</p>
@@ -94,7 +113,7 @@ function RegistryTab() {
       <div>
         <h3 className="text-sm font-bold text-ink-900 mb-2">شناسنامه فناوران همکار</h3>
         <div className="card divide-y divide-ink-100">
-          {partnerTechnologists.map((t) => (
+          {technologists.map((t) => (
             <div key={t.id} className="p-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ink-900">{t.name}</p>
@@ -112,7 +131,7 @@ function RegistryTab() {
 // ---------------------------------------------------------------------------
 // سندهای فرصت‌های R&D — یک سند به ازای هر شرکت بنیادی، با ماشین وضعیت تدوین
 // ---------------------------------------------------------------------------
-function RndDocsTab() {
+function RndDocsTab({ docs: rndOpportunityDocs }: { docs: RndDoc[] }) {
   const delivered = rndOpportunityDocs.filter((d) => d.progress === 100).length;
   return (
     <div>

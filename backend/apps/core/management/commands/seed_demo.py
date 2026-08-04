@@ -13,6 +13,9 @@ from apps.accounts.models import User
 from apps.content.models import BlogPost, Event, KnowledgeDoc, MediaItem, News
 from apps.core.models import ContentScope, Visibility
 from apps.competitions.models import Challenge, Competition, CompetitionEntry
+from apps.content.models import (PartnerTechnologist, PublicationIssue, RndDoc,
+                                 SupportedProduct, SupportedVenture)
+from apps.research.models import RfpCall, RfpVendor, Sabbatical, SabbaticalReport
 from apps.contracts.models import (
     Contract,
     ContractApproval,
@@ -307,6 +310,110 @@ class Command(BaseCommand):
                 tags=["رویداد"], attachment={"type": "doc", "label": "دستور جلسهٔ نشست فصلی.pdf"})
             PostLike.objects.get_or_create(tenant=tenant, post=p1, user=member)
             PostLike.objects.get_or_create(tenant=tenant, post=p2, user=admin)
+
+
+        # ── RFP (فراخوان فناور برتر) ─────────────────────────────────────────────
+        if not RfpCall.objects.filter(tenant=tenant).exists():
+            rfps = [
+                ("RFP سامانه پایش برخط کیفیت شیر خام در زنجیره سرد", "لبنیات پاک", "صنایع غذایی سینا",
+                 "selected", "۱۴۰۵/۰۲/۳۰", ["سامانه بنیاد", "سامانه ساخت داخل", "سامانه نان"],
+                 [("زیست‌فناور کیمیا", 82, 88, True, "۹٬۸۰۰ میلیون ریال", True),
+                  ("پایش‌گستر آزما", 74, 79, True, "۱۱٬۲۰۰ میلیون ریال", False),
+                  ("تیم دانشگاهی صنعتی‌شریف", 68, 84, True, "۸٬۹۰۰ میلیون ریال", False)]),
+                ("RFP هوشمندسازی توزین و بارگیری ناوگان ریلی", "سینا ریل پارس", "پایا ترابر سینا",
+                 "tech", "۱۴۰۵/۰۵/۱۵", ["سامانه بنیاد", "سامانه جان"],
+                 [("فوتونیک آریا", 78, None, False, "", False), ("رهاورد سنجش", 71, None, False, "", False),
+                  ("مکاترونیک پیشرو", 64, None, False, "", False)]),
+                ("RFP بازیافت حرارت کوره‌های عملیات حرارتی", "نیروگاه‌های صبا", "برق و انرژی صبا",
+                 "docs", "۱۴۰۵/۰۶/۰۱", ["سامانه بنیاد", "سامانه ساخت داخل"],
+                 [("حرارت گستر", None, None, False, "", False), ("ترمودینا", None, None, False, "", False)]),
+            ]
+            for ti, co, ho, st, dl, ch, vendors in rfps:
+                call = RfpCall.objects.create(tenant=tenant, title=ti, company=co, holding=ho,
+                                              stage=st, deadline=dl, channels=ch)
+                for nm, bs, ts, po, pr, wn in vendors:
+                    RfpVendor.objects.create(tenant=tenant, call=call, name=nm, biz_score=bs,
+                                             tech_score=ts, price_opened=po, price=pr, winner=wn)
+
+        # ── فرصت مطالعاتی اساتید ─────────────────────────────────────────────────
+        if not Sabbatical.objects.filter(tenant=tenant).exists():
+            sabs = [
+                ("دکتر فرزانه توکلی", "دانشگاه صنعتی اصفهان", "صنایع غذایی سینا — بهنوش",
+                 "کاهش ضایعات خط تولید نوشیدنی با تحلیل داده", 2, 4, "ف/۱۴۰۴/۰۸", "running",
+                 [(1, "گزارش شناخت شرکت", "paid", "۲۵۰ میلیون ریال"),
+                  (2, "گزارش ارائه راهکار", "sent", ""),
+                  (3, "گزارش RFPهای پیشنهادی (حداقل ۶ عنوان: ۳ نوپا، ۲ R&D، ۱ کلان)", "pending", "")]),
+                ("دکتر امیرحسین شعبانی", "دانشگاه تبریز", "کاوه پارس — زنجیره فولاد",
+                 "کاهش مصرف انرژی در کوره‌های قوس الکتریکی", 3, None, "ف/۱۴۰۴/۱۱", "contract",
+                 [(1, "گزارش شناخت شرکت", "pending", ""), (2, "گزارش ارائه راهکار", "pending", ""),
+                  (3, "گزارش RFPهای پیشنهادی", "pending", "")]),
+                ("دکتر لیلا قنبری", "دانشگاه فردوسی مشهد", "فردوس پارس — دشت ناز",
+                 "الگوی آبیاری دقیق مبتنی بر سنجش از دور", 2, 5, "ف/۱۴۰۳/۲۱", "closed",
+                 [(1, "گزارش شناخت شرکت", "paid", "۲۲۰ میلیون ریال"),
+                  (2, "گزارش ارائه راهکار", "paid", "۲۸۰ میلیون ریال"),
+                  (3, "گزارش RFPهای پیشنهادی (۷ عنوان)", "paid", "۳۰۰ میلیون ریال")]),
+            ]
+            for pr, un, ind, tp, tb, ta, ct, st, reports in sabs:
+                sb = Sabbatical.objects.create(tenant=tenant, professor=pr, university=un, industry=ind,
+                                               topic=tp, trl_before=tb, trl_after=ta, contract=ct, stage=st)
+                for no, ti, stt, amt in reports:
+                    SabbaticalReport.objects.create(tenant=tenant, sabbatical=sb, no=no, title=ti,
+                                                    status=stt, paid_amount=amt)
+
+        # ── نشریات ───────────────────────────────────────────────────────────────
+        if not PublicationIssue.objects.filter(tenant=tenant).exists():
+            for mag, no, ti, se, st, ar in [
+                ("bonyad", 12, "ویژه‌نامه هوش مصنوعی در صنایع بنیاد", "تابستان ۱۴۰۵", "layout", 14),
+                ("bonyad", 11, "زنجیره ارزش فولاد و فناوری‌های سبز", "بهار ۱۴۰۵", "published", 12),
+                ("bonyadtech", 8, "گزارش رویداد راهی شو ۱۴۰۳ و تیم‌های برگزیده", "بهار ۱۴۰۵", "published", 9),
+                ("bonyadtech", 9, "ویژه فراخوان‌های نیازهای فناورانه", "تابستان ۱۴۰۵", "collect", 5),
+            ]:
+                PublicationIssue.objects.create(tenant=tenant, magazine=mag, issue_no=no, title=ti,
+                                                season=se, stage=st, articles=ar)
+
+        # ── سندهای فرصت‌های تحقیق و توسعه ───────────────────────────────────────
+        if not RndDoc.objects.filter(tenant=tenant).exists():
+            for co, ho, pg, lb, ob in [
+                ("دشت ناز ساری", "فردوس پارس", 100, "سند تدوین، تایید و تحویل شده", ""),
+                ("بهنوش ایران", "صنایع غذایی سینا", 100, "سند تدوین، تایید و تحویل شده", ""),
+                ("زمزم ایران", "صنایع غذایی سینا", 85, "پیش‌نویس نهایی در بررسی", ""),
+                ("لبنیات پاک", "صنایع غذایی سینا", 65, "اصلاحات توسط تیم راهبر", ""),
+                ("سینا ریل پارس", "پایا ترابر سینا", 45, "ویرایش اول ارائه شده", ""),
+                ("آزادراه تهران - شمال", "پایا ترابر سینا", 100, "سند تدوین، تایید و تحویل شده", ""),
+                ("بانک سینا", "مالی و سرمایه‌گذاری سینا", 20, "عناوین احصاء شده — در بررسی", "در انتظار تعیین نماینده تحول دیجیتال"),
+                ("بیمه سینا", "مالی و سرمایه‌گذاری سینا", 10, "بازدید و احصاء عناوین", ""),
+                ("نیروگاه‌های صبا", "برق و انرژی صبا", 45, "ویرایش اول ارائه شده", ""),
+                ("انرژی گستر سینا", "برق و انرژی صبا", 65, "اصلاحات توسط تیم راهبر", "نیاز به جلسه تکمیلی با معاونت بهره‌برداری"),
+                ("کاوه پارس (فولاد)", "کاوه پارس", 20, "عناوین احصاء شده — در بررسی", ""),
+                ("هتل‌های پارسیان", "سیاحتی پارسیان", 10, "بازدید و احصاء عناوین", ""),
+            ]:
+                RndDoc.objects.create(tenant=tenant, company=co, holding=ho, progress=pg,
+                                      status_label=lb, obstacles=ob)
+
+        # ── شناسنامه‌ها ─────────────────────────────────────────────────────────
+        if not SupportedProduct.objects.filter(tenant=tenant).exists():
+            for nm, co, trl, st in [
+                ("کیت تشخیص سریع آنتی‌بیوتیک شیر", "زیست‌فناور کیمیا", 7, "در حال استقرار در لبنیات پاک"),
+                ("سامانه تشخیص خودکار حوادث جاده‌ای", "بینا رایان", 9, "بهره‌برداری تجاری"),
+                ("پهپاد سمپاش ۲۰ لیتری", "پرواز سبز", 8, "پایلوت مزارع دشت ناز"),
+                ("خمیرکاغذ کرافت ارگانوسولو", "اکال زیست پایدار", 4, "پروتوتایپ در صندوق نوآور"),
+            ]:
+                SupportedProduct.objects.create(tenant=tenant, name=nm, company=co, trl=trl, status=st)
+            for nm, sp, fl, yr in [
+                ("اکال زیست پایدار", "tech_contract", "زیست‌فناوری", "۱۴۰۴"),
+                ("زیست‌پالا", "seed", "محیط زیست", "۱۴۰۴"),
+                ("رهیاب‌انرژی", "seed", "انرژی", "۱۴۰۳"),
+                ("بینا رایان", "vc", "بینایی ماشین", "۱۴۰۲"),
+                ("سیگنال امید", "tech_contract", "هوش مصنوعی", "۱۴۰۴"),
+            ]:
+                SupportedVenture.objects.create(tenant=tenant, name=nm, support_type=sp, field=fl, year=yr)
+            for nm, ex, pj, rt in [
+                ("شرکت شتابدهی و فناوری راهبر بنیاد", "راهبری و شتابدهی تیم‌ها", 5, 4.6),
+                ("زیست‌فناور کیمیا", "کیت‌های تشخیصی", 2, 4.4),
+                ("فوتونیک آریا", "لیدار و سنجش نوری", 1, 4.0),
+                ("پرواز سبز", "پهپاد کشاورزی", 1, 4.5),
+            ]:
+                PartnerTechnologist.objects.create(tenant=tenant, name=nm, expertise=ex, projects=pj, rating=rt)
 
         # ── Social graph: colleagues + friends + follows (Friends/Profile pages) ──
         colleagues = [

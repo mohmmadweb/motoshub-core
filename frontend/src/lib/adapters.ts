@@ -280,3 +280,43 @@ export const fromRisk = (r: any) => ({
   id: r.id, title: r.title, severity: rkSev[r.severity] ?? "متوسط", probability: rkProb[r.probability] ?? "متوسط",
   status: rkStatus[r.status] ?? "باز", owner: r.owner ?? "", mitigation: r.mitigation ?? "",
 });
+
+// ── RFP calls + sabbaticals (research sub-tabs) ─────────────────────────────
+const rfpStage: Record<string, string> = { publish: "انتشار فراخوان", docs: "دریافت مستندات", biz: "ارزیابی کسب‌وکاری", tech: "ارزیابی فنی", open: "بازگشایی پاکات", selected: "فناور برتر انتخاب شد" };
+export const fromRfpCall = (c: any) => ({
+  id: c.id, title: c.title, company: c.company, holding: c.holding,
+  stage: rfpStage[c.stage] ?? c.stage, deadline: c.deadline, channels: c.channels ?? [],
+  vendors: (c.vendors ?? []).map((v: any) => ({
+    id: v.id, name: v.name, bizScore: v.biz_score ?? undefined, techScore: v.tech_score ?? undefined,
+    priceOpened: v.price_opened, price: v.price || undefined, winner: v.winner || undefined,
+  })),
+});
+
+const sabStage: Record<string, string> = { call: "فراخوان", select: "انتخاب استاد", contract: "قرارداد", running: "در حال اجرا", final: "کتابچه و ارائه نهایی", closed: "خاتمه" };
+const sabRepStatus: Record<string, string> = { pending: "در انتظار", sent: "ارسال به صنعت و داور", needs_fix: "نیازمند اصلاح", paid: "تایید و پرداخت شد" };
+export const fromSabbatical = (s: any) => ({
+  id: s.id, professor: s.professor, university: s.university, industry: s.industry, topic: s.topic,
+  trlBefore: s.trl_before, trlAfter: s.trl_after ?? undefined, contract: s.contract,
+  stage: sabStage[s.stage] ?? s.stage,
+  reports: (s.reports ?? []).map((r: any) => ({
+    no: r.no, title: r.title, status: sabRepStatus[r.status] ?? r.status, paidAmount: r.paid_amount || undefined,
+  })),
+});
+
+// ── Publications / R&D docs / registries ────────────────────────────────────
+const magazine: Record<string, string> = { bonyad: "ماهنامه بنیاد", bonyadtech: "نشریه بنیادتک" };
+const pubStage: Record<string, string> = { collect: "گردآوری محتوا", edit: "ویراستاری", layout: "صفحه‌آرایی", print: "چاپ و توزیع", published: "منتشر شده" };
+export const fromPublication = (p: any) => ({
+  id: p.id, magazine: magazine[p.magazine] ?? p.magazine, issueNo: p.issue_no,
+  title: p.title, season: p.season, stage: pubStage[p.stage] ?? p.stage, articles: p.articles,
+});
+
+export const fromRndDoc = (d: any) => ({
+  id: d.id, company: d.company, holding: d.holding, progress: d.progress,
+  statusLabel: d.status_label, obstacles: d.obstacles || undefined,
+});
+
+export const fromSupportedProduct = (p: any) => ({ id: p.id, name: p.name, company: p.company, trl: p.trl, status: p.status });
+const supportType: Record<string, string> = { tech_contract: "قرارداد فناورانه", seed: "بذرمایه", vc: "سرمایه خطرپذیر" };
+export const fromSupportedVenture = (v: any) => ({ id: v.id, name: v.name, supportType: supportType[v.support_type] ?? v.support_type, field: v.field, year: v.year });
+export const fromPartnerTechnologist = (t: any) => ({ id: t.id, name: t.name, expertise: t.expertise, projects: t.projects, rating: Number(t.rating) });

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import BlogPost, Event, KnowledgeDoc, MediaItem, News
+from .models import BlogPost, Event, KnowledgeDoc, MediaItem, News, PublicationIssue, RndDoc, SupportedProduct, SupportedVenture, PartnerTechnologist
 
 
 class AuthorField(serializers.Serializer):
@@ -62,3 +62,39 @@ class KnowledgeDocSerializer(serializers.ModelSerializer):
         model = KnowledgeDoc
         fields = ["id", "title", "category", "doc_type", "file", "size", "owner", "visibility", "created_at", "updated_at"]
         read_only_fields = ["id", "owner", "created_at", "updated_at"]
+
+
+# ── Publications / R&D docs / registries ────────────────────────────────────
+class PublicationIssueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PublicationIssue
+        fields = ["id", "magazine", "issue_no", "title", "season", "stage", "articles", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class RndDocSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RndDoc
+        fields = ["id", "company", "holding", "progress", "status_label", "obstacles", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class SupportedProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportedProduct
+        fields = ["id", "name", "company", "trl", "status", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class SupportedVentureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportedVenture
+        fields = ["id", "name", "support_type", "field", "year", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class PartnerTechnologistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PartnerTechnologist
+        fields = ["id", "name", "expertise", "projects", "rating", "created_at"]
+        read_only_fields = ["id", "created_at"]
