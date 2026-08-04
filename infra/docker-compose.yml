@@ -76,5 +76,25 @@ services:
     depends_on:
       - api
 
+  # Nightly database dumps with retention (see infra/backup/README.md).
+  backup:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: motoshub_core
+      POSTGRES_USER: motoshub
+      PGPASSWORD: ${POSTGRES_PASSWORD:-motoshub}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    volumes:
+      - ./backup/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./backup/entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - pgbackups:/backups
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+
 volumes:
   pgdata:
+  pgbackups:

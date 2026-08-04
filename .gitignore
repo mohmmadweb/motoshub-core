@@ -27,3 +27,4 @@ npm-debug.log*
 # vite build output
 dist/
 frontend-web/dist/
+infra/.env
