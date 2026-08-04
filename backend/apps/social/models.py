@@ -17,6 +17,9 @@ class Group(TenantScopedModel):
     color = models.CharField(max_length=9, default="#1f4f99")
     category = models.CharField(max_length=120, blank=True)
     owner = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="owned_groups")
+    invite_code = models.CharField(max_length=32, blank=True, db_index=True,
+                                   help_text="کد لینک دعوت — با چرخش باطل می‌شود")
+    slow_mode_seconds = models.PositiveSmallIntegerField(default=0, help_text="حالت آهسته بین پیام‌ها")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "social_group"
@@ -30,9 +33,19 @@ class Group(TenantScopedModel):
 
 
 class GroupMembership(TenantScopedModel):
+    ROLES = [("owner", "مالک"), ("admin", "مدیر"), ("member", "عضو")]
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="memberships")
     user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="group_memberships")
     is_moderator = models.BooleanField(default=False)
+    role = models.CharField(max_length=8, choices=ROLES, default="member")
+    muted = models.BooleanField(default=False, help_text="اعلان‌های گروه بی‌صدا")
+    banned = models.BooleanField(default=False)
+    last_read_at = models.DateTimeField(null=True, blank=True)
+    last_message_at = models.DateTimeField(null=True, blank=True, help_text="برای حالت آهسته")
+
+    @property
+    def can_moderate(self) -> bool:
+        return self.role in ("owner", "admin") or self.is_moderator
 
     class Meta(TenantScopedModel.Meta):
         db_table = "social_group_membership"

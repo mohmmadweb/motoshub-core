@@ -14,6 +14,10 @@ class Channel(TenantScopedModel):
     channel_type = models.CharField(max_length=8, choices=ChannelType.choices, default=ChannelType.PUBLIC)
     category = models.CharField(max_length=120, blank=True)
     owner = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="owned_channels")
+    # A group's conversation is a channel, so groups reuse the whole chat stack
+    # (messages, reactions, pins, realtime) instead of duplicating it.
+    group = models.OneToOneField("social.Group", on_delete=models.CASCADE, null=True, blank=True,
+                                 related_name="channel")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "chat_channel"
@@ -25,8 +29,16 @@ class Channel(TenantScopedModel):
 class Message(TenantScopedModel):
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE, related_name="messages")
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="chat_messages")
-    text = models.TextField()
+    text = models.TextField(blank=True)
     pinned = models.BooleanField(default=False)
+    # ── Telegram-style message features ──────────────────────────────────────
+    reply_to = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="replies")
+    edited_at = models.DateTimeField(null=True, blank=True)
+    deleted = models.BooleanField(default=False, help_text="حذف نرم — «این پیام حذف شد»")
+    forwarded_from = models.CharField(max_length=200, blank=True)
+    attachment = models.JSONField(null=True, blank=True, help_text="{kind,name,size,url}")
+    mentions = models.JSONField(default=list, blank=True, help_text="شناسهٔ کاربران منشن‌شده")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "chat_message"

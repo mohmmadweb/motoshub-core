@@ -39,6 +39,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def chat_message(self, event):
         await self.send_json(event["message"])
 
+    async def chat_typing(self, event):
+        """Someone is typing — transient, not persisted."""
+        await self.send_json({"type": "typing", **event["message"]})
+
     # ── helpers ──────────────────────────────────────────────────────────────
     async def _authenticate(self):
         qs = self.scope.get("query_string", b"").decode()

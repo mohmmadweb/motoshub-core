@@ -5,14 +5,33 @@ from apps.content.serializers import AuthorField
 from .models import Channel, Message
 
 
-class MessageSerializer(serializers.ModelSerializer):
+class ReplyPreviewSerializer(serializers.ModelSerializer):
+    """Compact quote of the message being replied to."""
     author = AuthorField(read_only=True)
-    reactions = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ["id", "channel", "author", "text", "pinned", "reactions", "created_at"]
-        read_only_fields = ["id", "author", "reactions", "created_at"]
+        fields = ["id", "author", "text", "deleted"]
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    author = AuthorField(read_only=True)
+    reactions = serializers.SerializerMethodField()
+    reply_to = ReplyPreviewSerializer(read_only=True)
+    reply_to_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+
+    class Meta:
+        model = Message
+        fields = ["id", "channel", "author", "text", "pinned", "reactions", "reply_to", "reply_to_id",
+                  "edited_at", "deleted", "forwarded_from", "attachment", "mentions", "created_at"]
+        read_only_fields = ["id", "author", "reactions", "reply_to", "edited_at", "created_at"]
+
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        if obj.deleted:  # never leak the original text of a deleted message
+            data["text"] = ""
+            data["attachment"] = None
+        return data
 
     def get_reactions(self, obj):
         me = getattr(self.context.get("request"), "user", None)

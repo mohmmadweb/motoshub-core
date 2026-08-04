@@ -1,39 +1,51 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Flag, UserPlus, FileText, MessagesSquare } from "lucide-react";
-import { type Post, type UserProfile } from "../data/types";
+import { type Post } from "../data/types";
 import { http } from "../lib/http";
-import { fromPost, fromUser } from "../lib/adapters";
+import { fromPost } from "../lib/adapters";
 import { useContent } from "../context/ContentContext";
 import PostCard from "../components/PostCard";
-import Badge from "../components/ui/Badge";
-import Avatar from "../components/Avatar";
 import Tabs from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
 import { VisibilityBadge, VisibilityToggle } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import GroupChat from "../components/GroupChat";
+import GroupMembersPanel, { type GroupMember } from "../components/GroupMembersPanel";
+import { getUser } from "../lib/http";
 
-type TabId = "posts" | "forum" | "members" | "docs";
+type TabId = "chat" | "posts" | "forum" | "members" | "docs";
 
 export default function GroupDetail() {
   const { id } = useParams();
   const { groups, setGroups } = useContent();
   const { notify } = useToast();
   const group = groups.find((g) => g.id === id);
-  const [tab, setTab] = useState<TabId>("posts");
+  const [tab, setTab] = useState<TabId>("chat");
   const [groupPosts, setGroupPosts] = useState<Post[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [channelId, setChannelId] = useState<string | undefined>();
+  const [slowMode, setSlowMode] = useState(0);
+  const me = getUser() as { id?: string } | null;
 
   useEffect(() => {
     if (!id) return;
     http<any[]>(`/posts?group=${id}&page_size=20`).then((r) => setGroupPosts(r.map(fromPost) as Post[])).catch(() => {});
-    http<any[]>("/users?page_size=100").then((r) => setUsers(r.map(fromUser) as UserProfile[])).catch(() => {});
+    http<GroupMember[]>(`/groups/${id}/members`).then(setMembers).catch(() => setMembers([]));
+    // The group's conversation lives on its own channel — first message id gives it away,
+    // and the group payload carries slow mode.
+    http<any>(`/groups/${id}`).then((g) => setSlowMode(g.slow_mode_seconds ?? 0)).catch(() => {});
+    http<any[]>(`/groups/${id}/messages`).then((rows) => {
+      if (rows.length) setChannelId(rows[0].channel);
+    }).catch(() => {});
   }, [id]);
 
   if (!group) return <p>گروه پیدا نشد.</p>;
 
-  const members = users.slice(0, group.members > 4 ? 4 : group.members);
+  const myMembership = members.find((m) => m.user.id === me?.id);
+  const canModerate = !!myMembership?.can_moderate;
+  const canPost = !!myMembership && !myMembership.banned;
 
   const togglePrivacy = () => {
     const next = group.privacy === "عمومی" ? "خصوصی" : "عمومی";
@@ -70,14 +82,25 @@ export default function GroupDetail() {
 
       <Tabs<TabId>
         tabs={[
+          { id: "chat", label: "گفتگوی گروه" },
           { id: "posts", label: "پست‌ها", count: groupPosts.length },
           { id: "forum", label: "انجمن گروه" },
-          { id: "members", label: "اعضا و ناظمان", count: group.members },
+          { id: "members", label: "اعضا و ناظمان", count: members.length },
           { id: "docs", label: "اسناد گروه" },
         ]}
         active={tab}
         onChange={setTab}
       />
+
+      {tab === "chat" && (
+        <GroupChat
+          groupId={id!}
+          channelId={channelId}
+          canModerate={canModerate}
+          canPost={canPost}
+          members={members.map((m) => ({ user: { id: m.user.id }, name: m.name }))}
+        />
+      )}
 
       {tab === "posts" && (
         <div className="space-y-4">
@@ -94,18 +117,14 @@ export default function GroupDetail() {
       )}
 
       {tab === "members" && (
-        <div className="card p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {members.map((m, i) => (
-            <div key={m.id} className="flex items-center gap-3 p-2">
-              <Avatar name={m.name} color={m.avatarColor} online={m.online} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{m.name}</p>
-                <p className="text-xs text-ink-400 truncate">{m.role}</p>
-              </div>
-              {i === 0 && <Badge tone="navy">ناظم گروه</Badge>}
-            </div>
-          ))}
-        </div>
+        <GroupMembersPanel
+          groupId={id!}
+          members={members}
+          setMembers={setMembers}
+          canModerate={canModerate}
+          slowMode={slowMode}
+          onSlowMode={setSlowMode}
+        />
       )}
 
       {tab === "docs" && (

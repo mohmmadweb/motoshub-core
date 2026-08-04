@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.content.serializers import AuthorField
 
-from .models import ForumReply, ForumTopic, Group, Post
+from .models import ForumReply, ForumTopic, Group, Post, GroupMembership
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -14,9 +14,10 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = [
             "id", "name", "description", "privacy", "color", "category",
-            "owner", "member_count", "is_member", "created_at", "updated_at",
+            "owner", "member_count", "is_member", "invite_code", "slow_mode_seconds",
+            "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "owner", "member_count", "is_member", "created_at", "updated_at"]
+        read_only_fields = ["id", "owner", "member_count", "is_member", "invite_code", "created_at", "updated_at"]
 
     def get_is_member(self, obj) -> bool:
         user = self.context["request"].user
@@ -67,3 +68,19 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_comments(self, obj):
         return obj.post_comments.count()
+
+
+class GroupMemberSerializer(serializers.ModelSerializer):
+    """A member row for the group's member panel."""
+    user = AuthorField(read_only=True)
+    user_id = serializers.UUIDField(write_only=True)
+    name = serializers.CharField(source="user.name", read_only=True)
+    title = serializers.CharField(source="user.title", read_only=True)
+    presence = serializers.CharField(source="user.presence", read_only=True)
+    can_moderate = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = GroupMembership
+        fields = ["id", "user", "user_id", "name", "title", "presence", "role",
+                  "muted", "banned", "can_moderate", "created_at"]
+        read_only_fields = ["id", "user", "name", "title", "presence", "can_moderate", "created_at"]
