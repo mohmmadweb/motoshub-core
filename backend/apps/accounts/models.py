@@ -81,3 +81,20 @@ class User(AbstractBaseUser, PermissionsMixin):
             perms.update(assignment.role.permissions or [])
         cache.set(cache_key, perms, 300)
         return perms
+
+
+class UserSession(models.Model):
+    """A signed-in device/session, shown on the profile's security tab."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sessions")
+    device = models.CharField(max_length=200, blank=True)
+    location = models.CharField(max_length=120, blank=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_active = models.DateTimeField(auto_now=True)
+    revoked = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "accounts_user_session"
+        ordering = ["-last_active"]

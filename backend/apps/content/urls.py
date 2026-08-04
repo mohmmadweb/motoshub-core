@@ -3,10 +3,11 @@ from rest_framework.routers import DefaultRouter
 from django.urls import path
 
 from .views import (BlogViewSet, EventViewSet, KnowledgeViewSet, MediaViewSet, NewsViewSet, PublicFeedView,
-                    PublicationIssueViewSet, RndDocViewSet, SupportedProductViewSet,
+                    ContentCommentViewSet, PublicationIssueViewSet, RndDocViewSet, SupportedProductViewSet,
                     SupportedVentureViewSet, PartnerTechnologistViewSet)
 
 router = DefaultRouter(trailing_slash=False)
+router.register("comments", ContentCommentViewSet, basename="comment")
 router.register("publications", PublicationIssueViewSet, basename="publication")
 router.register("knowledge/rnd-docs", RndDocViewSet, basename="rnd-doc")
 router.register("knowledge/products", SupportedProductViewSet, basename="supported-product")

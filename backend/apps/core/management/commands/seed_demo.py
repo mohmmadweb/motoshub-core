@@ -63,26 +63,26 @@ class Command(BaseCommand):
 
         if not News.objects.filter(tenant=tenant).exists():
             News.objects.create(
-                tenant=tenant, author=admin, title="افتتاح سامانهٔ جدید موتوشاب",
+                tenant=tenant, author=admin, title="افتتاح سامانهٔ جدید موتوشاب", image="datacenter",
                 summary="نسخهٔ جدید پلتفرم ارتباطات سازمانی راه‌اندازی شد.",
                 visibility=Visibility.PUBLIC, scope=ContentScope.GLOBAL, pinned=True,
             )
             News.objects.create(
-                tenant=tenant, author=admin, title="خبر ویژهٔ شرکت بهنوش",
+                tenant=tenant, author=admin, title="خبر ویژهٔ شرکت بهنوش", image="factory",
                 summary="این خبر فقط برای اعضای شرکت نمایش داده می‌شود.",
                 visibility=Visibility.PRIVATE, scope=ContentScope.COMPANY, company=company,
             )
             BlogPost.objects.create(
-                tenant=tenant, author=admin, title="یادداشت مدیرعامل",
+                tenant=tenant, author=admin, title="یادداشت مدیرعامل", image="meeting",
                 excerpt="نگاهی به مسیر پیشِ‌رو…", rating=5, tags=["راهبردی"], visibility=Visibility.PUBLIC,
             )
             Event.objects.create(
-                tenant=tenant, author=admin, title="نشست فصلی مدیران",
+                tenant=tenant, author=admin, title="نشست فصلی مدیران", image="meeting",
                 starts_at=timezone.now(), location="سالن همایش مرکزی", mode="in_person",
                 visibility=Visibility.PUBLIC,
             )
             MediaItem.objects.create(
-                tenant=tenant, author=admin, title="گالری بازدید هیأت مدیره",
+                tenant=tenant, author=admin, title="گالری بازدید هیأت مدیره", image="teamwork",
                 album="رویدادهای رسمی", kind="photo", visibility=Visibility.PUBLIC,
             )
             KnowledgeDoc.objects.create(

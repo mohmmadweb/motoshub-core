@@ -2,6 +2,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.viewsets import TenantScopedModelViewSet
 from apps.awards.models import AwardEntry
 from apps.contracts.models import Contract
 from apps.fund.models import Fund, NfProject
@@ -9,8 +10,8 @@ from apps.projects.models import Project, Task
 from apps.research.models import ResearchOpportunity
 from apps.support.models import Ticket
 
-from .models import WorkflowSettings
-from .serializers import WorkflowSettingsSerializer
+from .models import SavedReport, WorkflowSettings
+from .serializers import SavedReportSerializer, WorkflowSettingsSerializer
 
 
 def _require(request, perm):
@@ -328,3 +329,54 @@ class ReportTimeseriesView(APIView):
             )
             buckets.append({"label": label, "value": counted})
         return Response({"monthly": buckets})
+
+
+class SavedReportViewSet(TenantScopedModelViewSet):
+    queryset = SavedReport.objects.all()
+    serializer_class = SavedReportSerializer
+    owner_field = None
+    required_perms = {"list": "reports.view", "retrieve": "reports.view", "create": "reports.view",
+                      "update": "reports.view", "partial_update": "reports.view", "destroy": "reports.view"}
+    search_fields = ["name", "module"]
+
+
+class ReportDimensionsView(APIView):
+    """Extra report dimensions: contract funnel, per-holding comparison, cross-tab."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.contracts.models import TechTransferContract
+        from apps.content.models import RndDoc
+        from apps.research.models import RfpCall
+        t = request.tenant
+
+        stage_fa = {"negotiation": "مذاکره", "rfp": "فراخوان", "evaluation": "داوری",
+                    "executing": "در حال اجرا", "settled": "تسویه‌شده"}
+        funnel_counts = {}
+        for c in Contract.objects.filter(tenant=t).values("stage"):
+            funnel_counts[c["stage"]] = funnel_counts.get(c["stage"], 0) + 1
+        funnel = [{"stage": stage_fa.get(k, k), "count": v} for k, v in funnel_counts.items()]
+
+        # Per-holding rollup across the models that actually carry a holding.
+        holdings = {}
+        for m, key in ((TechTransferContract, "contracts"), (RndDoc, "docs"), (RfpCall, "rfps")):
+            for row in m.objects.filter(tenant=t).exclude(holding="").values("holding"):
+                h = holdings.setdefault(row["holding"], {"holding": row["holding"], "contracts": 0, "docs": 0, "rfps": 0})
+                h[key] += 1
+
+        # Cross-tab: project department × health.
+        health_fa = {"green": "سبز", "yellow": "زرد", "red": "قرمز"}
+        statuses, rows = [], {}
+        for p in Project.objects.filter(tenant=t).exclude(department="").values("department", "health"):
+            label = health_fa.get(p["health"], p["health"])
+            if label not in statuses:
+                statuses.append(label)
+            r = rows.setdefault(p["department"], {})
+            r[label] = r.get(label, 0) + 1
+        cross = [{"label": d, "values": [v.get(s, 0) for s in statuses]} for d, v in rows.items()]
+
+        return Response({
+            "contract_funnel": funnel,
+            "holding_comparison": list(holdings.values()),
+            "cross_tab": {"statuses": statuses, "rows": cross},
+        })

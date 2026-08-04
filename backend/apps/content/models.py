@@ -25,6 +25,8 @@ class News(TenantScopedModel):
     holding = models.ForeignKey("tenancy.Holding", on_delete=models.SET_NULL, null=True, blank=True)
     company = models.ForeignKey("tenancy.Company", on_delete=models.SET_NULL, null=True, blank=True)
 
+    image = models.CharField(max_length=120, blank=True, help_text="نام تصویر در public/img یا URL")
+
     class Meta(TenantScopedModel.Meta):
         db_table = "content_news"
         verbose_name_plural = "news"
@@ -42,6 +44,8 @@ class BlogPost(TenantScopedModel):
     rating = models.DecimalField(max_digits=3, decimal_places=1, default=0)
     tags = models.JSONField(default=list, blank=True)
     visibility = models.CharField(max_length=8, choices=Visibility.choices, default=Visibility.PRIVATE)
+
+    image = models.CharField(max_length=120, blank=True, help_text="نام تصویر در public/img یا URL")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "content_blog_post"
@@ -68,6 +72,8 @@ class Event(TenantScopedModel):
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="events")
     visibility = models.CharField(max_length=8, choices=Visibility.choices, default=Visibility.PRIVATE)
 
+    image = models.CharField(max_length=120, blank=True, help_text="نام تصویر در public/img یا URL")
+
     class Meta(TenantScopedModel.Meta):
         db_table = "content_event"
         ordering = ["starts_at"]
@@ -91,6 +97,8 @@ class MediaItem(TenantScopedModel):
     tags = models.JSONField(default=list, blank=True)
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="media")
     visibility = models.CharField(max_length=8, choices=Visibility.choices, default=Visibility.PRIVATE)
+
+    image = models.CharField(max_length=120, blank=True, help_text="نام تصویر در public/img یا URL")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "content_media_item"
@@ -196,3 +204,20 @@ class PartnerTechnologist(TenantScopedModel):
 
     def __str__(self):
         return self.name
+
+
+class ContentComment(TenantScopedModel):
+    """A comment on any content item (news/blog/event/media/knowledge/forum),
+    referenced loosely by kind + object id so one model serves every showcase page."""
+    KINDS = [("news", "خبر"), ("blog", "بلاگ"), ("event", "رویداد"),
+             ("media", "رسانه"), ("doc", "سند"), ("forum", "تالار")]
+    kind = models.CharField(max_length=8, choices=KINDS)
+    object_id = models.UUIDField()
+    author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="content_comments")
+    body = models.TextField()
+    accepted = models.BooleanField(default=False, help_text="پاسخ برگزیده")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "content_comment"
+        ordering = ["created_at"]
+        indexes = [models.Index(fields=["kind", "object_id"])]

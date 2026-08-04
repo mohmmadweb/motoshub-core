@@ -1,7 +1,7 @@
 """Admin/console: per-tenant workflow parameters + branding (SettingsContext)."""
 from django.db import models
 
-from apps.core.models import TimeStampedModel
+from apps.core.models import TenantScopedModel, TimeStampedModel
 
 
 class WorkflowSettings(TimeStampedModel):
@@ -28,3 +28,20 @@ class WorkflowSettings(TimeStampedModel):
 
     class Meta:
         db_table = "console_workflow_settings"
+
+
+class SavedReport(TenantScopedModel):
+    """A report definition a user saved from the report builder."""
+    SCHEDULES = [("none", "بدون زمان‌بندی"), ("weekly", "هفتگی"), ("monthly", "ماهانه")]
+    name = models.CharField(max_length=300)
+    module = models.CharField(max_length=120, blank=True)
+    group_by = models.CharField(max_length=120, blank=True)
+    schedule = models.CharField(max_length=8, choices=SCHEDULES, default="none")
+    last_run = models.CharField(max_length=40, blank=True)
+    format = models.CharField(max_length=12, default="Excel")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "console_saved_report"
+
+    def __str__(self):
+        return self.name

@@ -10,20 +10,20 @@ const docTypeApi: Record<string, string> = { "قرارداد": "contract", "آم
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const fromNews = (n: any) => ({
   id: n.id, title: n.title, summary: n.summary, date: toJalali(n.created_at),
-  comments: n.comment_count ?? 0, views: n.views ?? 0, pinned: n.pinned, visibility: visToFa(n.visibility),
+  comments: n.comment_count ?? 0, views: n.views ?? 0, pinned: n.pinned, visibility: visToFa(n.visibility), image: n.image ?? "",
 });
 export const toNews = (v: any) => ({ title: v.title, summary: v.summary, pinned: v.pinned, visibility: visToApi(v.visibility) });
 
 export const fromBlog = (b: any) => ({
   id: b.id, title: b.title, author: b.author?.name ?? "—", excerpt: b.excerpt,
-  date: toJalali(b.created_at), rating: Number(b.rating ?? 0), tags: b.tags ?? [], visibility: visToFa(b.visibility),
+  date: toJalali(b.created_at), rating: Number(b.rating ?? 0), tags: b.tags ?? [], visibility: visToFa(b.visibility), image: b.image ?? "",
 });
 export const toBlog = (v: any) => ({ title: v.title, excerpt: v.excerpt, tags: v.tags ?? [], visibility: visToApi(v.visibility) });
 
 export const fromEvent = (e: any) => ({
   id: e.id, title: e.title, date: toJalali(e.starts_at), jalaliDate: toJalali(e.starts_at), time: toTime(e.starts_at),
   location: e.location, attendees: e.attendees ?? 0, hashtags: e.hashtags ?? [], description: e.description,
-  visibility: visToFa(e.visibility), mode: e.mode === "online" ? "آنلاین" : "حضوری", joinLink: e.join_link, mapUrl: e.map_url,
+  visibility: visToFa(e.visibility), mode: e.mode === "online" ? "آنلاین" : "حضوری", joinLink: e.join_link, mapUrl: e.map_url, image: e.image ?? "",
 });
 export const toEvent = (v: any) => ({
   title: v.title, location: v.location, description: v.description, visibility: visToApi(v.visibility),
@@ -33,7 +33,7 @@ export const toEvent = (v: any) => ({
 
 export const fromMedia = (m: any) => ({
   id: m.id, kind: m.kind, title: m.title, album: m.album, uploadedBy: m.author?.name ?? "—",
-  date: toJalali(m.created_at), rating: Number(m.rating ?? 0), tags: m.tags ?? [], color: m.color ?? "#1f4f99", visibility: visToFa(m.visibility),
+  date: toJalali(m.created_at), rating: Number(m.rating ?? 0), tags: m.tags ?? [], color: m.color ?? "#1f4f99", visibility: visToFa(m.visibility), image: m.image ?? "",
 });
 export const toMedia = (v: any) => ({ kind: v.kind, title: v.title, album: v.album, color: v.color, visibility: visToApi(v.visibility) });
 
@@ -66,15 +66,25 @@ export const fromProject = (p: any) => ({
   budgetUsed: Number(p.budget_total) > 0 ? Math.round((Number(p.budget_used) / Number(p.budget_total)) * 100) : 0,
   budgetTotal: faMoney(p.budget_total ?? 0), budgetSpent: faMoney(p.budget_used ?? 0),
   manager: p.manager?.name ?? "—", department: p.department ?? "",
+  openRisks: p.open_risks ?? 0, nextMilestone: p.next_milestone ?? null,
   deadline: toJalali(p.deadline), tasks: [] as any[],
 });
 export const toProject = (v: any) => ({ name: v.name, client: v.client, health: healthApi[v.health] ?? "green", progress: v.progress, budget_used: v.budgetUsed });
 
 const rStage: Record<string, string> = { open: "فراخوان باز", review: "بررسی درخواست‌ها", judging: "داوری", running: "در حال اجرا", closed: "پایان‌یافته" };
 const rStageApi: Record<string, string> = { "فراخوان باز": "open", "بررسی درخواست‌ها": "review", "داوری": "judging", "در حال اجرا": "running", "پایان‌یافته": "closed" };
+const appStatus: Record<string, string> = { review: "در حال بررسی", accepted: "پذیرفته", rejected: "رد شده" };
 export const fromResearch = (r: any) => ({
   id: r.id, title: r.title, field: r.field, stage: rStage[r.stage] ?? "فراخوان باز",
   applicants: r.applicant_count ?? 0, deadline: toJalali(r.deadline),
+  // Real dossier for the detail drawer (budget + applicant list).
+  detail: {
+    budget: faMoney(r.budget ?? 0), supervisor: r.supervisor ?? "—",
+    applicants: (r.applications ?? []).map((a: any) => ({
+      id: a.id, name: a.applicant_name, affiliation: a.affiliation,
+      score: a.score ?? undefined, status: appStatus[a.status] ?? a.status,
+    })),
+  },
 });
 export const toResearch = (v: any) => ({ title: v.title, field: v.field, stage: rStageApi[v.stage] ?? "open" });
 
@@ -372,3 +382,25 @@ export const fromContractDetail = (c: any) => ({
   history: (c.history ?? []).map((h: any) => ({ id: h.id, text: h.text, date: h.date })),
 });
 export const fromPendingReview = (p: any) => ({ id: p.id, topic: p.topic, holding: p.holding, company: p.company, mojri: p.mojri || undefined, obstacles: p.obstacles || undefined, note: p.note || undefined });
+
+// ── Active sessions + content comments ─────────────────────────────────────
+export const fromSession = (s: any) => ({
+  id: s.id, device: s.device, location: s.location, ip: s.ip,
+  lastActive: relativeFa(s.last_active), current: s.current,
+});
+export const fromComment = (c: any) => ({
+  id: c.id, body: c.body, accepted: c.accepted, time: relativeFa(c.created_at),
+  authorName: c.author?.name ?? "—", authorColor: c.author?.avatar_color ?? "#1f4f99",
+});
+
+// ── Report dimensions + saved reports ──────────────────────────────────────
+const schedFa: Record<string, string> = { none: "بدون زمان‌بندی", weekly: "هفتگی", monthly: "ماهانه" };
+const schedApi: Record<string, string> = { "بدون زمان‌بندی": "none", "هفتگی": "weekly", "ماهانه": "monthly" };
+export const fromSavedReport = (r: any) => ({
+  id: r.id, name: r.name, module: r.module, groupBy: r.group_by,
+  schedule: schedFa[r.schedule] ?? r.schedule, lastRun: r.last_run || "—", format: r.format,
+});
+export const toSavedReport = (v: any) => ({
+  name: v.name, module: v.module, group_by: v.groupBy,
+  schedule: schedApi[v.schedule] ?? "none", last_run: v.lastRun ?? "", format: v.format ?? "Excel",
+});

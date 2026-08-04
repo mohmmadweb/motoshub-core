@@ -15,7 +15,7 @@ import EmptyState from "../components/ui/EmptyState";
 import type {
   ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group,
 } from "../data/mock";
-import { newsImg, blogImg, mediaImg, eventImg, bgStyle } from "../data/images";
+import { contentImg, bgStyle } from "../data/images";
 
 type Section = "forum" | "blog" | "events" | "media" | "knowledge" | "news" | "groups";
 const validSections: Section[] = ["forum", "blog", "events", "media", "knowledge", "news", "groups"];
@@ -217,7 +217,7 @@ function MagazineLayout({ cards, emptyIcon, emptyTitle }: {
       <Link
         to={hero.to}
         className="relative flex items-end min-h-64 rounded-2xl overflow-hidden group shadow-md"
-        style={bgStyle(blogImg(hero.id), hero.accent)}
+        style={bgStyle(contentImg(hero.id, (hero as any).image), hero.accent)}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
         <div className="relative p-7 md:p-10 max-w-2xl">
@@ -241,8 +241,8 @@ function MagazineLayout({ cards, emptyIcon, emptyTitle }: {
               to={card.to}
               className="group bg-white rounded-xl border border-ink-200 overflow-hidden hover:border-brand-300 hover:shadow-sm transition-all"
             >
-              <div className="h-40 flex items-center justify-center relative" style={bgStyle(blogImg(card.id), card.accent)}>
-                {!blogImg(card.id) && <span className="text-white/20 font-black text-6xl select-none">{card.title.slice(0, 1)}</span>}
+              <div className="h-40 flex items-center justify-center relative" style={bgStyle(contentImg(card.id, (card as any).image), card.accent)}>
+                {!contentImg(card.id, (card as any).image) && <span className="text-white/20 font-black text-6xl select-none">{card.title.slice(0, 1)}</span>}
                 <span className="absolute inset-0 bg-black/20" />
                 <span className="absolute top-3 right-3 text-[11px] font-semibold bg-white/90 text-ink-700 px-2.5 py-0.5 rounded-full">
                   {card.category}
@@ -388,7 +388,7 @@ function NewsSection({ items }: { items: NewsItem[] }) {
             <Link
               to={`/public/news/${hero.id}`}
               className="relative flex items-end min-h-72 rounded-2xl overflow-hidden group shadow-md"
-              style={bgStyle(newsImg(hero.id), accents[0])}
+              style={bgStyle(contentImg(hero.id, (hero as any).image), accents[0])}
             >
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
               <div className="relative p-7 md:p-10 max-w-3xl">
@@ -414,7 +414,7 @@ function NewsSection({ items }: { items: NewsItem[] }) {
                   key={n.id}
                   to={`/public/news/${n.id}`}
                   className="relative flex items-end min-h-40 rounded-xl overflow-hidden group shadow-sm"
-                  style={bgStyle(newsImg(n.id), accents[(i + 1) % accents.length])}
+                  style={bgStyle(contentImg(n.id, (n as any).image), accents[(i + 1) % accents.length])}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                   <div className="relative p-5">
@@ -497,7 +497,7 @@ function MediaSection({ items }: { items: MediaItem[] }) {
             <Link key={m.id} to={`/public/media/${m.id}`}
               className="group bg-white rounded-xl border border-ink-200 overflow-hidden hover:border-brand-300 hover:shadow-md transition-all"
             >
-              <div className="h-44 flex items-center justify-center relative" style={bgStyle(mediaImg(m.id), m.color)}>
+              <div className="h-44 flex items-center justify-center relative" style={bgStyle(contentImg(m.id, (m as any).image), m.color)}>
                 <span className="absolute inset-0 bg-black/25" />
                 {m.kind === "video"
                   ? <PlayCircle size={44} className="text-white/80 group-hover:text-white transition-colors" />
@@ -541,7 +541,7 @@ function EventsSection({ items }: { items: EventItem[] }) {
               className="block group bg-white rounded-2xl border border-ink-200 overflow-hidden shadow-sm hover:shadow-md hover:border-brand-300 transition-all"
             >
               {/* Hero band */}
-              <div className="relative p-6 lg:p-8 flex items-start gap-5" style={bgStyle(eventImg(featured.id), "#182536")}>
+              <div className="relative p-6 lg:p-8 flex items-start gap-5" style={bgStyle(contentImg(featured.id, (featured as any).image), "#182536")}>
                 <span className="absolute inset-0 bg-navy-900/80" />
                 <div className="relative w-20 h-20 rounded-2xl bg-brand-500 text-white flex flex-col items-center justify-center shrink-0 shadow-lg">
                   <span className="text-xs text-brand-100 font-medium leading-none">{featured.jalaliDate.split("/")[1] ?? "—"}</span>

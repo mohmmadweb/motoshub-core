@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   Lock,
@@ -28,8 +29,9 @@ import SiteHeader from "../components/SiteHeader";
 import CreditFooter from "../components/CreditFooter";
 import Badge from "../components/ui/Badge";
 import Avatar from "../components/Avatar";
-import { users, posts } from "../data/mock";
-import { mediaImg, bgStyle } from "../data/images";
+import { http } from "../lib/http";
+import { fromComment, fromPost } from "../lib/adapters";
+import { contentImg, bgStyle } from "../data/images";
 import { Download, ExternalLink, Clock, History as HistoryIcon } from "lucide-react";
 
 type Section = "forum" | "blog" | "events" | "media" | "knowledge" | "news" | "groups";
@@ -191,13 +193,16 @@ function PrivateBlock({ section }: { section: Section }) {
 import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/mock";
 
 function ForumDetail({ item }: { item: ForumTopic }) {
-  const author = users.find((u) => u.name === item.author) ?? users[0];
-  // پاسخ‌های نمونه — محتوای عمومی برای همه قابل مشاهده است
-  const sampleReplies = [
-    { u: users[4], text: "تجربه‌ی ما نشان داد استانداردسازی قالب گزارش قبل از هر چیز، زمان جمع‌بندی را نصف می‌کند. پیشنهاد می‌کنم از چارچوب سه‌بخشی (وضعیت، ریسک، نیاز به تصمیم) شروع کنید.", time: "۴ ساعت پیش", accepted: item.solved },
-    { u: users[3], text: "نکته‌ی مهم، تعیین متولی واحد برای هر شاخص است؛ در غیر این صورت اعداد دو منبع پیدا می‌کنند و اعتماد از بین می‌رود.", time: "۳ ساعت پیش", accepted: false },
-    { u: users[1], text: "جمع‌بندی خوبی بود. لطفاً نسخه‌ی نهایی چارچوب را در بانک دانش هم بارگذاری کنید تا مرجع بماند.", time: "۱ ساعت پیش", accepted: false },
-  ].slice(0, Math.max(1, Math.min(3, item.replies)));
+  const author = { name: item.author, avatarColor: "#1f4f99" };
+  // پاسخ‌های واقعی این موضوع از بک‌اند
+  const [sampleReplies, setSampleReplies] = useState<{ u: { name: string; avatarColor: string }; text: string; time: string; accepted: boolean }[]>([]);
+  useEffect(() => {
+    http<any[]>(`/comments?kind=forum&object_id=${item.id}&page_size=20`)
+      .then((rows) => setSampleReplies(rows.map(fromComment).map((c) => ({
+        u: { name: c.authorName, avatarColor: c.authorColor }, text: c.body, time: c.time, accepted: c.accepted,
+      }))))
+      .catch(() => setSampleReplies([]));
+  }, [item.id]);
 
   return (
     <div>
@@ -245,7 +250,7 @@ function ForumDetail({ item }: { item: ForumTopic }) {
 }
 
 function BlogDetail({ item }: { item: BlogPost }) {
-  const author = users.find((u) => u.name === item.author) ?? users[0];
+  const author = { name: item.author, avatarColor: "#1f4f99" };
   return (
     <div>
       <h1 className="text-xl font-bold text-ink-900 mb-4 leading-8">{item.title}</h1>
@@ -358,7 +363,7 @@ function EventDetail({ item }: { item: EventItem }) {
 function MediaDetail({ item }: { item: MediaItem }) {
   return (
     <div>
-      <div className="w-full h-64 rounded-xl flex items-center justify-center mb-5 relative overflow-hidden" style={bgStyle(mediaImg(item.id), item.color)}>
+      <div className="w-full h-64 rounded-xl flex items-center justify-center mb-5 relative overflow-hidden" style={bgStyle(contentImg(item.id, (item as any).image), item.color)}>
         <span className="absolute inset-0 bg-black/25" />
         {item.kind === "video" ? <PlayCircle size={48} className="text-white" /> : <ImageIcon size={48} className="text-white" />}
         <span className="absolute top-4 right-4">
@@ -536,6 +541,13 @@ function RelatedNews({ currentId }: { currentId: string }) {
 }
 
 function GroupsDetail({ item }: { item: Group }) {
+  // پست‌های عمومی واقعی این گروه
+  const [groupPosts, setGroupPosts] = useState<any[]>([]);
+  useEffect(() => {
+    http<any[]>(`/posts?group=${item.id}&page_size=10`)
+      .then((rows) => setGroupPosts(rows.map(fromPost)))
+      .catch(() => setGroupPosts([]));
+  }, [item.id]);
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
@@ -567,8 +579,8 @@ function GroupsDetail({ item }: { item: Group }) {
 
       <p className="text-xs font-bold text-ink-500 mb-2">آخرین پست‌های عمومی گروه</p>
       <div className="space-y-3 mb-5">
-        {posts.filter((p) => p.groupId === item.id).slice(0, 3).map((p) => {
-          const author = users.find((u) => u.id === p.authorId);
+        {groupPosts.slice(0, 3).map((p: any) => {
+          const author = { name: p._authorName, avatarColor: p._authorColor };
           return (
             <div key={p.id} className="card p-4">
               <div className="flex items-center gap-2.5 mb-2">
@@ -584,7 +596,7 @@ function GroupsDetail({ item }: { item: Group }) {
             </div>
           );
         })}
-        {posts.filter((p) => p.groupId === item.id).length === 0 && (
+        {groupPosts.length === 0 && (
           <div className="card p-4 text-center text-xs text-ink-400">این گروه هنوز پست عمومی ندارد.</div>
         )}
       </div>

@@ -17,14 +17,25 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    open_risks = serializers.SerializerMethodField()
+    next_milestone = serializers.SerializerMethodField()
+
+    def get_open_risks(self, obj):
+        return obj.risks.exclude(status="closed").count()
+
+    def get_next_milestone(self, obj):
+        m = obj.milestones.exclude(status="done").order_by("order").first()
+        return {"title": m.title, "due": m.due} if m else None
+
     manager = AuthorField(read_only=True)
     task_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Project
         fields = ["id", "name", "client", "department", "health", "progress", "budget_total",
-                  "budget_used", "deadline", "manager", "task_count", "created_at", "updated_at"]
-        read_only_fields = ["id", "manager", "task_count", "created_at", "updated_at"]
+                  "budget_used", "deadline", "manager", "task_count", "open_risks", "next_milestone",
+                  "created_at", "updated_at"]
+        read_only_fields = ["id", "manager", "task_count", "open_risks", "next_milestone", "created_at", "updated_at"]
 
 
 class MilestoneSerializer(serializers.ModelSerializer):

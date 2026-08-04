@@ -5,7 +5,7 @@ import { useApiCollection } from "../lib/useApiCollection";
 import { useApiList } from "../lib/useApiList";
 import { fromRfpCall, fromSabbatical } from "../lib/adapters";
 import { fromResearch, toResearch } from "../lib/adapters";
-import { researchDetails, type ResearchApplicant } from "../data/mockDetails";
+import { type ResearchApplicant } from "../data/mockDetails";
 import {type RfpCall, type Sabbatical} from "../data/mockDaneshmand";
 import Tabs from "../components/ui/Tabs";
 import PageHeader from "../components/ui/PageHeader";
@@ -210,7 +210,8 @@ function OpportunitiesTab() {
   const [applicantState, setApplicantState] = useState<Record<string, ResearchApplicant["status"]>>({});
   const { notify } = useToast();
 
-  const selectedDetail = selected ? researchDetails[selected.id] : undefined;
+  // The opportunity payload carries its own budget + applicants (see fromResearch).
+  const selectedDetail = selected ? (selected as any).detail : undefined;
 
   const submit = () => {
     if (!title.trim() || !field.trim()) {
@@ -265,7 +266,7 @@ function OpportunitiesTab() {
     {
       key: "budget",
       label: "بودجه",
-      render: (r) => <span className="text-ink-600">{researchDetails[r.id]?.budget ?? "—"}</span>,
+      render: (r) => <span className="text-ink-600">{(r as any).detail?.budget ?? "—"}</span>,
     },
     { key: "deadline", label: "مهلت ثبت‌نام" },
   ];
@@ -396,7 +397,7 @@ function OpportunitiesTab() {
                     <FileCheck2 size={13} /> خروجی‌های مورد انتظار
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedDetail.outputs.map((o) => (
+                    {selectedDetail.outputs.map((o: any) => (
                       <Badge key={o} tone="brand">{o}</Badge>
                     ))}
                   </div>
@@ -407,7 +408,7 @@ function OpportunitiesTab() {
                     <Users size={13} /> متقاضیان ({selectedDetail.applicantsList.length})
                   </h4>
                   <div className="space-y-2">
-                    {selectedDetail.applicantsList.map((ap) => {
+                    {selectedDetail.applicantsList.map((ap: any) => {
                       const status = applicantStatus(selected.id, ap);
                       return (
                         <div key={ap.id} className="bg-ink-50 rounded-lg p-2.5 text-xs">

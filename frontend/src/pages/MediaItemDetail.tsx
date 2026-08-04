@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { Image, Video, Star, Hash, PlayCircle, Send, MessageCircle } from "lucide-react";
 import { useContent } from "../context/ContentContext";
-import { mediaImg, bgStyle } from "../data/images";
+import { contentImg, bgStyle } from "../data/images";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -42,7 +42,7 @@ export default function MediaItemDetail() {
         {/* Thumbnail */}
         <div
           className="w-full h-64 rounded-xl flex items-center justify-center relative overflow-hidden"
-          style={bgStyle(mediaImg(item.id), item.color)}
+          style={bgStyle(contentImg(item.id, (item as any).image), item.color)}
         >
           {item.kind === "video"
             ? <PlayCircle size={56} className="text-white/90" />

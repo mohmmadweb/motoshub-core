@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Briefcase, ShieldCheck, MessageCircle, Laptop, Smartphone, MapPin, LogOut } from "lucide-react";
-import { activeSessions, type UserProfile, type Post } from "../data/mock";
+import { type UserProfile, type Post } from "../data/mock";
 import { http, getUser } from "../lib/http";
-import { fromUser, fromPost } from "../lib/adapters";
+import { fromUser, fromPost, fromSession } from "../lib/adapters";
 import Avatar from "../components/Avatar";
 import Badge from "../components/ui/Badge";
 import PostCard from "../components/PostCard";
@@ -29,6 +29,12 @@ export default function Profile() {
     (me ? fromUser(me) : { id: "", name: "—", role: "", org: "", avatarColor: "#1f4f99", skills: [], online: false });
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [userProjects, setUserProjects] = useState<{ id: string; name: string }[]>([]);
+  const [activeSessions, setActiveSessions] = useState<{ id: string; device: string; location: string; ip: string; lastActive: string; current: boolean }[]>([]);
+
+  // Real signed-in devices for this account (security tab).
+  useEffect(() => {
+    http<any[]>("/auth/sessions").then((r) => setActiveSessions(r.map(fromSession))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user.id) return;

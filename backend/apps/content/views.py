@@ -103,8 +103,9 @@ class PublicFeedView(APIView):
 
 
 # ── Publications / R&D docs / registries ────────────────────────────────────
-from .models import PartnerTechnologist, PublicationIssue, RndDoc, SupportedProduct, SupportedVenture  # noqa: E402
+from .models import ContentComment, PartnerTechnologist, PublicationIssue, RndDoc, SupportedProduct, SupportedVenture  # noqa: E402
 from .serializers import (  # noqa: E402
+    ContentCommentSerializer,
     PartnerTechnologistSerializer,
     PublicationIssueSerializer,
     RndDocSerializer,
@@ -154,3 +155,13 @@ class PartnerTechnologistViewSet(TenantScopedModelViewSet):
     owner_field = None
     required_perms = _crud_perms("knowledge")
     search_fields = ["name", "expertise"]
+
+
+class ContentCommentViewSet(TenantScopedModelViewSet):
+    """Comments on any content item — filter with ?kind=&object_id="""
+    queryset = ContentComment.objects.select_related("author").all()
+    serializer_class = ContentCommentSerializer
+    owner_field = "author"
+    required_perms = {"list": "news.list", "retrieve": "news.list", "create": "news.list",
+                      "update": "news.edit", "partial_update": "news.edit", "destroy": "news.delete"}
+    filterset_fields = ["kind", "object_id"]

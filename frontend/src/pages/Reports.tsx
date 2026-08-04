@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { http } from "../lib/http";
+import { useApiCollection } from "../lib/useApiCollection";
+import { fromSavedReport, toSavedReport } from "../lib/adapters";
 import {
   BarChart3,
   Download,
@@ -15,14 +17,7 @@ import {
   CalendarClock,
   Table2,
 } from "lucide-react";
-import {
-  contractFunnel,
-  holdingComparison,
-  crossTabStatuses,
-  crossTabRows,
-  savedReports as initialSavedReports,
-  type SavedReport,
-} from "../data/mockDetails";
+import { type SavedReport } from "../data/mockDetails";
 import PageHeader from "../components/ui/PageHeader";
 import Button from "../components/ui/Button";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
@@ -67,14 +62,17 @@ export default function Reports() {
   const [builderGroupBy, setBuilderGroupBy] = useState<(typeof builderGroupings)[number]>("وضعیت");
   const [builderMetric, setBuilderMetric] = useState<(typeof builderMetrics)[number]>("تعداد");
   const [builderResult, setBuilderResult] = useState<BuilderRow[] | null>(null);
-  const [saved, setSaved] = useState<SavedReport[]>(initialSavedReports);
+  const [saved, setSaved] = useApiCollection<SavedReport>("/reports/saved", fromSavedReport as any, toSavedReport as any);
   const [exportOpen, setExportOpen] = useState(false);
   const [summary, setSummary] = useState<ReportSummary | null>(null);
+  const [dims, setDims] = useState<{ contract_funnel: { stage: string; count: number }[]; holding_comparison: any[]; cross_tab: { statuses: string[]; rows: { label: string; values: number[] }[] } }>(
+    { contract_funnel: [], holding_comparison: [], cross_tab: { statuses: [], rows: [] } });
   const [monthlyActivity, setMonthlyActivity] = useState<{ month: string; value: number }[]>([]);
   const { notify } = useToast();
 
   useEffect(() => {
     http<ReportSummary>("/reports/summary").then(setSummary).catch(() => setSummary(null));
+    http<any>("/reports/dimensions").then(setDims).catch(() => {});
     // Real monthly activity across modules (last 6 buckets).
     http<{ monthly: { label: string; value: number }[] }>("/reports/timeseries?months=6")
       .then((d) => setMonthlyActivity(d.monthly.map((b) => ({ month: b.label, value: b.value }))))
@@ -101,8 +99,12 @@ export default function Reports() {
 
   const maxMonthly = Math.max(1, ...monthlyActivity.map((m) => m.value));
   const maxDept = Math.max(1, ...reportByDepartment.map((d) => d.value));
-  const maxFunnel = Math.max(...contractFunnel.map((f) => f.count));
-  const maxHolding = Math.max(...holdingComparison.flatMap((h) => [h.projects, h.contracts, h.funds]));
+  const contractFunnel = dims.contract_funnel;
+  const holdingComparison = dims.holding_comparison;
+  const crossTabStatuses = dims.cross_tab.statuses;
+  const crossTabRows = dims.cross_tab.rows;
+  const maxFunnel = Math.max(1, ...contractFunnel.map((f) => f.count));
+  const maxHolding = Math.max(1, ...holdingComparison.flatMap((h: any) => [h.contracts, h.docs, h.rfps]));
 
   const buildReport = () => {
     // Aggregates come live from /reports/summary (real DB counts by enum).
@@ -272,7 +274,7 @@ export default function Reports() {
               <div key={f.stage}>
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="text-ink-600">{f.stage}</span>
-                  <span className="text-ink-400">{f.count} قرارداد · {f.value}</span>
+                  <span className="text-ink-400">{f.count.toLocaleString("fa-IR")} قرارداد</span>
                 </div>
                 <div className="h-2 rounded-full bg-ink-100 overflow-hidden">
                   <div className="h-full bg-navy-700 rounded-full" style={{ width: `${(f.count / maxFunnel) * 100}%` }} />
@@ -349,8 +351,8 @@ export default function Reports() {
           </thead>
           <tbody>
             {crossTabRows.map((row) => (
-              <tr key={row.dept}>
-                <td className="font-medium text-ink-900">{row.dept}</td>
+              <tr key={row.label}>
+                <td className="font-medium text-ink-900">{row.label}</td>
                 {row.values.map((v, i) => (
                   <td key={i}>{v}</td>
                 ))}

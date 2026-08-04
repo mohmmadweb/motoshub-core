@@ -1,30 +1,29 @@
-// نگاشت تصاویر واقعی (public/img) به آیتم‌های محتوایی — با fallback رنگ قبلی
-const mediaMap: Record<string, string> = {
-  m1: "school", m2: "training", m3: "expo", m4: "meeting", m5: "teamwork",
-  m6: "factory", m7: "construction", m8: "school", m9: "datacenter", m10: "energy",
-};
-const newsMap: Record<string, string> = {
-  nw1: "construction", nw2: "teamwork", nw3: "datacenter", nw4: "meeting",
-  nw5: "school", nw6: "expo", nw7: "school",
-};
-const blogMap: Record<string, string> = {
-  b1: "construction", b2: "meeting", b3: "school", b4: "expo",
-  b5: "teamwork", b6: "factory", b7: "warehouse",
-};
-const eventMap: Record<string, string> = {
-  e1: "meeting", e2: "training", e3: "lab", e4: "datacenter",
-  e5: "expo", e6: "datacenter", e7: "teamwork",
-};
+// Presentation helper for content imagery.
+// The image itself comes from the record (`image` field on news/blog/event/media).
+// When a record has none, we pick deterministically from the bundled set so the
+// same item always renders the same picture instead of a bare colour block.
+import type { CSSProperties } from "react";
 
-const url = (name?: string) => (name ? `/img/${name}.jpg` : undefined);
+const POOL = [
+  "construction", "teamwork", "datacenter", "meeting", "school",
+  "expo", "factory", "warehouse", "training", "lab", "energy",
+];
 
-export const mediaImg = (id: string) => url(mediaMap[id]);
-export const newsImg = (id: string) => url(newsMap[id]);
-export const blogImg = (id: string) => url(blogMap[id]);
-export const eventImg = (id: string) => url(eventMap[id]);
+const url = (name?: string) =>
+  !name ? undefined : /^https?:|^\//.test(name) ? name : `/img/${name}.jpg`;
 
-// پس‌زمینه‌ی ترکیبی: تصویر (در صورت وجود) + رنگ fallback
-export const bgStyle = (img: string | undefined, color: string): React.CSSProperties =>
+/** Stable pick so a given id always maps to the same picture. */
+function deterministic(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return POOL[h % POOL.length];
+}
+
+/** Image for a content item: its own `image`, else a stable pick from the pool. */
+export const contentImg = (id: string, image?: string) => url(image || deterministic(id));
+
+/** Background: image (if any) layered over the item's fallback colour. */
+export const bgStyle = (img: string | undefined, color: string): CSSProperties =>
   img
     ? { backgroundImage: `url(${img})`, backgroundSize: "cover", backgroundPosition: "center", backgroundColor: color }
     : { backgroundColor: color };

@@ -5,7 +5,6 @@ import {type Project, type PlaybookTemplate} from "../data/mock";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromPlaybook, toPlaybook } from "../lib/adapters";
 import { fromProject, toProject } from "../lib/adapters";
-import { projectDetails } from "../data/mockDetails";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
 import Button from "../components/ui/Button";
@@ -91,7 +90,7 @@ export default function Projects() {
   const atRisk = projects.filter((p) => p.health !== "سبز").length;
   const avgProgress = projects.length ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / projects.length) : 0;
   const openTasks = projects.reduce((s, p) => s + p.tasks.filter((t) => t.status !== "انجام‌شده").length, 0);
-  const riskCount = projects.reduce((s, p) => s + (projectDetails[p.id]?.risks.filter((r) => r.status !== "بسته").length ?? 0), 0);
+  const riskCount = projects.reduce((s, p) => s + ((p as any).openRisks ?? 0), 0);
 
   return (
     <div>
@@ -157,19 +156,14 @@ export default function Projects() {
                 <ListChecks size={12} /> {p.tasks.length} تسک
               </span>
             </div>
-            {projectDetails[p.id] && (
-              <div className="text-[11px] text-ink-400 flex items-center justify-between gap-2">
-                <span className="truncate">مدیر: {projectDetails[p.id].manager}</span>
-                {(() => {
-                  const next = projectDetails[p.id].milestones.find((m) => m.status !== "انجام‌شده");
-                  return next ? (
-                    <span className="flex items-center gap-1 truncate">
-                      <Milestone size={11} className="shrink-0" /> {next.title}
-                    </span>
-                  ) : null;
-                })()}
-              </div>
-            )}
+            <div className="text-[11px] text-ink-400 flex items-center justify-between gap-2">
+              <span className="truncate">مدیر: {(p as any).manager ?? "—"}</span>
+              {(p as any).nextMilestone && (
+                <span className="flex items-center gap-1 truncate">
+                  <Milestone size={11} className="shrink-0" /> {(p as any).nextMilestone.title}
+                </span>
+              )}
+            </div>
           </Link>
         ))}
       </div>
