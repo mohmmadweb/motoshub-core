@@ -1,0 +1,51 @@
+# prod.shub.ir — self-contained deployment on dedicated ports.
+#
+# Binds ONLY 9080 (HTTP) and 9443 (HTTPS); nothing else on the host is touched.
+# Postgres, Redis and the worker stay internal with no host ports at all.
+#
+#   cp infra/.env.prod.shub.ir.example infra/.env   # fill the secrets
+#   docker compose -f infra/docker-compose.yml -f infra/prod/compose.prod.yml \
+#     --env-file infra/.env up -d
+services:
+  web:
+    ports: !override
+      - "${HTTP_PORT:-9080}:80"
+      - "${HTTPS_PORT:-9443}:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN, e.g. prod.shub.ir}
+    volumes:
+      - ./prod/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot
+      - media:/usr/share/nginx/media:ro
+
+  api:
+    ports: !override []
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      SECRET_KEY: ${SECRET_KEY:?set a real SECRET_KEY}
+      OW_PASSWORD_PEPPER: ${OW_PASSWORD_PEPPER:?set the shared pepper}
+      DEBUG: "False"
+      # Set to True once a certificate is installed (see infra/prod/README.md).
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-False}
+      # The domain, plus loopback (container health checks) and the server IP so
+      # the site is reachable for testing before DNS propagates.
+      ALLOWED_HOSTS: ${DOMAIN},localhost,127.0.0.1,${SERVER_IP:-127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: https://${DOMAIN}:${HTTPS_PORT:-9443},https://${DOMAIN}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN}:${HTTPS_PORT:-9443},https://${DOMAIN}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-True}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-موتوشاب <no-reply@shub.ir>}
+
+  worker:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      SECRET_KEY: ${SECRET_KEY:?set a real SECRET_KEY}
+      OW_PASSWORD_PEPPER: ${OW_PASSWORD_PEPPER:?set the shared pepper}
+
+volumes:
+  letsencrypt:
+  certbot_www:

@@ -13,10 +13,16 @@ if OW_PASSWORD_PEPPER == "shared-secret-must-match-php-backend":  # noqa: F405
 
 # ALLOWED_HOSTS / CSRF_TRUSTED_ORIGINS / CORS_ALLOWED_ORIGINS come from the env.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 31536000
+
+# HTTPS on by default. A deployment that has not obtained a certificate yet must
+# opt out explicitly (SECURE_SSL_REDIRECT=False) — otherwise every request would
+# redirect to an https:// URL nothing is listening on. Secure cookies and HSTS
+# follow the same switch: sending them over plain HTTP either breaks login (the
+# browser withholds the cookie) or pins the host to HTTPS for a year.
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)  # noqa: F405
+SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
+CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
+SECURE_HSTS_SECONDS = 31536000 if SECURE_SSL_REDIRECT else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
