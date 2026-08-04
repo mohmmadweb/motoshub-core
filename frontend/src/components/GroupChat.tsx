@@ -255,9 +255,9 @@ export default function GroupChat({
                   </span>
                 </div>
               )}
-              <div className={`group flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
-                <Avatar name={m.author?.name ?? "?"} color={m.author?.avatar_color} size={30} />
-                <div className={`max-w-[78%] ${mine ? "items-end" : ""} flex flex-col`}>
+              <div className={`group flex gap-2 ${mine ? "justify-start" : "justify-end"}`}>
+                {!mine && <Avatar name={m.author?.name ?? "?"} color={m.author?.avatar_color} size={30} />}
+                <div className={`max-w-[78%] flex flex-col ${mine ? "items-start" : "items-end"}`}>
                   <div className={`rounded-xl px-3 py-2 ${mine ? "bg-brand-600 text-white" : "bg-white border border-ink-100"}`}>
                     {!mine && <p className="text-[11px] font-bold text-brand-700 mb-0.5">{m.author?.name}</p>}
 
@@ -300,7 +300,7 @@ export default function GroupChat({
 
                   {/* reactions */}
                   {m.reactions.length > 0 && (
-                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <div className={`flex items-center gap-1 mt-1 flex-wrap ${mine ? "justify-start" : "justify-end"}`}>
                       {m.reactions.map((r) => {
                         const Icon = ICONS[r.icon] ?? ThumbsUp;
                         return (
@@ -316,7 +316,7 @@ export default function GroupChat({
 
                   {/* hover actions */}
                   {!m.deleted && (
-                    <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className={`flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${mine ? "justify-start" : "justify-end"}`}>
                       {REACTIONS.map(({ icon, Cmp, title }) => (
                         <button key={icon} onClick={() => react(m, icon)} title={title}
                           className="text-ink-400 hover:text-brand-600 p-0.5"><Cmp size={12} /></button>
