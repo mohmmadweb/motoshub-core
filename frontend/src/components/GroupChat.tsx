@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Send, Reply, Pencil, Trash2, Pin, PinOff, Paperclip, Smile, X,
-  ThumbsUp, Heart, CheckCircle2, CornerUpLeft, Search, Forward,
+  ThumbsUp, Heart, CheckCircle2, CornerUpLeft, Search, Forward, BarChart3, Plus,
 } from "lucide-react";
 import { http, getUser } from "../lib/http";
 import { openChannelSocket } from "../lib/ws";
@@ -72,6 +72,10 @@ export default function GroupChat({
   const [showPinned, setShowPinned] = useState(false);
   const [typingWho, setTypingWho] = useState<string | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [polls, setPolls] = useState<any[]>([]);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollQ, setPollQ] = useState("");
+  const [pollOpts, setPollOpts] = useState<string[]>(["", ""]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingSent = useRef(0);
@@ -87,6 +91,29 @@ export default function GroupChat({
   }, [groupId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // In-group polls (Telegram-style): created in the conversation, voted inline.
+  const loadPolls = useCallback(() => {
+    http<any[]>(`/polls?group=${groupId}&page_size=20`).then(setPolls).catch(() => setPolls([]));
+  }, [groupId]);
+  useEffect(() => { loadPolls(); }, [loadPolls]);
+
+  const createPoll = () => {
+    const opts = pollOpts.map((o) => o.trim()).filter(Boolean);
+    if (!pollQ.trim() || opts.length < 2) {
+      notify("پرسش و حداقل دو گزینه لازم است.", "warning");
+      return;
+    }
+    http<any>("/polls", { method: "POST", body: JSON.stringify({ question: pollQ.trim(), option_labels: opts, group: groupId }) })
+      .then((p) => { setPolls((prev) => [p, ...prev]); setPollOpen(false); setPollQ(""); setPollOpts(["", ""]);
+                     notify("نظرسنجی در گروه منتشر شد."); })
+      .catch(() => notify("ایجاد نظرسنجی ناموفق بود.", "warning"));
+  };
+
+  const votePoll = (pollId: string, optionId: string) =>
+    http<any>(`/polls/${pollId}/vote`, { method: "POST", body: JSON.stringify({ option_id: optionId }) })
+      .then(() => loadPolls())
+      .catch(() => notify("ثبت رأی ناموفق بود.", "warning"));
 
   // Live updates: the group's conversation is a channel, so we reuse its socket.
   useEffect(() => {
@@ -370,6 +397,59 @@ export default function GroupChat({
         )}
       </div>
 
+      {/* ── in-group polls ──────────────────────────────────────────────── */}
+      {polls.length > 0 && (
+        <div className="border-t border-ink-100 px-3.5 py-2.5 space-y-2 shrink-0 max-h-44 overflow-y-auto bg-ink-50/40">
+          {polls.map((p) => {
+            const total = p.options.reduce((s: number, o: any) => s + o.votes, 0);
+            return (
+              <div key={p.id} className="rounded-lg border border-ink-100 bg-white p-2.5">
+                <p className="text-[12px] font-bold text-ink-900 mb-1.5 flex items-center gap-1.5">
+                  <BarChart3 size={12} className="text-brand-600" /> {p.question}
+                </p>
+                <div className="space-y-1">
+                  {p.options.map((o: any) => {
+                    const pct = total ? Math.round((o.votes / total) * 100) : 0;
+                    const mineVote = p.my_vote === o.id;
+                    return (
+                      <button key={o.id} onClick={() => votePoll(p.id, o.id)}
+                        className="w-full text-right relative rounded-md border border-ink-100 px-2 py-1 overflow-hidden hover:border-brand-300">
+                        <span className={`absolute inset-y-0 right-0 ${mineVote ? "bg-brand-100" : "bg-ink-100"}`}
+                              style={{ width: `${pct}%` }} />
+                        <span className="relative flex items-center justify-between text-[11.5px]">
+                          <span className={mineVote ? "font-bold text-brand-700" : "text-ink-700"}>{o.label}</span>
+                          <span className="text-ink-400">{pct.toLocaleString("fa-IR")}٪</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10.5px] text-ink-400 mt-1">{total.toLocaleString("fa-IR")} رأی</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {pollOpen && (
+        <div className="border-t border-ink-100 px-3.5 py-2.5 space-y-2 shrink-0 bg-white">
+          <input value={pollQ} onChange={(e) => setPollQ(e.target.value)} placeholder="پرسش نظرسنجی…"
+            className="w-full text-[12px] border border-ink-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-300" />
+          {pollOpts.map((o, i) => (
+            <input key={i} value={o} placeholder={`گزینه ${(i + 1).toLocaleString("fa-IR")}`}
+              onChange={(e) => setPollOpts((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
+              className="w-full text-[12px] border border-ink-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-300" />
+          ))}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" icon={<Plus size={12} />} onClick={() => setPollOpts((p) => [...p, ""])}>
+              گزینه
+            </Button>
+            <Button variant="primary" size="sm" onClick={createPoll}>انتشار</Button>
+            <Button variant="secondary" size="sm" onClick={() => setPollOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      )}
+
       {/* ── composer ────────────────────────────────────────────────────── */}
       {canPost ? (
         <div className="border-t border-ink-100 shrink-0">
@@ -404,6 +484,8 @@ export default function GroupChat({
           <div className="flex items-end gap-2 px-3 py-2.5">
             <input ref={fileRef} type="file" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = ""; }} />
+            <button onClick={() => setPollOpen((v) => !v)} title="نظرسنجی"
+              className="text-ink-400 hover:text-brand-600 p-1.5 shrink-0"><BarChart3 size={17} /></button>
             <button onClick={() => fileRef.current?.click()} title="پیوست فایل" disabled={uploading}
               className="text-ink-400 hover:text-brand-600 p-1.5 shrink-0 disabled:opacity-40">
               <Paperclip size={17} className={uploading ? "animate-pulse" : ""} /></button>

@@ -8,6 +8,10 @@ class Poll(TenantScopedModel):
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="polls")
     ends_at = models.DateTimeField(null=True, blank=True)
 
+    # A poll can belong to a group conversation (Telegram-style in-chat poll).
+    group = models.ForeignKey("social.Group", on_delete=models.CASCADE, null=True, blank=True,
+                              related_name="polls")
+
     class Meta(TenantScopedModel.Meta):
         db_table = "polls_poll"
 

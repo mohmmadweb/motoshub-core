@@ -232,6 +232,26 @@ class AssistantView(APIView):
 
 
 # ── Global cross-module search ───────────────────────────────────────────────
+def _search_filter(qs, q, fields):
+    """Rank with Postgres full-text when available; fall back to icontains so the
+    same endpoint works on sqlite (development and tests)."""
+    from django.conf import settings
+    from django.db.models import Q as _Q
+
+    if "postgresql" in settings.DATABASES["default"]["ENGINE"]:
+        from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+        vector = SearchVector(*fields, config="simple")
+        query = SearchQuery(q, config="simple", search_type="websearch")
+        ranked = qs.annotate(_rank=SearchRank(vector, query)).filter(_rank__gt=0).order_by("-_rank")
+        if ranked.exists():
+            return ranked
+        # websearch finds nothing for partial words — fall through to substring.
+    cond = _Q()
+    for f in fields:
+        cond |= _Q(**{f"{f}__icontains": q})
+    return qs.filter(cond)
+
+
 class SearchView(APIView):
     """Server-side search across modules → typed hits {id,type,title,snippet,to}."""
     permission_classes = [IsAuthenticated]
@@ -398,3 +418,55 @@ class GuestAccountViewSet(TenantScopedModelViewSet):
     owner_field = None
     required_perms = {"list": "users.guest", "retrieve": "users.guest", "create": "users.guest",
                       "update": "users.guest", "partial_update": "users.guest", "destroy": "users.guest"}
+
+
+class ReportExportView(APIView):
+    """Real CSV export of a report dimension (opens in Excel with a BOM)."""
+    permission_classes = [IsAuthenticated]
+
+    DIMENSIONS = {
+        "projects_by_health": ("سلامت پروژه", {"green": "سبز", "yellow": "زرد", "red": "قرمز"}),
+        "projects_by_department": ("دپارتمان", {}),
+        "contracts_by_stage": ("گام قرارداد", {"negotiation": "مذاکره", "rfp": "فراخوان",
+                                               "evaluation": "داوری", "executing": "در حال اجرا",
+                                               "settled": "تسویه‌شده"}),
+        "funds_by_stage": ("گام صندوق", {"registered": "ثبت‌شده", "screening": "انتخاب اولیه",
+                                          "judging": "داوری", "allocated": "تخصیص‌یافته",
+                                          "monitoring": "در حال پایش"}),
+        "tasks_by_status": ("وضعیت تسک", {"planning": "برنامه‌ریزی", "in_progress": "در حال انجام",
+                                           "review": "بازبینی", "done": "انجام‌شده"}),
+        "tickets_by_status": ("وضعیت تیکت", {"open": "باز", "in_review": "در حال بررسی",
+                                              "answered": "پاسخ داده شد", "closed": "بسته"}),
+    }
+
+    def get(self, request):
+        import csv
+        import io
+
+        from django.http import HttpResponse
+
+        if not _require(request, "reports.export"):
+            return Response({"error": {"code": 403, "type": "forbidden",
+                                       "message": "دسترسی خروجی گزارش را ندارید."}}, status=403)
+
+        key = request.query_params.get("dimension", "projects_by_health")
+        if key not in self.DIMENSIONS:
+            return Response({"error": {"code": 422, "type": "unprocessable_entity",
+                                       "message": "بُعد گزارش نامعتبر است."}}, status=422)
+
+        label, fa = self.DIMENSIONS[key]
+        summary = ReportSummaryView().get(request).data
+        rows = (summary.get(key) or {}) if isinstance(summary, dict) else {}
+
+        buf = io.StringIO()
+        buf.write("﻿")                      # BOM so Excel reads UTF-8 Persian
+        writer = csv.writer(buf)
+        writer.writerow([label, "تعداد"])
+        for k, v in rows.items():
+            writer.writerow([fa.get(k, k), v])
+        writer.writerow([])
+        writer.writerow(["مجموع", sum(rows.values())])
+
+        resp = HttpResponse(buf.getvalue(), content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="report-{key}.csv"'
+        return resp

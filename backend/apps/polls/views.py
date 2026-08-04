@@ -12,6 +12,7 @@ from .serializers import PollSerializer
 class PollViewSet(TenantScopedModelViewSet):
     queryset = Poll.objects.select_related("author").prefetch_related("options__ballots").all()
     serializer_class = PollSerializer
+    filterset_fields = ["group"]
     required_perms = {
         "list": "news.list", "retrieve": "news.list", "create": "news.create",
         "update": "news.edit", "partial_update": "news.edit", "destroy": "news.delete",

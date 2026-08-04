@@ -51,7 +51,7 @@ export const toForum = (v: any) => ({ title: v.title, body: v.body ?? "", catego
 
 export const fromGroup = (g: any) => ({
   id: g.id, name: g.name, description: g.description, members: g.member_count ?? 0,
-  privacy: g.privacy === "public" ? "عمومی" : "خصوصی", color: g.color ?? "#1f4f99", unread: 0, category: g.category ?? "",
+  privacy: g.privacy === "public" ? "عمومی" : "خصوصی", color: g.color ?? "#1f4f99", unread: g.unread ?? 0, category: g.category ?? "",
   createdAt: toJalali(g.created_at), lastActivityAt: toJalali(g.updated_at ?? g.created_at), lastActivityRel: relativeFa(g.updated_at ?? g.created_at),
 });
 export const toGroup = (v: any) => ({ name: v.name, description: v.description, category: v.category, color: v.color, privacy: v.privacy === "عمومی" ? "public" : "private" });

@@ -145,9 +145,36 @@ export default function Reports() {
     notify(`گزارش «${r.name}» اجرا شد و خروجی ${r.format} آماده دانلود است.`, "success");
   };
 
-  const doExport = (format: (typeof exportFormats)[number]) => {
+  /** Real download: hits /reports/export and saves the returned CSV. */
+  const doExport = async (format: (typeof exportFormats)[number]) => {
     setExportOpen(false);
-    notify(`خروجی ${format} داشبورد برای بازه «${period}» آماده شد.`, "success");
+    const dimension =
+      builderModule === "قراردادها" ? "contracts_by_stage"
+      : builderModule === "صندوق" ? "funds_by_stage"
+      : builderGroupBy === "معاونت / هلدینگ" ? "projects_by_department"
+      : "projects_by_health";
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE || "/api/v1"}/reports/export?dimension=${dimension}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem("ms-access") ?? ""}` } },
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `گزارش-${dimension}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      notify(
+        format === "Excel" || format === "CSV"
+          ? "فایل CSV دانلود شد (در Excel باز می‌شود)."
+          : "خروجی CSV دانلود شد؛ خروجی PDF در نسخهٔ بعدی اضافه می‌شود.",
+        "success",
+      );
+    } catch {
+      notify("دریافت خروجی ناموفق بود — دسترسی «خروجی گزارش» لازم است.", "warning");
+    }
   };
 
   const savedColumns: Column<SavedReport>[] = [

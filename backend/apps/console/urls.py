@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AssistantView,
     ReportDimensionsView,
+    ReportExportView,
     ReportSummaryView,
     ReportTimeseriesView,
     GuestAccountViewSet,
@@ -22,6 +23,7 @@ urlpatterns = router.urls + [
     path("settings/workflow", WorkflowSettingsView.as_view(), name="workflow-settings"),
     path("reports/summary", ReportSummaryView.as_view(), name="report-summary"),
     path("reports/dimensions", ReportDimensionsView.as_view(), name="report-dimensions"),
+    path("reports/export", ReportExportView.as_view(), name="report-export"),
     path("reports/timeseries", ReportTimeseriesView.as_view(), name="report-timeseries"),
     path("assistant/suggestions", AssistantView.as_view(), name="assistant-suggestions"),
     path("assistant/ask", AssistantView.as_view(), name="assistant-ask"),

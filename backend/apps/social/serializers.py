@@ -6,6 +6,22 @@ from .models import ForumReply, ForumTopic, Group, Post, GroupMembership
 
 
 class GroupSerializer(serializers.ModelSerializer):
+    unread = serializers.SerializerMethodField()
+
+    def get_unread(self, obj):
+        """Messages in this group the caller hasn't seen yet."""
+        user = getattr(self.context.get("request"), "user", None)
+        channel = getattr(obj, "channel", None)
+        if not user or not getattr(user, "is_authenticated", False) or channel is None:
+            return 0
+        row = obj.memberships.filter(user=user).first()
+        if row is None:
+            return 0
+        qs = channel.messages.exclude(author=user).exclude(deleted=True)
+        if row.last_read_at:
+            qs = qs.filter(created_at__gt=row.last_read_at)
+        return qs.count()
+
     owner = AuthorField(read_only=True)
     member_count = serializers.IntegerField(read_only=True)
     is_member = serializers.SerializerMethodField()
@@ -14,10 +30,10 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = [
             "id", "name", "description", "privacy", "color", "category",
-            "owner", "member_count", "is_member", "invite_code", "slow_mode_seconds",
+            "owner", "member_count", "is_member", "unread", "invite_code", "slow_mode_seconds",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "owner", "member_count", "is_member", "invite_code", "created_at", "updated_at"]
+        read_only_fields = ["id", "owner", "member_count", "is_member", "unread", "invite_code", "created_at", "updated_at"]
 
     def get_is_member(self, obj) -> bool:
         user = self.context["request"].user
