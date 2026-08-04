@@ -39,9 +39,10 @@ class AttachmentSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "kind", "size", "human_size", "content_type", "url", "created_at"]
 
     def get_url(self, obj):
-        request = self.context.get("request")
-        url = obj.file.url if obj.file else ""
-        return request.build_absolute_uri(url) if request and url else url
+        # Relative on purpose: behind a reverse proxy the Host header carries no
+        # port, so an absolute URL would point at the wrong origin. The browser
+        # resolves this against whatever origin it is already talking to.
+        return obj.file.url if obj.file else ""
 
 
 class UploadView(APIView):
