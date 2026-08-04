@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import ErrorBoundary from "../components/ErrorBoundary";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import CommandPalette from "../components/CommandPalette";
@@ -32,7 +33,9 @@ export default function AppLayout() {
       <div className="flex-1 min-w-0">
         <Topbar onOpenPalette={() => setPaletteOpen(true)} />
         <main id="main-content" tabIndex={-1} className="p-4 lg:p-6 max-w-7xl mx-auto outline-none">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
         <CreditFooter />
       </div>

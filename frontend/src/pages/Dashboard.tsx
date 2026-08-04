@@ -357,10 +357,17 @@ export default function Dashboard() {
             <h3 className="font-bold text-sm mb-2 text-ink-900 flex items-center gap-1.5">
               <CalendarDays size={15} className="text-brand-600" /> رویداد پیش‌رو
             </h3>
-            <p className="text-xs text-ink-700 font-medium">{nextEvent.title}</p>
-            <p className="text-[11px] text-ink-400 mt-1.5 flex items-center gap-1">
-              <MapPin size={11} /> {nextEvent.jalaliDate} · {nextEvent.time}
-            </p>
+            {/* events load asynchronously — render nothing rather than crashing. */}
+            {nextEvent ? (
+              <>
+                <p className="text-xs text-ink-700 font-medium">{nextEvent.title}</p>
+                <p className="text-[11px] text-ink-400 mt-1.5 flex items-center gap-1">
+                  <MapPin size={11} /> {nextEvent.jalaliDate} · {nextEvent.time}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-ink-400">رویدادی ثبت نشده است.</p>
+            )}
           </Link>
         </aside>
       </div>
