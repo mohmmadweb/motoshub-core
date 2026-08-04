@@ -20,7 +20,7 @@ import {
   Sunset,
   MoonStar,
 } from "lucide-react";
-import { type Post, type Group, type UserProfile, type Notification as NotificationItem } from "../data/mock";
+import { type Post, type Group, type UserProfile, type Notification as NotificationItem } from "../data/types";
 import { http, getUser } from "../lib/http";
 import { fromNotification, fromNfProject, fromGroup, fromUser, fromPost } from "../lib/adapters";
 

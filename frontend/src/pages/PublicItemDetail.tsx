@@ -190,7 +190,7 @@ function PrivateBlock({ section }: { section: Section }) {
 
 // ─── section-specific detail views ──────────────────────────────────────────
 
-import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/mock";
+import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/types";
 
 function ForumDetail({ item }: { item: ForumTopic }) {
   const author = { name: item.author, avatarColor: "#1f4f99" };

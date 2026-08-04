@@ -56,7 +56,7 @@ class NfProjectSerializer(serializers.ModelSerializer):
         fields = ["id", "code", "title_fa", "title_en", "field", "macro_field",
                   "mother_project", "rahbar", "nazer", "fund_manager", "budget",
                   "share_percent", "duration_months", "contract_no", "stage",
-                  "sub_status", "green_path", "progress", "screening_score", "jury_score",
+                  "sub_status", "green_path", "progress", "screening_score", "jury_score", "screening_scores", "jury_dimensions",
                   "team_name", "team_type", "team_city", "team_manager", "team_members",
                   "fund_manager_name", "finance", "gantt", "timeline",
                   "guarantees", "reports", "payments", "requests",

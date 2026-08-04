@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Image, Video, Star, Upload, PlayCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import {type MediaItem, type Visibility} from "../data/mock";
+import {type MediaItem, type Visibility} from "../data/types";
 import { me } from "../lib/me";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";

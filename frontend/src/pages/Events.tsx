@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CalendarDays, MapPin, Users, Plus, Calendar, Send } from "lucide-react";
 import { Link } from "react-router-dom";
-import { type EventItem, type Visibility } from "../data/mock";
+import { type EventItem, type Visibility } from "../data/types";
 import RowActions from "../components/ui/RowActions";
 import DataTable from "../components/ui/DataTable";
 import { useConfirm } from "../components/ui/ConfirmProvider";

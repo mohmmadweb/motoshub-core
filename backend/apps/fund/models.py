@@ -32,9 +32,11 @@ class NfProject(TenantScopedModel):
     green_path = models.BooleanField(default=False, help_text="مسیر سبز/تسریع")
     progress = models.PositiveSmallIntegerField(default=0)
 
-    # Evaluation gates.
+    # Evaluation gates (totals) + the per-criterion breakdown the forms render.
     screening_score = models.PositiveSmallIntegerField(null=True, blank=True)
     jury_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    screening_scores = models.JSONField(default=list, blank=True, help_text="امتیاز هر معیار غربالگری")
+    jury_dimensions = models.JSONField(default=list, blank=True, help_text="[{title,max,score}] ابعاد داوری")
 
     # Team snapshot.
     team_name = models.CharField(max_length=200, blank=True)

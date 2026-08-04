@@ -45,14 +45,14 @@ import {
   type Channel,
   type ChannelMessage,
   type ReactionIcon,
-} from "../data/mock";
+} from "../data/types";
 import Avatar from "../components/Avatar";
 import { http } from "../lib/http";
 import { openChannelSocket, openDmSocket } from "../lib/ws";
 import { fromChannel, fromChannelMessage, fromUser, fromIntegration } from "../lib/adapters";
 import { useApiList } from "../lib/useApiList";
 import { me } from "../lib/me";
-import type { UserProfile, PresenceStatus } from "../data/mock";
+import type { UserProfile, PresenceStatus } from "../data/types";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Drawer from "../components/ui/Drawer";

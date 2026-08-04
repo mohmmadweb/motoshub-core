@@ -33,6 +33,7 @@ import {
   Activity,
 } from "lucide-react";
 import { SystemSection, StorageSection } from "./AdminSections";
+import { moduleCatalog, adminMenus } from "../data/constants";
 import { http } from "../lib/http";
 import { me } from "../lib/me";
 import { useApiList } from "../lib/useApiList";
@@ -60,19 +61,13 @@ import LiveUsagePanel from "../components/LiveUsagePanel";
 import BrandingPanel from "../components/BrandingPanel";
 import { useSettings, settingsMeta, defaultSettings, type WorkflowSettings } from "../context/SettingsContext";
 import { useConfirm } from "../components/ui/ConfirmProvider";
-import {
-  moduleCatalog,
-  adminPages as initialPages,
-  adminMenus,
-  allowedFileExtensions as initialExtensions,
-  type RoleAssignment,
+import {type RoleAssignment,
   type ModuleDef,
   type Tenant,
   type RoleDef,
   type AdminPageDef,
   type Integration,
-  type GuestAccount,
-} from "../data/mock";
+  type GuestAccount} from "../data/types";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -118,8 +113,17 @@ export default function Admin() {
   const [enabledModules, setEnabledModules] = useState<string[]>(["social", "knowledge", "projects", "reports"]);
   const [crossTenant, setCrossTenant] = useState(false);
   const [roles, setRoles] = useApiCollection<RoleDef>("/roles", fromRole as any, toRole as any);
-  const [pages, setPages] = useState<AdminPageDef[]>(initialPages);
-  const [extensions, setExtensions] = useState<string[]>(initialExtensions);
+  // Console configuration is stored per-tenant (see /settings/workflow).
+  const [pages, setPages] = useState<AdminPageDef[]>([]);
+  const [extensions, setExtensions] = useState<string[]>([]);
+  useEffect(() => {
+    http<any>("/settings/workflow")
+      .then((cfg) => {
+        setPages((cfg.admin_pages ?? []) as AdminPageDef[]);
+        setExtensions((cfg.allowed_file_extensions ?? []) as string[]);
+      })
+      .catch(() => {});
+  }, []);
   const [integrations, setIntegrations] = useApiCollection<Integration>("/integrations", fromIntegration as any, toIntegration as any);
   const [guestAccounts, setGuestAccounts] = useApiCollection<GuestAccount>("/guest-accounts", fromGuestAccount as any, toGuestAccount as any);
   const { notify } = useToast();

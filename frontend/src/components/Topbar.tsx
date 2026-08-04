@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Bell, Search, ChevronDown, LogOut, UserCircle, Settings, ShieldCheck, Command, Menu, X, Sun, Moon, Palette } from "lucide-react";
 import Avatar from "./Avatar";
-import { type PresenceStatus } from "../data/mock";
+import { type PresenceStatus } from "../data/types";
 import { http, getUser } from "../lib/http";
 import { useTenant } from "../lib/useTenant";
 import { navSections } from "./Sidebar";

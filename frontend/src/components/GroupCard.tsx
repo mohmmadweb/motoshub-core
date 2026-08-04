@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Users, Lock, Globe2 } from "lucide-react";
 import Badge from "./ui/Badge";
 import { VisibilityToggle } from "./ui/VisibilityControl";
-import type { Group } from "../data/mock";
+import type { Group } from "../data/types";
 
 export default function GroupCard({ group, onTogglePrivacy }: { group: Group; onTogglePrivacy?: () => void }) {
   return (

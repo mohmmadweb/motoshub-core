@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AtSign, Heart, MessageCircle, Settings, CheckSquare, Bell, CheckCheck, Circle, CheckCircle2 } from "lucide-react";
-import { type Notification } from "../data/mock";
+import { type Notification } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromNotification } from "../lib/adapters";
 import PageHeader from "../components/ui/PageHeader";

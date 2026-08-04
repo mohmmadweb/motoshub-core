@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MessagesSquare, NotebookPen, CalendarDays, Image, BookOpen, Newspaper, Users } from "lucide-react";
-import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/mock";
+import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/types";
 import { http } from "../lib/http";
 import {
   fromNews, toNews, fromBlog, toBlog, fromEvent, toEvent, fromMedia, toMedia,

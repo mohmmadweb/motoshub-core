@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BookOpen, FileText, Upload, Clock, User, History, Download, Lightbulb } from "lucide-react";
-import { type KnowledgeDoc, type Visibility } from "../data/mock";
+import { type KnowledgeDoc, type Visibility } from "../data/types";
 import { me } from "../lib/me";
 import { useApiList } from "../lib/useApiList";
 import { fromRndDoc, fromSupportedProduct, fromSupportedVenture, fromPartnerTechnologist } from "../lib/adapters";

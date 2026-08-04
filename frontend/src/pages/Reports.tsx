@@ -17,7 +17,7 @@ import {
   CalendarClock,
   Table2,
 } from "lucide-react";
-import { type SavedReport } from "../data/mockDetails";
+import { type SavedReport } from "../data/types-details";
 import PageHeader from "../components/ui/PageHeader";
 import Button from "../components/ui/Button";
 import Badge, { type BadgeTone } from "../components/ui/Badge";

@@ -219,6 +219,7 @@ export const fromNfProject = (p: any) => ({
   budget: faMoney(p.budget), shareDaneshmand: p.share_percent ?? 0, durationMonths: p.duration_months ?? 0,
   contractNo: p.contract_no ?? "", stage: nfStageL[p.stage] ?? "دریافت پروپوزال", subStatus: p.sub_status ?? "",
   greenPath: p.green_path, progress: p.progress ?? 0,
+  screeningScores: p.screening_scores ?? [], juryDimensions: p.jury_dimensions ?? [],
   finance: p.finance && Object.keys(p.finance).length ? p.finance : { prepayment: "—", approvedByProgress: "—", paid: "—", pending: "—", retention: "—", remaining: "—" },
   guarantees: (p.guarantees ?? []).map((g: any) => ({ type: g.kind, amount: faMoney(g.amount), status: gStatus[g.status] ?? g.status })),
   gantt: p.gantt ?? [],

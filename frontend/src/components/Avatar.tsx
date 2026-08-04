@@ -1,4 +1,4 @@
-import type { PresenceStatus } from "../data/mock";
+import type { PresenceStatus } from "../data/types";
 
 type Props = {
   name: string;

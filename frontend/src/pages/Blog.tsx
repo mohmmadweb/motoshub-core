@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { NotebookPen, Star, Plus, Hash, BookMarked } from "lucide-react";
 import { Link } from "react-router-dom";
-import {type BlogPost, type Visibility} from "../data/mock";
+import {type BlogPost, type Visibility} from "../data/types";
 import { me } from "../lib/me";
-import { type PublicationIssue } from "../data/mockDaneshmand";
+import { type PublicationIssue } from "../data/types-daneshmand";
 import { useApiList } from "../lib/useApiList";
 import { fromPublication } from "../lib/adapters";
 import Tabs from "../components/ui/Tabs";

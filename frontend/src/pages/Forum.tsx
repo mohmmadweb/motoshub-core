@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, MessagesSquare, CheckCircle2, Eye, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import {type ForumTopic, type Visibility} from "../data/mock";
+import {type ForumTopic, type Visibility} from "../data/types";
 import { me } from "../lib/me";
 import Badge from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";

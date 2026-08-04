@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { GraduationCap, CalendarDays, Users, Award, Gauge, CheckCircle2, Plus } from "lucide-react";
-import { type TrainingCourse } from "../data/mockDaneshmand";
+import { type TrainingCourse } from "../data/types-daneshmand";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromCourse, toCourse } from "../lib/adapters";
 import PageHeader from "../components/ui/PageHeader";

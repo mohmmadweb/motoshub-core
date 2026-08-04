@@ -1,5 +1,5 @@
 import { Globe2, Lock } from "lucide-react";
-import type { Visibility } from "../../data/mock";
+import type { Visibility } from "../../data/types";
 import Badge from "./Badge";
 
 export function VisibilityBadge({ visibility }: { visibility: Visibility }) {

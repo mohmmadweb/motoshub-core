@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Newspaper, Pin, MessageCircle, Plus, Building2, Eye, Globe2, Network } from "lucide-react";
 import { Link } from "react-router-dom";
-import { type NewsItem, type Visibility } from "../data/mock";
-import {scopedNews as initialScopedNews,
-  type ScopedNews,
-  type ContentScope} from "../data/mockDaneshmand";
+import { type NewsItem, type Visibility } from "../data/types";
+import {type ScopedNews,
+  type ContentScope} from "../data/types-daneshmand";
 import { useContent } from "../context/ContentContext";
 import { http } from "../lib/http";
 import PageHeader from "../components/ui/PageHeader";
@@ -221,7 +220,17 @@ const scopeIcon: Record<ContentScope, typeof Globe2> = { سراسری: Globe2, �
 const scopeTone = { سراسری: "brand", هلدینگ: "navy", شرکت: "warning" } as const;
 
 function ScopedNewsSection() {
-  const [items, setItems] = useState<ScopedNews[]>(initialScopedNews);
+  // Scoped news comes from the real /news feed (each record carries scope + company).
+  const [items, setItems] = useState<ScopedNews[]>([]);
+  useEffect(() => {
+    http<any[]>("/news?page_size=100")
+      .then((rows) => setItems(rows.map((n) => ({
+        id: n.id, title: n.title, summary: n.summary ?? "", date: "",
+        scope: n.scope === "global" ? "سراسری" : n.scope === "holding" ? "هلدینگ" : "شرکت",
+        companyId: n.company ?? "", holdingId: "",
+      })) as ScopedNews[]))
+      .catch(() => setItems([]));
+  }, []);
   const [viewer, setViewer] = useState<string>("hq"); // hq = ستاد بنیاد
   // Real org tree: holdings carry their companies (see /holdings).
   const [holdings, setHoldings] = useState<{ id: string; name: string; color: string; companies: { id: string; name: string }[] }[]>([]);

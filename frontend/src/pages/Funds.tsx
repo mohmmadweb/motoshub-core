@@ -18,23 +18,17 @@ import {
   BellRing,
   Send,
 } from "lucide-react";
-import { type FundRecord } from "../data/mock";
+import { type FundRecord } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromFund, toFund, fromNfProject, toNfProject, fromFundOverview, fromReviewSession } from "../lib/adapters";
 import { useApiList } from "../lib/useApiList";
+import { nfStages, nfSubStatuses, screeningCriteriaCatalog } from "../data/constants";
 import { fromFundEntity, fromSeedInvestment } from "../lib/adapters";
 import { http } from "../lib/http";
 
-import {
-  nfStages,
-  type NfProject,
-  type NfStage,
-} from "../data/mockInnovationFund";
-import {nfEvaluations,
-  nfSubStatuses,
-  screeningCriteriaCatalog,
-  screeningScores,
-  type SeedInvestment} from "../data/mockDaneshmand";
+import {type NfProject,
+  type NfStage} from "../data/types-fund";
+import {type SeedInvestment} from "../data/types-daneshmand";
 import { useSettings, type WorkflowSettings } from "../context/SettingsContext";
 import RowActions from "../components/ui/RowActions";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -489,8 +483,9 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
     notify("ریزوضعیت به‌روزرسانی و در گام‌نما ثبت شد.");
   };
 
-  const scores = screeningScores[p.id];
-  const screeningTotal = scores ? scores.reduce((a, b) => a + b, 0) : nfEvaluations[p.id]?.screening.total;
+  // Per-criterion breakdown lives on the project record itself.
+  const scores = (p as any).screeningScores?.length ? (p as any).screeningScores : undefined;
+  const screeningTotal = scores ? scores.reduce((a: number, b: number) => a + b, 0) : (p as any).screeningScore;
 
   return (
     <div className="space-y-5">
@@ -559,7 +554,7 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
         </div>
       </div>
 
-      {(scores || nfEvaluations[p.id]) && (
+      {(scores || (p as any).juryDimensions?.length) && (
         <div className="border-t border-ink-100 pt-4">
           <h4 className="text-xs font-bold text-ink-900 mb-2 flex items-center gap-1.5"><Gauge size={13} className="text-ink-400" /> فرم‌های امتیازدهی ارزیابی</h4>
           {scores && screeningTotal !== undefined && (
@@ -586,16 +581,16 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
               </button>
             </div>
           )}
-          {nfEvaluations[p.id]?.jury && (
+          {((p as any).juryDimensions ? { total: (p as any).juryScore, dimensions: (p as any).juryDimensions } : undefined) && (
             <div className="text-[11px] bg-ink-50 rounded-lg p-2.5">
               <div className="flex items-center justify-between mb-1.5">
                 <p className="font-medium text-ink-800">ارزیابی داوری (۵ بُعد — با تعهد رازداری داور)</p>
-                <Badge tone={nfEvaluations[p.id].jury!.total >= settings.juryThreshold ? "success" : "danger"}>
-                  {nfEvaluations[p.id].jury!.total.toLocaleString("fa-IR")} از ۱۰۰ — حد نصاب {settings.juryThreshold.toLocaleString("fa-IR")}
+                <Badge tone={{ total: (p as any).juryScore, dimensions: (p as any).juryDimensions }.total >= settings.juryThreshold ? "success" : "danger"}>
+                  {{ total: (p as any).juryScore, dimensions: (p as any).juryDimensions }.total.toLocaleString("fa-IR")} از ۱۰۰ — حد نصاب {settings.juryThreshold.toLocaleString("fa-IR")}
                 </Badge>
               </div>
               <div className="space-y-1">
-                {nfEvaluations[p.id].jury!.dimensions.map((d) => (
+                {{ total: (p as any).juryScore, dimensions: (p as any).juryDimensions }.dimensions.map((d: any) => (
                   <div key={d.title} className="flex items-center gap-2">
                     <span className="flex-1 text-ink-600">{d.title}</span>
                     <div className="w-20 h-1 rounded-full bg-ink-200/70 overflow-hidden shrink-0">

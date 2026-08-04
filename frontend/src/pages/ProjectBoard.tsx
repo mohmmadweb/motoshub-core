@@ -13,8 +13,8 @@ import {
   CircleDollarSign,
   CalendarCheck2,
 } from "lucide-react";
-import { type Task, type Project } from "../data/mock";
-import { type ProjectMilestone, type ProjectRisk, type ProjectMember, type ProjectExpense, type ProjectMinute } from "../data/mockDetails";
+import { type Task, type Project } from "../data/types";
+import { type ProjectMilestone, type ProjectRisk, type ProjectMember, type ProjectExpense, type ProjectMinute } from "../data/types-details";
 import { http } from "../lib/http";
 import { fromTask, fromProject, fromMilestone, fromRisk, tkStatusApi, tkPrioApi,
          fromProjectMember, fromProjectExpense, fromProjectMinute } from "../lib/adapters";

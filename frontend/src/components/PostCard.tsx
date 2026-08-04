@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Heart, MessageCircle, Share2, BarChart3, FileText, Pin } from "lucide-react";
 import Avatar from "./Avatar";
 import Badge from "./ui/Badge";
-import { type Post } from "../data/mock";
+import { type Post } from "../data/types";
 import { http } from "../lib/http";
 
 // Real posts carry their author/group/like-state inline (see fromPost).

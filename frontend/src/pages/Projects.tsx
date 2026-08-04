@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { KanbanSquare, Plus, Wallet, ListChecks, ClipboardList, PlayCircle, AlertTriangle, Milestone, GanttChartSquare, ListFilter } from "lucide-react";
-import {type Project, type PlaybookTemplate} from "../data/mock";
+import {type Project, type PlaybookTemplate} from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromPlaybook, toPlaybook } from "../lib/adapters";
 import { fromProject, toProject } from "../lib/adapters";

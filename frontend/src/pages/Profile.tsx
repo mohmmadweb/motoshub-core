@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Briefcase, ShieldCheck, MessageCircle, Laptop, Smartphone, MapPin, LogOut } from "lucide-react";
-import { type UserProfile, type Post } from "../data/mock";
+import { type UserProfile, type Post } from "../data/types";
 import { http, getUser } from "../lib/http";
 import { fromUser, fromPost, fromSession } from "../lib/adapters";
 import Avatar from "../components/Avatar";

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { FileSignature, Plus, Paperclip, CircleDollarSign, Hourglass, ShieldCheck, ListFilter, CheckCircle2, Circle, History, Landmark, PenLine, ArrowLeftRight, Clock3 } from "lucide-react";
-import {type ContractRecord} from "../data/mock";
+import {type ContractRecord} from "../data/types";
 import { me } from "../lib/me";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromContract, toContract } from "../lib/adapters";
-import { type ContractDetail } from "../data/mockDetails";
-import { type TechTransferContract, type TenderRecord, type ESignDocument } from "../data/mockDaneshmand";
+import { type ContractDetail } from "../data/types-details";
+import { type TechTransferContract, type TenderRecord, type ESignDocument } from "../data/types-daneshmand";
 import { useApiList } from "../lib/useApiList";
 import { fromTechTransfer, fromTender, fromESign, fromContractDetail, fromPendingReview } from "../lib/adapters";
 import { http } from "../lib/http";

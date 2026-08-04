@@ -14,7 +14,7 @@ import Badge, { type BadgeTone } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import type {
   ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group,
-} from "../data/mock";
+} from "../data/types";
 import { contentImg, bgStyle } from "../data/images";
 
 type Section = "forum" | "blog" | "events" | "media" | "knowledge" | "news" | "groups";

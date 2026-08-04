@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Flag, UserPlus, FileText, MessagesSquare } from "lucide-react";
-import { type Post, type UserProfile } from "../data/mock";
+import { type Post, type UserProfile } from "../data/types";
 import { http } from "../lib/http";
 import { fromPost, fromUser } from "../lib/adapters";
 import { useContent } from "../context/ContentContext";

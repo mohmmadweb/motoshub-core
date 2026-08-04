@@ -26,6 +26,10 @@ class WorkflowSettings(TimeStampedModel):
     dark_default = models.BooleanField(default=False)
     enabled_modules = models.JSONField(default=list, blank=True)
 
+    # Console configuration edited from the admin panel.
+    admin_pages = models.JSONField(default=list, blank=True)
+    allowed_file_extensions = models.JSONField(default=list, blank=True)
+
     class Meta:
         db_table = "console_workflow_settings"
 

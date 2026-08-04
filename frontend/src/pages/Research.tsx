@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { FlaskConical, Plus, Users, ListFilter, GraduationCap, Wallet, Clock3, FileCheck2, CheckCircle2, XCircle, Megaphone, Trophy, BookMarked } from "lucide-react";
-import { type ResearchOpportunity } from "../data/mock";
+import { type ResearchOpportunity } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
 import { useApiList } from "../lib/useApiList";
 import { fromRfpCall, fromSabbatical } from "../lib/adapters";
 import { fromResearch, toResearch } from "../lib/adapters";
-import { type ResearchApplicant } from "../data/mockDetails";
-import {type RfpCall, type Sabbatical} from "../data/mockDaneshmand";
+import { type ResearchApplicant } from "../data/types-details";
+import {type RfpCall, type Sabbatical} from "../data/types-daneshmand";
 import Tabs from "../components/ui/Tabs";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";

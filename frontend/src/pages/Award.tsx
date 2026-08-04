@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Trophy, PencilLine, ShieldQuestion } from "lucide-react";
-import { type AwardTrack, type AwardEntry } from "../data/mockDaneshmand";
+import { type AwardTrack, type AwardEntry } from "../data/types-daneshmand";
 import { http } from "../lib/http";
 import { fromAwardTrack, fromAwardEntry } from "../lib/adapters";
 import PageHeader from "../components/ui/PageHeader";

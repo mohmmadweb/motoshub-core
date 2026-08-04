@@ -21,7 +21,7 @@ import {
   Globe2,
 } from "lucide-react";
 import { useContent } from "../context/ContentContext";
-import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/mock";
+import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/types";
 import Tabs from "./ui/Tabs";
 import Badge, { type BadgeTone } from "./ui/Badge";
 import EmptyState from "./ui/EmptyState";

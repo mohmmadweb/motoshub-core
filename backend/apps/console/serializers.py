@@ -12,7 +12,7 @@ class WorkflowSettingsSerializer(serializers.ModelSerializer):
 class SavedReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedReport
-        fields = ["id", "name", "module", "group_by", "schedule", "last_run", "format", "created_at"]
+        fields = ["id", "name", "module", "group_by", "schedule", "last_run", "format", "created_at", "admin_pages", "allowed_file_extensions"]
         read_only_fields = ["id", "created_at"]
 
 

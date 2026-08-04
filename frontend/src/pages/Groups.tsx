@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Users } from "lucide-react";
-import { type Group } from "../data/mock";
+import { type Group } from "../data/types";
 import { useContent } from "../context/ContentContext";
 import GroupCard from "../components/GroupCard";
 import PageHeader from "../components/ui/PageHeader";

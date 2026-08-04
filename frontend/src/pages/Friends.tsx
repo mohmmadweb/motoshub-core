@@ -11,7 +11,7 @@ import {
   unfollowUser,
   type FriendState,
 } from "../lib/friends";
-import type { UserProfile, PresenceStatus } from "../data/mock";
+import type { UserProfile, PresenceStatus } from "../data/types";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, Bell, BellOff, Send } from "lucide-react";
-import { type UserProfile } from "../data/mock";
+import { type UserProfile } from "../data/types";
 import { http } from "../lib/http";
 import { fromUser } from "../lib/adapters";
 import { useContent } from "../context/ContentContext";
