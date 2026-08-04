@@ -40,6 +40,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       OW_PASSWORD_PEPPER: ${OW_PASSWORD_PEPPER:-dev-shared-pepper}
       ALLOWED_HOSTS: "*"
+    volumes:
+      - media:/app/media          # uploads survive restarts; nginx serves them
     ports:
       - "8000:8000"
     depends_on:
@@ -71,6 +73,8 @@ services:
       dockerfile: docker/Dockerfile
       args:
         VITE_API_BASE: /api/v1
+    volumes:
+      - media:/usr/share/nginx/media:ro
     ports:
       - "80:80"
     depends_on:
@@ -98,3 +102,4 @@ services:
 volumes:
   pgdata:
   pgbackups:
+  media:

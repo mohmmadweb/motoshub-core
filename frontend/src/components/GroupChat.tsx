@@ -21,7 +21,7 @@ export type GroupMessage = {
   deleted: boolean;
   edited_at: string | null;
   forwarded_from: string;
-  attachment: { kind?: string; name?: string; size?: string } | null;
+  attachment: { id?: string; kind?: string; name?: string; size?: string; url?: string } | null;
   mentions: string[];
   reply_to: { id: string; author: { name: string } | null; text: string; deleted: boolean } | null;
   reactions: { icon: string; count: number; reactedByMe: boolean }[];
@@ -157,16 +157,27 @@ export default function GroupChat({
     setDraft(""); setReplyTo(null); setForwarding(null);
   };
 
+  const [uploading, setUploading] = useState(false);
+
+  /** Upload the file for real, then post a message that points at it. */
   const attach = (file: File) => {
-    http<GroupMessage>(`/groups/${groupId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        text: draft.trim(),
-        attachment: { kind: file.type.startsWith("image/") ? "photo" : "doc",
-                      name: file.name, size: `${Math.max(1, Math.round(file.size / 1024))}KB` },
-      }),
-    }).then((m) => { setMessages((p) => [...p, m]); setDraft(""); scrollDown(); })
-      .catch(() => notify("بارگذاری فایل ناموفق بود.", "warning"));
+    const form = new FormData();
+    form.append("file", file);
+    setUploading(true);
+    http<{ id: string; name: string; kind: string; human_size: string; url: string }>(
+      "/uploads", { method: "POST", body: form },
+    )
+      .then((att) =>
+        http<GroupMessage>(`/groups/${groupId}/messages`, {
+          method: "POST",
+          body: JSON.stringify({
+            text: draft.trim(),
+            attachment: { id: att.id, kind: att.kind, name: att.name, size: att.human_size, url: att.url },
+          }),
+        }))
+      .then((m) => { setMessages((p) => (p.some((x) => x.id === m.id) ? p : [...p, m])); setDraft(""); scrollDown(); })
+      .catch((e: any) => notify(e?.error?.message ?? "بارگذاری فایل ناموفق بود.", "warning"))
+      .finally(() => setUploading(false));
   };
 
   const react = (m: GroupMessage, icon: string) => {
@@ -280,12 +291,20 @@ export default function GroupChat({
                     ) : (
                       <>
                         {m.attachment && (
-                          <div className={`flex items-center gap-2 text-[11.5px] rounded-lg px-2 py-1.5 mb-1 ${
-                            mine ? "bg-white/15" : "bg-ink-50"}`}>
-                            <Paperclip size={12} className="shrink-0" />
-                            <span className="truncate font-medium">{m.attachment.name}</span>
-                            <span className="opacity-70 shrink-0">{m.attachment.size}</span>
-                          </div>
+                          m.attachment.kind === "photo" && m.attachment.url ? (
+                            <a href={m.attachment.url} target="_blank" rel="noreferrer" className="block mb-1">
+                              <img src={m.attachment.url} alt={m.attachment.name}
+                                   className="rounded-lg max-h-56 w-auto object-cover" />
+                            </a>
+                          ) : (
+                            <a href={m.attachment.url ?? "#"} target="_blank" rel="noreferrer"
+                              className={`flex items-center gap-2 text-[11.5px] rounded-lg px-2 py-1.5 mb-1 hover:underline ${
+                                mine ? "bg-white/15" : "bg-ink-50"}`}>
+                              <Paperclip size={12} className="shrink-0" />
+                              <span className="truncate font-medium">{m.attachment.name}</span>
+                              <span className="opacity-70 shrink-0">{m.attachment.size}</span>
+                            </a>
+                          )
                         )}
                         {m.text && <p className="text-[13px] leading-6 whitespace-pre-wrap break-words">{m.text}</p>}
                       </>
@@ -385,8 +404,9 @@ export default function GroupChat({
           <div className="flex items-end gap-2 px-3 py-2.5">
             <input ref={fileRef} type="file" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = ""; }} />
-            <button onClick={() => fileRef.current?.click()} title="پیوست فایل"
-              className="text-ink-400 hover:text-brand-600 p-1.5 shrink-0"><Paperclip size={17} /></button>
+            <button onClick={() => fileRef.current?.click()} title="پیوست فایل" disabled={uploading}
+              className="text-ink-400 hover:text-brand-600 p-1.5 shrink-0 disabled:opacity-40">
+              <Paperclip size={17} className={uploading ? "animate-pulse" : ""} /></button>
             <textarea
               value={draft}
               onChange={(e) => {

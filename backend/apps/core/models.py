@@ -43,3 +43,31 @@ class ContentScope(models.TextChoices):
     GLOBAL = "global", "سراسری"
     HOLDING = "holding", "هلدینگ"
     COMPANY = "company", "شرکت"
+
+
+class Attachment(TenantScopedModel):
+    """A stored file. One model serves chat attachments, knowledge docs and media,
+    so upload/serve/permission logic lives in exactly one place."""
+    KINDS = [("photo", "تصویر"), ("doc", "سند"), ("audio", "صوت"), ("video", "ویدیو"), ("other", "سایر")]
+    file = models.FileField(upload_to="uploads/%Y/%m/")
+    name = models.CharField(max_length=255)
+    kind = models.CharField(max_length=8, choices=KINDS, default="other")
+    size = models.PositiveIntegerField(default=0, help_text="بایت")
+    content_type = models.CharField(max_length=120, blank=True)
+    uploaded_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True,
+                                    related_name="attachments")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "core_attachment"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def human_size(self) -> str:
+        n = float(self.size)
+        for unit in ("B", "KB", "MB", "GB"):
+            if n < 1024 or unit == "GB":
+                return f"{n:.0f}{unit}" if unit == "B" else f"{n:.1f}{unit}"
+            n /= 1024
+        return f"{n:.1f}GB"
