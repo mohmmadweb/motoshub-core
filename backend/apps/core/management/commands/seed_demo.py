@@ -17,6 +17,9 @@ from apps.content.models import (PartnerTechnologist, PublicationIssue, RndDoc,
                                  SupportedProduct, SupportedVenture)
 from apps.research.models import RfpCall, RfpVendor, Sabbatical, SabbaticalReport
 from apps.contracts.models import (
+    PendingReviewItem,
+    ContractEvent,
+    ContractObligation,
     Contract,
     ContractApproval,
     ContractPayment,
@@ -25,12 +28,13 @@ from apps.contracts.models import (
     TechTransferContract,
     Tender,
 )
-from apps.fund.models import Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
+from apps.fund.models import FundKpi, FundTranche, ReviewSession, Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
 from apps.awards.models import AwardEntry, AwardTrack
 from apps.chat.models import Channel, DirectMessage, Message
 from apps.notifications.models import Notification
 from apps.polls.models import Poll, PollOption
-from apps.projects.models import Milestone, Project, Risk, Task
+from apps.projects.models import (Milestone, PlaybookTemplate, Project, ProjectExpense,
+                                  ProjectMember, ProjectMinute, Risk, Task)
 from apps.research.models import ResearchOpportunity
 from apps.rbac.models import Role, RoleAssignment
 from apps.support.models import Ticket, TicketMessage
@@ -311,6 +315,80 @@ class Command(BaseCommand):
             PostLike.objects.get_or_create(tenant=tenant, post=p1, user=member)
             PostLike.objects.get_or_create(tenant=tenant, post=p2, user=admin)
 
+
+
+        # ── Project team / expenses / minutes / playbooks ────────────────────────
+        first_project = Project.objects.filter(tenant=tenant).first()
+        if first_project and not ProjectMember.objects.filter(tenant=tenant).exists():
+            for nm, rl, al in [("محسن مردعلی", "مدیر پروژه", 80), ("وحید خاوئی", "کارشناس اشتغال و توانمندسازی", 60),
+                               ("تیم عمرانی", "پیمانکار زیرساخت", 100), ("تیم آموزش", "تسهیل‌گری و آموزش", 40)]:
+                ProjectMember.objects.create(tenant=tenant, project=first_project, name=nm, role=rl, allocation=al)
+            for ti, ca, am, dt, st in [
+                ("خرید لوله و اتصالات فاز اول", "زیرساخت", "۲٬۸۰۰٬۰۰۰٬۰۰۰ ریال", "۱۴۰۵/۰۱/۲۸", "paid"),
+                ("دستمزد پیمانکار عمرانی — صورت‌وضعیت ۲", "پیمانکاری", "۱٬۹۰۰٬۰۰۰٬۰۰۰ ریال", "۱۴۰۵/۰۲/۲۰", "paid"),
+                ("تجهیز کارگاه‌های اشتغال (چرخ خیاطی، ابزار)", "تجهیزات", "۱٬۲۰۰٬۰۰۰٬۰۰۰ ریال", "۱۴۰۵/۰۳/۰۵", "pending"),
+                ("دوره تربیت تسهیل‌گران محلی", "آموزش", "۳۵۰٬۰۰۰٬۰۰۰ ریال", "۱۴۰۵/۰۳/۲۰", "planned"),
+            ]:
+                ProjectExpense.objects.create(tenant=tenant, project=first_project, title=ti, category=ca,
+                                              amount=am, date=dt, status=st)
+            for ti, dt, at, de, fu in [
+                ("جلسه هماهنگی با فرمانداری قلعه‌گنج", "۱۴۰۵/۰۲/۰۸", 9, 4, 3),
+                ("کمیته راهبری — پایش پیشرفت فاز دوم", "۱۴۰۵/۰۲/۲۲", 6, 3, 2),
+            ]:
+                ProjectMinute.objects.create(tenant=tenant, project=first_project, title=ti, date=dt,
+                                             attendees=at, decisions=de, follow_ups=fu)
+        if not PlaybookTemplate.objects.filter(tenant=tenant).exists():
+            for nm, ca, st, uc in [
+                ("واکنش به افزایش غیرعادی ترافیک", "عملیات/امنیت", 5, 3),
+                ("فرآیند افتتاح و تحویل طرح عمرانی", "مدیریت پروژه", 6, 1),
+                ("آماده‌سازی کارگاه آموزشی راهبران", "آموزش", 4, 2),
+            ]:
+                PlaybookTemplate.objects.create(tenant=tenant, name=nm, category=ca, steps=st, used_count=uc)
+
+        # ── Contract obligations + history ───────────────────────────────────────
+        first_contract = Contract.objects.filter(tenant=tenant).first()
+        if first_contract and not ContractObligation.objects.filter(tenant=tenant).exists():
+            for ti, du, dn in [("تحویل فاز اول زیرساخت", "۱۴۰۵/۰۲/۱۵", True),
+                               ("ارائه گزارش پیشرفت ماهانه", "۱۴۰۵/۰۳/۰۱", True),
+                               ("آموزش کاربران کلیدی", "۱۴۰۵/۰۴/۱۰", False),
+                               ("تحویل مستندات فنی و کد منبع", "۱۴۰۵/۰۵/۳۰", False)]:
+                ContractObligation.objects.create(tenant=tenant, contract=first_contract, title=ti, due=du, done=dn)
+            for tx, dt in [("قرارداد ثبت و شماره‌گذاری شد", "۱۴۰۵/۰۱/۱۵"),
+                           ("ضمانت‌نامه بانکی دریافت شد", "۱۴۰۵/۰۱/۲۰"),
+                           ("پیش‌پرداخت پرداخت شد", "۱۴۰۵/۰۲/۰۱"),
+                           ("صورت‌وضعیت ۱ تایید شد", "۱۴۰۵/۰۳/۰۵")]:
+                ContractEvent.objects.create(tenant=tenant, contract=first_contract, text=tx, date=dt)
+
+        if not PendingReviewItem.objects.filter(tenant=tenant).exists():
+            for tp, ho, co, mo, ob, nt in [
+                ("اتوماسیون انبار قطعات یدکی نیروگاه", "برق و انرژی صبا", "نیروگاه‌های صبا", "", "در انتظار تخصیص بودجه هلدینگ", ""),
+                ("سامانه رزرو و فروش برخط هتل‌ها", "سیاحتی پارسیان", "هتل‌های پارسیان", "در حال انتخاب از فراخوان", "", "RFP در حال تدوین"),
+                ("پایش کیفیت آب خروجی تصفیه‌خانه", "صنایع غذایی سینا", "زمزم ایران", "", "نیازمند تایید فنی", ""),
+            ]:
+                PendingReviewItem.objects.create(tenant=tenant, topic=tp, holding=ho, company=co,
+                                                 mojri=mo, obstacles=ob, note=nt)
+
+        # ── Fund dossier detail + review sessions ────────────────────────────────
+        funds_qs = list(Fund.objects.filter(tenant=tenant))
+        if funds_qs and not FundTranche.objects.filter(tenant=tenant).exists():
+            f0 = funds_qs[0]
+            f0.requested, f0.approved, f0.score = "۲۰۰٬۰۰۰٬۰۰۰ ریال", "۱۵۰٬۰۰۰٬۰۰۰ ریال", 82
+            f0.committee, f0.region, f0.field = "کارگروه اشتغال روستایی", "کرمان — قلعه‌گنج", "کشاورزی و دامپروری"
+            f0.notes = "طرح با اولویت اشتغال بانوان سرپرست خانوار تصویب شد."
+            f0.save()
+            for ti, am, cd, st in [("تخصیص اول (۵۰٪)", "۷۵٬۰۰۰٬۰۰۰ ریال", "پس از عقد قرارداد", "paid"),
+                                   ("تخصیص دوم (۳۰٪)", "۴۵٬۰۰۰٬۰۰۰ ریال", "پس از گزارش پیشرفت ۵۰٪", "pending"),
+                                   ("تخصیص نهایی (۲۰٪)", "۳۰٬۰۰۰٬۰۰۰ ریال", "پس از راه‌اندازی کامل", "conditional")]:
+                FundTranche.objects.create(tenant=tenant, fund=f0, title=ti, amount=am, condition=cd, status=st)
+            for lb, vl, tg, ok in [("اشتغال ایجادشده", "۱۴ نفر", "۲۰ نفر", True),
+                                   ("درآمد ماهانه تعاونی", "۹۰ میلیون ریال", "۱۲۰ میلیون ریال", True),
+                                   ("بازپرداخت تسهیلات", "۱۲٪", "۲۵٪", False)]:
+                FundKpi.objects.create(tenant=tenant, fund=f0, label=lb, value=vl, target=tg, on_track=ok)
+        if not ReviewSession.objects.filter(tenant=tenant).exists():
+            ReviewSession.objects.create(tenant=tenant, title="جلسه داوری طرح‌های اشتغال خرد — نوبت ۱۴",
+                                         date="۱۴۰۵/۰۴/۱۸", items=6, committee="کارگروه اشتغال روستایی")
+            ReviewSession.objects.create(tenant=tenant, title="بررسی طرح‌های کشاورزی نیمه اول سال",
+                                         date="۱۴۰۵/۰۴/۲۵", items=4, committee="کارگروه کشاورزی")
 
         # ── RFP (فراخوان فناور برتر) ─────────────────────────────────────────────
         if not RfpCall.objects.filter(tenant=tenant).exists():

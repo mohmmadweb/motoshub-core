@@ -14,9 +14,10 @@ import {
   CalendarCheck2,
 } from "lucide-react";
 import { type Task, type Project } from "../data/mock";
-import { projectDetails, type ProjectMilestone, type ProjectRisk } from "../data/mockDetails";
+import { type ProjectMilestone, type ProjectRisk, type ProjectMember, type ProjectExpense, type ProjectMinute } from "../data/mockDetails";
 import { http } from "../lib/http";
-import { fromTask, fromProject, fromMilestone, fromRisk, tkStatusApi, tkPrioApi } from "../lib/adapters";
+import { fromTask, fromProject, fromMilestone, fromRisk, tkStatusApi, tkPrioApi,
+         fromProjectMember, fromProjectExpense, fromProjectMinute } from "../lib/adapters";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
 import Tabs from "../components/ui/Tabs";
@@ -64,9 +65,12 @@ type ViewId = "board" | "gantt" | "milestones" | "budget" | "risks" | "team" | "
 
 export default function ProjectBoard() {
   const { id } = useParams();
-  const detail = id ? projectDetails[id] : undefined;
+  const [team, setTeam] = useState<ProjectMember[]>([]);
+  const [expenses, setExpenses] = useState<ProjectExpense[]>([]);
+  const [minutes, setMinutes] = useState<ProjectMinute[]>([]);
   const [view, setView] = useState<ViewId>("board");
-  const [project, setProject] = useState<Project | null>(null);
+  // fromProject adds manager/budgetTotal/budgetSpent on top of the prototype shape.
+  const [project, setProject] = useState<(Project & { manager: string; budgetTotal: string; budgetSpent: string }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
@@ -84,11 +88,14 @@ export default function ProjectBoard() {
     (async () => {
       try {
         const p = await http<any>(`/projects/${id}`);
-        setProject(fromProject(p) as Project);
+        setProject(fromProject(p) as any);
         const rows = await http<any[]>(`/tasks?project=${id}&page_size=100`);
         setTasks(rows.map(fromTask) as Task[]);
         http<any[]>(`/milestones?project=${id}&page_size=50`).then((r) => setMilestones(r.map(fromMilestone) as ProjectMilestone[])).catch(() => {});
         http<any[]>(`/risks?project=${id}&page_size=50`).then((r) => setRisks(r.map(fromRisk) as ProjectRisk[])).catch(() => {});
+        http<any[]>(`/project-members?project=${id}&page_size=50`).then((r) => setTeam(r.map(fromProjectMember) as ProjectMember[])).catch(() => {});
+        http<any[]>(`/project-expenses?project=${id}&page_size=50`).then((r) => setExpenses(r.map(fromProjectExpense) as ProjectExpense[])).catch(() => {});
+        http<any[]>(`/project-minutes?project=${id}&page_size=50`).then((r) => setMinutes(r.map(fromProjectMinute) as ProjectMinute[])).catch(() => {});
       } catch { /* not found / unauth */ }
       setLoading(false);
     })();
@@ -131,7 +138,7 @@ export default function ProjectBoard() {
     notify(`تسک «${task.title}» به وضعیت «${status}» منتقل شد.`, "info");
   };
 
-  const expenseColumns: Column<NonNullable<typeof detail>["expenses"][number]>[] = [
+  const expenseColumns: Column<ProjectExpense>[] = [
     { key: "title", label: "شرح هزینه", render: (e) => <span className="font-medium text-ink-900">{e.title}</span> },
     { key: "category", label: "سرفصل" },
     { key: "amount", label: "مبلغ" },
@@ -143,7 +150,7 @@ export default function ProjectBoard() {
     <div>
       <PageHeader
         title={project.name}
-        description={`کارفرما: ${project.client} · مهلت: ${project.deadline}${detail ? ` · مدیر پروژه: ${detail.manager}` : ""}`}
+        description={`کارفرما: ${project.client} · مهلت: ${project.deadline} · مدیر پروژه: ${project.manager}`}
         icon={<GanttChartSquare size={18} />}
         breadcrumb={[{ label: "مدیریت پروژه", to: "/dashboard/projects" }, { label: project.name }]}
         actions={
@@ -158,7 +165,7 @@ export default function ProjectBoard() {
         <StatCard
           label="مصرف بودجه"
           value={`${project.budgetUsed}٪`}
-          hint={detail ? `${detail.budgetSpent} از ${detail.budgetTotal}` : undefined}
+          hint={`${project.budgetSpent} از ${project.budgetTotal}`}
           tone="warning"
           icon={<Wallet size={16} />}
         />
@@ -171,10 +178,10 @@ export default function ProjectBoard() {
           { id: "board", label: "بورد وظایف", count: tasks.length },
           { id: "gantt", label: "گانت چارت" },
           { id: "milestones", label: "مایل‌ستون‌ها", count: milestones.length },
-          { id: "budget", label: "مالی و بودجه", count: detail?.expenses.length },
+          { id: "budget", label: "مالی و بودجه", count: expenses.length },
           { id: "risks", label: "ریسک‌ها", count: risks.filter((r) => r.status !== "بسته").length },
-          { id: "team", label: "تیم پروژه", count: detail?.team.length },
-          { id: "minutes", label: "صورت‌جلسات", count: detail?.minutes.length },
+          { id: "team", label: "تیم پروژه", count: team.length },
+          { id: "minutes", label: "صورت‌جلسات", count: minutes.length },
         ]}
         active={view}
         onChange={setView}
@@ -267,14 +274,14 @@ export default function ProjectBoard() {
         ))}
 
       {view === "budget" &&
-        (detail ? (
+        (expenses.length > 0 ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <StatCard label="بودجه مصوب" value={detail.budgetTotal} tone="brand" icon={<CircleDollarSign size={16} />} />
-              <StatCard label="هزینه‌کرد تاکنون" value={detail.budgetSpent} tone="warning" icon={<Receipt size={16} />} />
-              <StatCard label="حامی مالی (اسپانسر)" value={detail.sponsor} icon={<Wallet size={16} />} />
+              <StatCard label="بودجه مصوب" value={project.budgetTotal} tone="brand" icon={<CircleDollarSign size={16} />} />
+              <StatCard label="هزینه‌کرد تاکنون" value={project.budgetSpent} tone="warning" icon={<Receipt size={16} />} />
+              <StatCard label="حامی مالی (اسپانسر)" value={project.client} icon={<Wallet size={16} />} />
             </div>
-            <DataTable columns={expenseColumns} rows={detail.expenses} emptyTitle="هزینه‌ای ثبت نشده" />
+            <DataTable columns={expenseColumns} rows={expenses} emptyTitle="هزینه‌ای ثبت نشده" />
           </div>
         ) : (
           <EmptyState icon={<Wallet size={20} />} title="اطلاعات مالی ثبت نشده" description="بودجه مصوب و هزینه‌کرد پروژه پس از ثبت در واحد مالی اینجا نمایش داده می‌شود." />
@@ -308,9 +315,9 @@ export default function ProjectBoard() {
         ))}
 
       {view === "team" &&
-        (detail && detail.team.length > 0 ? (
+        (team.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {detail.team.map((m) => (
+            {team.map((m) => (
               <div key={m.id} className="card p-4">
                 <div className="flex items-center gap-3">
                   <span className="w-10 h-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center shrink-0">
@@ -339,9 +346,9 @@ export default function ProjectBoard() {
         ))}
 
       {view === "minutes" &&
-        (detail && detail.minutes.length > 0 ? (
+        (minutes.length > 0 ? (
           <div className="space-y-3">
-            {detail.minutes.map((mn) => (
+            {minutes.map((mn) => (
               <div key={mn.id} className="card p-4 flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="w-9 h-9 rounded-lg bg-ink-100 text-ink-600 flex items-center justify-center shrink-0">

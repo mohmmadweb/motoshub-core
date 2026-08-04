@@ -61,7 +61,12 @@ const health: Record<string, string> = { green: "سبز", yellow: "زرد", red:
 const healthApi: Record<string, string> = { "سبز": "green", "زرد": "yellow", "قرمز": "red" };
 export const fromProject = (p: any) => ({
   id: p.id, name: p.name, client: p.client, health: health[p.health] ?? "سبز",
-  progress: p.progress ?? 0, budgetUsed: Number(p.budget_used ?? 0), deadline: toJalali(p.deadline), tasks: [] as any[],
+  progress: p.progress ?? 0,
+  // budgetUsed is a PERCENT for the prototype's gauge; the raw figures ride along.
+  budgetUsed: Number(p.budget_total) > 0 ? Math.round((Number(p.budget_used) / Number(p.budget_total)) * 100) : 0,
+  budgetTotal: faMoney(p.budget_total ?? 0), budgetSpent: faMoney(p.budget_used ?? 0),
+  manager: p.manager?.name ?? "—", department: p.department ?? "",
+  deadline: toJalali(p.deadline), tasks: [] as any[],
 });
 export const toProject = (v: any) => ({ name: v.name, client: v.client, health: healthApi[v.health] ?? "green", progress: v.progress, budget_used: v.budgetUsed });
 
@@ -124,7 +129,16 @@ export const toRole = (v: any) => ({ title: v.title, scope: rbScopeApi[v.scope] 
 // ── Simple Fund pipeline (FundRecord) ───────────────────────────────────────
 const fStage: Record<string, string> = { registered: "ثبت‌شده", screening: "انتخاب اولیه", judging: "داوری", allocated: "تخصیص‌یافته", monitoring: "در حال پایش" };
 const fStageApi: Record<string, string> = { "ثبت‌شده": "registered", "انتخاب اولیه": "screening", "داوری": "judging", "تخصیص‌یافته": "allocated", "در حال پایش": "monitoring" };
-export const fromFund = (f: any) => ({ id: f.id, title: f.title, applicant: f.applicant, stage: fStage[f.stage] ?? "ثبت‌شده", amount: faMoney(f.amount), roi: f.roi ?? "" });
+export const fromFund = (f: any) => ({
+  id: f.id, title: f.title, applicant: f.applicant, stage: fStage[f.stage] ?? "ثبت‌شده",
+  amount: faMoney(f.amount), roi: f.roi ?? "",
+  // Dossier shown in the detail drawer (real tranches/KPIs from the API).
+  detail: {
+    requested: f.requested || "—", approved: f.approved || "—", score: f.score ?? 0,
+    committee: f.committee || "—", region: f.region || "—", field: f.field || "—",
+    notes: f.notes || "", tranches: (f.tranches ?? []).map(fromFundTranche), kpis: (f.kpis ?? []).map(fromFundKpi),
+  },
+});
 export const toFund = (v: any) => ({ title: v.title, applicant: v.applicant, stage: fStageApi[v.stage] ?? "registered", amount: faToNumber(v.amount), roi: v.roi });
 
 // ── Chat (channels + messages; author carried for rendering) ────────────────
@@ -320,3 +334,41 @@ export const fromSupportedProduct = (p: any) => ({ id: p.id, name: p.name, compa
 const supportType: Record<string, string> = { tech_contract: "قرارداد فناورانه", seed: "بذرمایه", vc: "سرمایه خطرپذیر" };
 export const fromSupportedVenture = (v: any) => ({ id: v.id, name: v.name, supportType: supportType[v.support_type] ?? v.support_type, field: v.field, year: v.year });
 export const fromPartnerTechnologist = (t: any) => ({ id: t.id, name: t.name, expertise: t.expertise, projects: t.projects, rating: Number(t.rating) });
+
+// ── Project sub-entities (team / budget / minutes) + playbooks ──────────────
+export const fromProjectMember = (m: any) => ({ id: m.id, name: m.name, role: m.role, allocation: m.allocation, openTasks: 0 });
+const expStatus: Record<string, string> = { paid: "پرداخت‌شده", pending: "در انتظار تأیید", planned: "برنامه‌ریزی‌شده" };
+export const fromProjectExpense = (e: any) => ({ id: e.id, title: e.title, category: e.category, amount: e.amount, date: e.date, status: expStatus[e.status] ?? e.status });
+export const fromProjectMinute = (m: any) => ({ id: m.id, title: m.title, date: m.date, attendees: m.attendees, decisions: m.decisions, followUps: m.follow_ups });
+export const fromPlaybook = (p: any) => ({ id: p.id, name: p.name, category: p.category, steps: p.steps, usedCount: p.used_count });
+
+// ── Contract dossier (obligations + history) ────────────────────────────────
+export const fromContractObligation = (o: any) => ({ id: o.id, title: o.title, due: o.due, done: o.done });
+export const fromContractEvent = (e: any) => ({ id: e.id, text: e.text, date: e.date });
+
+// ── Fund dossier (tranches + KPIs) + overview ───────────────────────────────
+const trStatus: Record<string, string> = { paid: "پرداخت‌شده", pending: "در انتظار", conditional: "مشروط" };
+export const fromFundTranche = (t: any) => ({ id: t.id, title: t.title, amount: t.amount, condition: t.condition, status: trStatus[t.status] ?? t.status });
+export const fromFundKpi = (k: any) => ({ label: k.label, value: k.value, target: k.target, onTrack: k.on_track });
+export const fromFundOverview = (o: any) => ({
+  totalCapital: faMoney(o.total_capital), allocated: faMoney(o.allocated),
+  successRate: `${Number(o.success_rate).toLocaleString("fa-IR")}٪`, avgReviewDays: o.avg_review_days,
+});
+export const fromReviewSession = (r: any) => ({ id: r.id, title: r.title, date: r.date, items: r.items, committee: r.committee });
+export const toPlaybook = (v: any) => ({ name: v.name, category: v.category, steps: v.steps, used_count: v.usedCount ?? 0 });
+
+// Full contract dossier for the detail drawer (payments/obligations/approvals/history).
+const ctType: Record<string, string> = { tech: "فناورانه", research: "پژوهشی", construction: "عمرانی", service: "خدماتی" };
+const ctMethod: Record<string, string> = { public_call: "فراخوان عمومی", limited: "استعلام محدود", no_tender: "ترک تشریفات" };
+const payStat: Record<string, string> = { paid: "پرداخت‌شده", pending: "در انتظار تأیید", future: "آینده" };
+const apprStat: Record<string, string> = { approved: "تأیید شده", pending: "در انتظار", rejected: "رد شده" };
+export const fromContractDetail = (c: any) => ({
+  type: ctType[c.contract_type] ?? c.contract_type,
+  method: ctMethod[c.method] ?? c.method,
+  guarantee: c.guarantee || "—",
+  payments: (c.payments ?? []).map((p: any) => ({ id: p.id, title: p.title, amount: faMoney(p.amount), due: p.due ? toJalali(p.due) : "", status: payStat[p.status] ?? p.status })),
+  obligations: (c.obligations ?? []).map((o: any) => ({ id: o.id, title: o.title, due: o.due, done: o.done })),
+  approvals: (c.approvals ?? []).map((a: any) => ({ id: a.id, role: a.role, name: a.name, status: apprStat[a.status] ?? a.status })),
+  history: (c.history ?? []).map((h: any) => ({ id: h.id, text: h.text, date: h.date })),
+});
+export const fromPendingReview = (p: any) => ({ id: p.id, topic: p.topic, holding: p.holding, company: p.company, mojri: p.mojri || undefined, obstacles: p.obstacles || undefined, note: p.note || undefined });

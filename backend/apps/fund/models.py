@@ -144,9 +144,55 @@ class Fund(TenantScopedModel):
     stage = models.CharField(max_length=12, choices=FundStage.choices, default=FundStage.REGISTERED)
     amount = models.DecimalField(max_digits=16, decimal_places=0, default=0)
     roi = models.CharField(max_length=64, blank=True)
+    # Dossier fields shown in the detail drawer.
+    requested = models.CharField(max_length=80, blank=True)
+    approved = models.CharField(max_length=80, blank=True)
+    score = models.PositiveSmallIntegerField(default=0)
+    committee = models.CharField(max_length=200, blank=True)
+    region = models.CharField(max_length=120, blank=True)
+    field = models.CharField(max_length=120, blank=True)
+    notes = models.TextField(blank=True)
 
     class Meta(TenantScopedModel.Meta):
         db_table = "fund_simple_fund"
+
+    def __str__(self):
+        return self.title
+
+
+class FundTranche(TenantScopedModel):
+    """A disbursement tranche of a simple fund record."""
+    STATUS = [("paid", "پرداخت‌شده"), ("pending", "در انتظار"), ("conditional", "مشروط")]
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="tranches")
+    title = models.CharField(max_length=200)
+    amount = models.CharField(max_length=80, blank=True)
+    condition = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=12, choices=STATUS, default="pending")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "fund_tranche"
+
+
+class FundKpi(TenantScopedModel):
+    fund = models.ForeignKey(Fund, on_delete=models.CASCADE, related_name="kpis")
+    label = models.CharField(max_length=200)
+    value = models.CharField(max_length=80, blank=True)
+    target = models.CharField(max_length=80, blank=True)
+    on_track = models.BooleanField(default=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "fund_kpi"
+
+
+class ReviewSession(TenantScopedModel):
+    """A committee sitting that reviews fund applications."""
+    title = models.CharField(max_length=300)
+    date = models.CharField(max_length=20, blank=True)
+    items = models.PositiveSmallIntegerField(default=0)
+    committee = models.CharField(max_length=200, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "fund_review_session"
 
     def __str__(self):
         return self.title

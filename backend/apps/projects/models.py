@@ -99,3 +99,54 @@ class Risk(TenantScopedModel):
 
     def __str__(self):
         return self.title
+
+
+class ProjectMember(TenantScopedModel):
+    """Someone allocated to a project (team tab)."""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="members")
+    name = models.CharField(max_length=200)
+    role = models.CharField(max_length=120, blank=True)
+    allocation = models.PositiveSmallIntegerField(default=0, help_text="درصد تخصیص")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "projects_member"
+
+
+class ProjectExpense(TenantScopedModel):
+    STATUS = [("paid", "پرداخت‌شده"), ("pending", "در انتظار تأیید"), ("planned", "برنامه‌ریزی‌شده")]
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="expenses")
+    title = models.CharField(max_length=300)
+    category = models.CharField(max_length=120, blank=True)
+    amount = models.CharField(max_length=80, blank=True)
+    date = models.CharField(max_length=20, blank=True)
+    status = models.CharField(max_length=8, choices=STATUS, default="planned")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "projects_expense"
+
+
+class ProjectMinute(TenantScopedModel):
+    """Meeting minutes attached to a project."""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="minutes")
+    title = models.CharField(max_length=300)
+    date = models.CharField(max_length=20, blank=True)
+    attendees = models.PositiveSmallIntegerField(default=0)
+    decisions = models.PositiveSmallIntegerField(default=0)
+    follow_ups = models.PositiveSmallIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "projects_minute"
+
+
+class PlaybookTemplate(TenantScopedModel):
+    """Reusable project template (playbook)."""
+    name = models.CharField(max_length=200)
+    category = models.CharField(max_length=120, blank=True)
+    steps = models.PositiveSmallIntegerField(default=0)
+    used_count = models.PositiveIntegerField(default=0)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "projects_playbook"
+
+    def __str__(self):
+        return self.name

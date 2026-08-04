@@ -5,8 +5,9 @@ from rest_framework.response import Response
 from apps.content.views import _crud_perms
 from apps.core.viewsets import TenantScopedModelViewSet
 
-from .models import Contract, ContractApproval, ESignDocument, Stage, TechTransferContract, Tender
+from .models import Contract, ContractApproval, ESignDocument, PendingReviewItem, Stage, TechTransferContract, Tender
 from .serializers import (
+    PendingReviewItemSerializer,
     ContractListSerializer,
     ContractSerializer,
     ESignDocumentSerializer,
@@ -76,3 +77,11 @@ class ESignDocumentViewSet(TenantScopedModelViewSet):
     filterset_fields = ["kind"]
     search_fields = ["title", "related_to"]
     ordering_fields = ["created_at"]
+
+
+class PendingReviewItemViewSet(TenantScopedModelViewSet):
+    queryset = PendingReviewItem.objects.all()
+    serializer_class = PendingReviewItemSerializer
+    owner_field = None
+    required_perms = _crud_perms("contracts")
+    search_fields = ["topic", "company", "holding"]

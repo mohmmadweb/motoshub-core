@@ -159,3 +159,41 @@ class ESignStep(TenantScopedModel):
     class Meta(TenantScopedModel.Meta):
         db_table = "contracts_esign_step"
         ordering = ["order"]
+
+
+class ContractObligation(TenantScopedModel):
+    """A deliverable/commitment tracked on a contract."""
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="obligations")
+    title = models.CharField(max_length=300)
+    due = models.CharField(max_length=20, blank=True)
+    done = models.BooleanField(default=False)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_obligation"
+
+
+class ContractEvent(TenantScopedModel):
+    """Audit/history entry shown on the contract timeline."""
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="history")
+    text = models.CharField(max_length=400)
+    date = models.CharField(max_length=20, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_event"
+        ordering = ["created_at"]
+
+
+class PendingReviewItem(TenantScopedModel):
+    """A proposal under review before a contract is signed (project-control sheet)."""
+    topic = models.CharField(max_length=300)
+    holding = models.CharField(max_length=200, blank=True)
+    company = models.CharField(max_length=200, blank=True)
+    mojri = models.CharField(max_length=200, blank=True)
+    obstacles = models.CharField(max_length=300, blank=True)
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "contracts_pending_review"
+
+    def __str__(self):
+        return self.topic

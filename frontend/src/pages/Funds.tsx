@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTabParam } from "../lib/useTabParam";
 import {
   PiggyBank,
@@ -20,8 +20,10 @@ import {
 } from "lucide-react";
 import { type FundRecord } from "../data/mock";
 import { useApiCollection } from "../lib/useApiCollection";
-import { fromFund, toFund, fromNfProject, toNfProject } from "../lib/adapters";
-import { fundDetails, fundOverview, reviewSessions } from "../data/mockDetails";
+import { fromFund, toFund, fromNfProject, toNfProject, fromFundOverview, fromReviewSession } from "../lib/adapters";
+import { useApiList } from "../lib/useApiList";
+import { http } from "../lib/http";
+
 import {
   nfStages,
   type NfProject,
@@ -758,6 +760,12 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
 // ---------------------------------------------------------------------------
 function EmploymentFundTab() {
   const [funds, setFunds] = useApiCollection<FundRecord>("/funds/records", fromFund as any, toFund as any);
+  const reviewSessions = useApiList<{ id: string; title: string; date: string; items: number; committee: string }>(
+    "/funds/review-sessions", fromReviewSession as any);
+  const [overview, setOverview] = useState({ totalCapital: "—", allocated: "—", successRate: "—", avgReviewDays: 0 });
+  useEffect(() => {
+    http<any>("/funds/overview").then((o) => setOverview(fromFundOverview(o))).catch(() => {});
+  }, []);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [applicant, setApplicant] = useState("");
@@ -768,7 +776,8 @@ function EmploymentFundTab() {
   const [selected, setSelected] = useState<FundRecord | null>(null);
   const { notify } = useToast();
 
-  const selectedDetail = selected ? fundDetails[selected.id] : undefined;
+  // The fund payload already carries its dossier (tranches/kpis/score/...).
+  const selectedDetail = selected ? (selected as any).detail : undefined;
 
   const submit = () => {
     if (!title.trim() || !applicant.trim()) {
@@ -813,7 +822,7 @@ function EmploymentFundTab() {
       key: "score",
       label: "امتیاز داوری",
       render: (f) => {
-        const d = fundDetails[f.id];
+        const d = (f as any).detail;
         return d ? <span className="font-medium text-ink-800">{d.score.toLocaleString("fa-IR")} / ۱۰۰</span> : <span className="text-ink-400">—</span>;
       },
     },
@@ -829,11 +838,11 @@ function EmploymentFundTab() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-        <StatCard label="سرمایه صندوق" value={fundOverview.totalCapital} tone="brand" icon={<Landmark size={16} />} />
-        <StatCard label="تخصیص‌یافته" value={fundOverview.allocated} tone="success" icon={<PiggyBank size={16} />} />
+        <StatCard label="سرمایه صندوق" value={overview.totalCapital} tone="brand" icon={<Landmark size={16} />} />
+        <StatCard label="تخصیص‌یافته" value={overview.allocated} tone="success" icon={<PiggyBank size={16} />} />
         <StatCard label="طرح‌های فعال" value={funds.length.toLocaleString("fa-IR")} icon={<Target size={16} />} />
-        <StatCard label="نرخ موفقیت طرح‌ها" value={fundOverview.successRate} tone="success" icon={<Gauge size={16} />} />
-        <StatCard label="میانگین زمان داوری" value={`${fundOverview.avgReviewDays.toLocaleString("fa-IR")} روز`} tone="warning" icon={<CalendarClock size={16} />} />
+        <StatCard label="نرخ موفقیت طرح‌ها" value={overview.successRate} tone="success" icon={<Gauge size={16} />} />
+        <StatCard label="میانگین زمان داوری" value={`${overview.avgReviewDays.toLocaleString("fa-IR")} روز`} tone="warning" icon={<CalendarClock size={16} />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
@@ -958,7 +967,7 @@ function EmploymentFundTab() {
                   <h4 className="text-xs font-bold text-ink-900 mb-2">پرداخت مرحله‌ای (اقساط)</h4>
                   {selectedDetail.tranches.length === 0 && <p className="text-xs text-ink-400">تخصیصی انجام نشده است.</p>}
                   <div className="space-y-2">
-                    {selectedDetail.tranches.map((t) => (
+                    {selectedDetail.tranches.map((t: any) => (
                       <div key={t.id} className="text-xs bg-ink-50 rounded-lg p-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium text-ink-800">{t.title}</p>
@@ -975,7 +984,7 @@ function EmploymentFundTab() {
                   <h4 className="text-xs font-bold text-ink-900 mb-2">شاخص‌های پایش (KPI)</h4>
                   {selectedDetail.kpis.length === 0 && <p className="text-xs text-ink-400">پایش پس از تخصیص آغاز می‌شود.</p>}
                   <div className="space-y-2">
-                    {selectedDetail.kpis.map((k) => (
+                    {selectedDetail.kpis.map((k: any) => (
                       <div key={k.label} className="flex items-center justify-between gap-2 text-xs">
                         <div>
                           <p className="font-medium text-ink-800">{k.label}</p>

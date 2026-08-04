@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest
+from .models import Fund, NfGuarantee, NfPayment, NfProject, NfReport, NfReportChainStep, NfRequest, FundTranche, FundKpi, ReviewSession
 
 
 class NfGuaranteeSerializer(serializers.ModelSerializer):
@@ -65,8 +65,31 @@ class NfProjectSerializer(serializers.ModelSerializer):
                             "requests", "created_at", "updated_at"]
 
 
+class FundTrancheSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FundTranche
+        fields = ["id", "title", "amount", "condition", "status"]
+
+
+class FundKpiSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FundKpi
+        fields = ["id", "label", "value", "target", "on_track"]
+
+
+class ReviewSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReviewSession
+        fields = ["id", "title", "date", "items", "committee", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
 class FundSerializer(serializers.ModelSerializer):
+    tranches = FundTrancheSerializer(many=True, read_only=True)
+    kpis = FundKpiSerializer(many=True, read_only=True)
+
     class Meta:
         model = Fund
-        fields = ["id", "title", "applicant", "stage", "amount", "roi", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "title", "applicant", "stage", "amount", "roi", "requested", "approved",
+                  "score", "committee", "region", "field", "notes", "tranches", "kpis", "created_at"]
+        read_only_fields = ["id", "tranches", "kpis", "created_at"]

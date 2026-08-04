@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileSignature, Plus, Paperclip, CircleDollarSign, Hourglass, ShieldCheck, ListFilter, CheckCircle2, Circle, History, Landmark, PenLine, ArrowLeftRight, Clock3 } from "lucide-react";
 import {type ContractRecord} from "../data/mock";
 import { me } from "../lib/me";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromContract, toContract } from "../lib/adapters";
-import { contractDetails, type ContractDetail } from "../data/mockDetails";
-import { pendingReviewItems, type TechTransferContract, type TenderRecord, type ESignDocument } from "../data/mockDaneshmand";
+import { type ContractDetail } from "../data/mockDetails";
+import { type TechTransferContract, type TenderRecord, type ESignDocument } from "../data/mockDaneshmand";
 import { useApiList } from "../lib/useApiList";
-import { fromTechTransfer, fromTender, fromESign } from "../lib/adapters";
+import { fromTechTransfer, fromTender, fromESign, fromContractDetail, fromPendingReview } from "../lib/adapters";
+import { http } from "../lib/http";
 import Tabs from "../components/ui/Tabs";
 import RowActions from "../components/ui/RowActions";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -140,6 +141,8 @@ function ProgressCell({ value, label }: { value: number; label: string }) {
 
 function TechTransferTab({ rows }: { rows: TechTransferContract[] }) {
   const [selected, setSelected] = useState<TechTransferContract | null>(null);
+  const pendingReviewItems = useApiList<{ id: string; topic: string; holding: string; company: string; mojri?: string; obstacles?: string; note?: string }>(
+    "/contracts/pending-review", fromPendingReview as any);
 
   const columns: Column<TechTransferContract>[] = [
     { key: "title", label: "موضوع قرارداد", render: (c) => <span className="font-medium text-ink-900">{c.title}</span> },
@@ -323,7 +326,14 @@ function TechContractsTab() {
   const { notify } = useToast();
   const confirm = useConfirm();
 
-  const selectedDetail = selected ? contractDetails[selected.id] : undefined;
+  // Full dossier is fetched for the selected contract (payments/obligations/approvals/history).
+  const [selectedDetail, setSelectedDetail] = useState<ContractDetail | undefined>();
+  useEffect(() => {
+    if (!selected) { setSelectedDetail(undefined); return; }
+    http<any>(`/contracts/${selected.id}`)
+      .then((c) => setSelectedDetail(fromContractDetail(c) as ContractDetail))
+      .catch(() => setSelectedDetail(undefined));
+  }, [selected]);
 
   const submit = () => {
     const errs = { title: !title.trim(), vendor: !vendor.trim() };
@@ -383,7 +393,7 @@ function TechContractsTab() {
       label: "اسناد",
       render: (c) => (
         <span className="flex items-center gap-1 text-ink-400">
-          <Paperclip size={13} /> {(contractDetails[c.id] ? contractDetails[c.id].payments.length + contractDetails[c.id].obligations.length : 2).toLocaleString("fa-IR")} سند
+          <Paperclip size={13} /> {(((c as any).docCount as number) ?? 0).toLocaleString("fa-IR")} سند
         </span>
       ),
     },
@@ -429,7 +439,7 @@ function TechContractsTab() {
         <StatCard label="کل قراردادها" value={contracts.length.toLocaleString("fa-IR")} tone="brand" icon={<FileSignature size={16} />} />
         <StatCard label="در حال اجرا" value={active.toLocaleString("fa-IR")} tone="success" icon={<CircleDollarSign size={16} />} />
         <StatCard label="در مذاکره / داوری" value={inReview.toLocaleString("fa-IR")} tone="warning" icon={<Hourglass size={16} />} />
-        <StatCard label="دارای ضمانت‌نامه معتبر" value={Object.values(contractDetails).filter((d) => d.guarantee !== "—").length.toLocaleString("fa-IR")} icon={<ShieldCheck size={16} />} />
+        <StatCard label="دارای ضمانت‌نامه معتبر" value={contracts.filter((c: any) => c.guarantee && c.guarantee !== "—").length.toLocaleString("fa-IR")} icon={<ShieldCheck size={16} />} />
       </div>
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">

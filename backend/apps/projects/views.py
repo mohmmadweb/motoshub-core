@@ -1,10 +1,10 @@
 from apps.content.views import _crud_perms
 from apps.core.viewsets import TenantScopedModelViewSet
 
-from .models import Milestone, Project, Risk, Task
+from .models import Milestone, Project, Risk, Task, ProjectMember, ProjectExpense, ProjectMinute, PlaybookTemplate
 from apps.notifications.services import notify
 
-from .serializers import MilestoneSerializer, ProjectSerializer, RiskSerializer, TaskSerializer
+from .serializers import MilestoneSerializer, ProjectSerializer, RiskSerializer, TaskSerializer, ProjectMemberSerializer, ProjectExpenseSerializer, ProjectMinuteSerializer, PlaybookTemplateSerializer
 
 
 class ProjectViewSet(TenantScopedModelViewSet):
@@ -50,3 +50,35 @@ class RiskViewSet(TenantScopedModelViewSet):
     required_perms = _crud_perms("projects")
     filterset_fields = ["project", "status", "severity"]
     search_fields = ["title", "owner"]
+
+
+class ProjectMemberViewSet(TenantScopedModelViewSet):
+    queryset = ProjectMember.objects.all()
+    serializer_class = ProjectMemberSerializer
+    owner_field = None
+    required_perms = _crud_perms("projects")
+    filterset_fields = ["project"]
+
+
+class ProjectExpenseViewSet(TenantScopedModelViewSet):
+    queryset = ProjectExpense.objects.all()
+    serializer_class = ProjectExpenseSerializer
+    owner_field = None
+    required_perms = _crud_perms("projects")
+    filterset_fields = ["project", "status"]
+
+
+class ProjectMinuteViewSet(TenantScopedModelViewSet):
+    queryset = ProjectMinute.objects.all()
+    serializer_class = ProjectMinuteSerializer
+    owner_field = None
+    required_perms = _crud_perms("projects")
+    filterset_fields = ["project"]
+
+
+class PlaybookTemplateViewSet(TenantScopedModelViewSet):
+    queryset = PlaybookTemplate.objects.all()
+    serializer_class = PlaybookTemplateSerializer
+    owner_field = None
+    required_perms = _crud_perms("projects")
+    search_fields = ["name", "category"]

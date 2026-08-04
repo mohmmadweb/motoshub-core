@@ -3,6 +3,9 @@ from rest_framework import serializers
 from apps.content.serializers import AuthorField
 
 from .models import (
+    PendingReviewItem,
+    ContractObligation,
+    ContractEvent,
     Contract,
     ContractApproval,
     ContractPayment,
@@ -27,7 +30,21 @@ class ContractApprovalSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "acted_at", "created_at"]
 
 
+class ContractObligationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContractObligation
+        fields = ["id", "title", "due", "done"]
+
+
+class ContractEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContractEvent
+        fields = ["id", "text", "date"]
+
+
 class ContractSerializer(serializers.ModelSerializer):
+    obligations = ContractObligationSerializer(many=True, read_only=True)
+    history = ContractEventSerializer(many=True, read_only=True)
     owner = AuthorField(read_only=True)
     payments = ContractPaymentSerializer(many=True, read_only=True)
     approvals = ContractApprovalSerializer(many=True, read_only=True)
@@ -35,8 +52,10 @@ class ContractSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contract
         fields = ["id", "title", "vendor", "stage", "contract_type", "method", "value",
-                  "guarantee", "deadline", "owner", "payments", "approvals", "created_at", "updated_at"]
-        read_only_fields = ["id", "owner", "payments", "approvals", "created_at", "updated_at"]
+                  "guarantee", "deadline", "owner", "payments", "approvals",
+                  "obligations", "history", "created_at", "updated_at"]
+        read_only_fields = ["id", "owner", "payments", "approvals", "obligations", "history",
+                            "created_at", "updated_at"]
 
 
 class ContractListSerializer(serializers.ModelSerializer):
@@ -80,3 +99,10 @@ class ESignDocumentSerializer(serializers.ModelSerializer):
         model = ESignDocument
         fields = ["id", "title", "kind", "related_to", "method", "letter_no", "steps", "created_at"]
         read_only_fields = ["id", "steps", "created_at"]
+
+
+class PendingReviewItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PendingReviewItem
+        fields = ["id", "topic", "holding", "company", "mojri", "obstacles", "note", "created_at"]
+        read_only_fields = ["id", "created_at"]

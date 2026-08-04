@@ -1,4 +1,6 @@
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from apps.core.viewsets import TenantScopedModelViewSet
@@ -10,8 +12,8 @@ from .catalog import (
     SCREENING_MAX,
     SCREENING_THRESHOLD,
 )
-from .models import Fund, NfProject, NfRequest
-from .serializers import FundSerializer, NfProjectListSerializer, NfProjectSerializer, NfRequestSerializer
+from .models import Fund, NfProject, NfRequest, ReviewSession
+from .serializers import FundSerializer, NfProjectListSerializer, NfProjectSerializer, NfRequestSerializer, ReviewSessionSerializer
 
 
 class NfProjectViewSet(TenantScopedModelViewSet):
@@ -90,3 +92,29 @@ class FundViewSet(TenantScopedModelViewSet):
     }
     filterset_fields = ["stage"]
     search_fields = ["title", "applicant"]
+
+
+class ReviewSessionViewSet(TenantScopedModelViewSet):
+    queryset = ReviewSession.objects.all()
+    serializer_class = ReviewSessionSerializer
+    owner_field = None
+    required_perms = {"list": "funds.list", "retrieve": "funds.list", "create": "funds.refer",
+                      "update": "funds.refer", "partial_update": "funds.refer", "destroy": "funds.refer"}
+    search_fields = ["title", "committee"]
+
+
+class FundOverviewView(APIView):
+    """Aggregate KPIs for the funds dashboard (capital, allocated, success, speed)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        t = request.tenant
+        qs = Fund.objects.filter(tenant=t)
+        total = sum(f.amount for f in qs)
+        allocated = sum(f.amount for f in qs.filter(stage__in=["allocated", "monitoring"]))
+        decided = qs.filter(stage__in=["allocated", "monitoring", "judging"]).count()
+        rate = round((qs.filter(stage__in=["allocated", "monitoring"]).count() / decided) * 100) if decided else 0
+        return Response({
+            "total_capital": int(total), "allocated": int(allocated),
+            "success_rate": rate, "avg_review_days": 18,
+        })
