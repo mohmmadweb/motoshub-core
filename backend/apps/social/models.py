@@ -20,6 +20,7 @@ class Group(TenantScopedModel):
     invite_code = models.CharField(max_length=32, blank=True, db_index=True,
                                    help_text="کد لینک دعوت — با چرخش باطل می‌شود")
     slow_mode_seconds = models.PositiveSmallIntegerField(default=0, help_text="حالت آهسته بین پیام‌ها")
+    topics_enabled = models.BooleanField(default=False, help_text="حالت تاپیک (فروم) گروه")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "social_group"
@@ -149,3 +150,24 @@ class PostComment(TenantScopedModel):
     class Meta(TenantScopedModel.Meta):
         db_table = "social_post_comment"
         ordering = ["created_at"]
+
+
+class GroupTopic(TenantScopedModel):
+    """A named thread inside a group (Telegram's forum topics).
+
+    Messages carry an optional topic; the group's main feed is `topic=None`.
+    """
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="chat_topics")
+    name = models.CharField(max_length=120)
+    icon = models.CharField(max_length=8, blank=True, help_text="ایموجی تاپیک")
+    color = models.CharField(max_length=9, default="#1f4f99")
+    closed = models.BooleanField(default=False, help_text="بسته — فقط مدیران می‌نویسند")
+    created_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True,
+                                   related_name="created_topics")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "social_group_topic"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.group.name} / {self.name}"

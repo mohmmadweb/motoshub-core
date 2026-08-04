@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from apps.chat.models import Channel, Message
 from apps.chat.serializers import MessageSerializer
 
-from .models import Group, GroupMembership
+from .models import Group, GroupMembership, GroupTopic
 
 
 def channel_for(group: Group) -> Channel:
@@ -90,7 +90,14 @@ class GroupMessagesView(APIView):
         if not acc.can_read:
             return _deny("این گروه خصوصی است.")
         qs = Message.objects.filter(channel=channel_for(acc.group)) \
-            .select_related("author", "reply_to__author").prefetch_related("reactions")[:300]
+            .select_related("author", "reply_to__author").prefetch_related("reactions")
+        # ?topic=<id> scopes to a forum topic; ?topic=main (or absent) is the feed.
+        topic = request.query_params.get("topic")
+        if topic and topic != "main":
+            qs = qs.filter(topic_id=topic)
+        elif acc.group.topics_enabled:
+            qs = qs.filter(topic__isnull=True)
+        qs = qs[:300]
         data = MessageSerializer(qs, many=True, context={"request": request}).data
         # Mark the conversation read for this member.
         if acc.membership:
@@ -122,14 +129,39 @@ class GroupMessagesView(APIView):
         if body.get("reply_to_id"):
             reply_to = Message.objects.filter(id=body["reply_to_id"], channel=channel_for(acc.group)).first()
 
+        topic = None
+        if body.get("topic_id") and body["topic_id"] != "main":
+            topic = GroupTopic.objects.filter(id=body["topic_id"], group=acc.group).first()
+            if topic and topic.closed and not acc.can_moderate:
+                return _deny("این تاپیک بسته است؛ فقط مدیران می‌توانند بنویسند.")
+
         msg = Message.objects.create(
             tenant=request.tenant, channel=channel_for(acc.group), author=request.user,
             text=text, reply_to=reply_to, forwarded_from=(body.get("forwarded_from") or "")[:200],
-            attachment=attachment or None, mentions=body.get("mentions") or [],
+            attachment=attachment or None, mentions=body.get("mentions") or [], topic=topic,
         )
         if m:
             m.last_message_at = timezone.now()
             m.save(update_fields=["last_message_at"])
+
+        # Email anyone who was @mentioned (skipping members who muted the group).
+        if msg.mentions:
+            from apps.accounts.models import User
+            from apps.notifications.email import notify_mention
+            from apps.notifications.models import Notification
+
+            muted = set(GroupMembership.objects
+                        .filter(group=acc.group, muted=True)
+                        .values_list("user_id", flat=True))
+            targets = [u for u in User.objects.filter(id__in=msg.mentions)
+                       if u.id not in muted and u.id != request.user.id]
+            for u in targets:
+                Notification.objects.create(
+                    tenant=request.tenant, user=u, kind="mention",
+                    text=f"{request.user.name} شما را در «{acc.group.name}» منشن کرد.",
+                )
+            notify_mention(msg, targets)
+
         data = MessageSerializer(msg, context={"request": request}).data
         _broadcast(acc.group, data)
         return Response(data, status=201)
@@ -340,4 +372,72 @@ class GroupTypingView(APIView):
             return Response(status=204)
         _broadcast(acc.group, {"user": request.user.name, "user_id": str(request.user.id)},
                    event="chat.typing")
+        return Response(status=204)
+
+
+class GroupTopicsView(APIView):
+    """List a group's topics · create one (members) — Telegram forum mode."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, group_id=None):
+        acc = GroupAccess(request, group_id)
+        if not acc.group:
+            return _deny("گروه یافت نشد.", 404)
+        if not acc.can_read:
+            return _deny("این گروه خصوصی است.")
+        from .serializers import GroupTopicSerializer
+        rows = GroupTopic.objects.filter(group=acc.group).prefetch_related("messages")
+        return Response(GroupTopicSerializer(rows, many=True, context={"request": request}).data)
+
+    def post(self, request, group_id=None):
+        acc = GroupAccess(request, group_id)
+        if not acc.group:
+            return _deny("گروه یافت نشد.", 404)
+        if not acc.can_post:
+            return _deny("برای ساخت تاپیک باید عضو گروه باشید.")
+        name = ((request.data or {}).get("name") or "").strip()
+        if not name:
+            return _deny("نام تاپیک الزامی است.", 422)
+        from .serializers import GroupTopicSerializer
+        topic = GroupTopic.objects.create(
+            tenant=request.tenant, group=acc.group, name=name[:120],
+            icon=((request.data or {}).get("icon") or "")[:8],
+            color=((request.data or {}).get("color") or "#1f4f99")[:9],
+            created_by=request.user,
+        )
+        # Turning on the first topic switches the group into forum mode.
+        if not acc.group.topics_enabled:
+            acc.group.topics_enabled = True
+            acc.group.save(update_fields=["topics_enabled"])
+        return Response(GroupTopicSerializer(topic, context={"request": request}).data, status=201)
+
+
+class GroupTopicDetailView(APIView):
+    """Close/reopen or delete a topic (moderators)."""
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, group_id=None, topic_id=None):
+        acc = GroupAccess(request, group_id)
+        if not acc.group:
+            return _deny("گروه یافت نشد.", 404)
+        if not acc.can_moderate:
+            return _deny("مدیریت تاپیک فقط توسط مدیران گروه ممکن است.")
+        topic = GroupTopic.objects.filter(id=topic_id, group=acc.group).first()
+        if not topic:
+            return _deny("تاپیک یافت نشد.", 404)
+        body = request.data or {}
+        for field in ("name", "icon", "color"):
+            if field in body:
+                setattr(topic, field, body[field])
+        if "closed" in body:
+            topic.closed = bool(body["closed"])
+        topic.save()
+        from .serializers import GroupTopicSerializer
+        return Response(GroupTopicSerializer(topic, context={"request": request}).data)
+
+    def delete(self, request, group_id=None, topic_id=None):
+        acc = GroupAccess(request, group_id)
+        if not acc.group or not acc.can_moderate:
+            return _deny("حذف تاپیک فقط توسط مدیران گروه ممکن است.")
+        GroupTopic.objects.filter(id=topic_id, group=acc.group).delete()
         return Response(status=204)

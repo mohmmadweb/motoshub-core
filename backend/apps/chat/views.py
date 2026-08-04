@@ -111,6 +111,8 @@ class DmView(APIView):
         if not peer or peer.id == me.id or not text:
             return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "گیرنده یا متن نامعتبر است."}}, status=422)
         m = DirectMessage.objects.create(tenant=request.tenant, sender=me, recipient=peer, text=text)
+        from apps.notifications.email import notify_direct_message
+        notify_direct_message(m)
         # Push to the recipient's live DM socket (from their perspective it's incoming).
         layer = get_channel_layer()
         if layer is not None:

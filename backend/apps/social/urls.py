@@ -10,6 +10,8 @@ from .group_chat import (
     GroupMessageDetailView,
     GroupMessagesView,
     GroupSettingsView,
+    GroupTopicDetailView,
+    GroupTopicsView,
     GroupTypingView,
 )
 
@@ -28,5 +30,7 @@ urlpatterns = [
     path("groups/<uuid:group_id>/invite", GroupInviteView.as_view(), name="group-invite"),
     path("groups/<uuid:group_id>/settings", GroupSettingsView.as_view(), name="group-settings"),
     path("groups/<uuid:group_id>/typing", GroupTypingView.as_view(), name="group-typing"),
+    path("groups/<uuid:group_id>/topics", GroupTopicsView.as_view(), name="group-topics"),
+    path("groups/<uuid:group_id>/topics/<uuid:topic_id>", GroupTopicDetailView.as_view(), name="group-topic"),
     path("groups/join", GroupJoinByInviteView.as_view(), name="group-join-invite"),
 ] + router.urls

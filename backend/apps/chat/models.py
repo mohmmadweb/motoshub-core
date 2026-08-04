@@ -39,6 +39,8 @@ class Message(TenantScopedModel):
     forwarded_from = models.CharField(max_length=200, blank=True)
     attachment = models.JSONField(null=True, blank=True, help_text="{kind,name,size,url}")
     mentions = models.JSONField(default=list, blank=True, help_text="شناسهٔ کاربران منشن‌شده")
+    topic = models.ForeignKey("social.GroupTopic", on_delete=models.CASCADE, null=True, blank=True,
+                              related_name="messages", help_text="تاپیک گروه؛ خالی = فید اصلی")
 
     class Meta(TenantScopedModel.Meta):
         db_table = "chat_message"

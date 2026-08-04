@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.content.serializers import AuthorField
 
-from .models import ForumReply, ForumTopic, Group, Post, GroupMembership
+from .models import ForumReply, ForumTopic, Group, Post, GroupMembership, GroupTopic
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -30,7 +30,7 @@ class GroupSerializer(serializers.ModelSerializer):
         model = Group
         fields = [
             "id", "name", "description", "privacy", "color", "category",
-            "owner", "member_count", "is_member", "unread", "invite_code", "slow_mode_seconds",
+            "owner", "member_count", "is_member", "unread", "invite_code", "slow_mode_seconds", "topics_enabled",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "owner", "member_count", "is_member", "unread", "invite_code", "created_at", "updated_at"]
@@ -100,3 +100,22 @@ class GroupMemberSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "user_id", "name", "title", "presence", "role",
                   "muted", "banned", "can_moderate", "created_at"]
         read_only_fields = ["id", "user", "name", "title", "presence", "can_moderate", "created_at"]
+
+
+class GroupTopicSerializer(serializers.ModelSerializer):
+    """A topic plus how many messages it holds and when it last moved."""
+    message_count = serializers.SerializerMethodField()
+    last_activity = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GroupTopic
+        fields = ["id", "group", "name", "icon", "color", "closed",
+                  "message_count", "last_activity", "created_at"]
+        read_only_fields = ["id", "message_count", "last_activity", "created_at"]
+
+    def get_message_count(self, obj):
+        return obj.messages.filter(deleted=False).count()
+
+    def get_last_activity(self, obj):
+        last = obj.messages.filter(deleted=False).order_by("-created_at").first()
+        return last.created_at if last else obj.created_at

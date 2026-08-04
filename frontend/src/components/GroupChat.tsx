@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Send, Reply, Pencil, Trash2, Pin, PinOff, Paperclip, Smile, X,
   ThumbsUp, Heart, CheckCircle2, CornerUpLeft, Search, Forward, BarChart3, Plus,
+  Mic, Square, Play, Images, Hash, Lock,
 } from "lucide-react";
 import { http, getUser } from "../lib/http";
 import { openChannelSocket } from "../lib/ws";
@@ -21,7 +22,8 @@ export type GroupMessage = {
   deleted: boolean;
   edited_at: string | null;
   forwarded_from: string;
-  attachment: { id?: string; kind?: string; name?: string; size?: string; url?: string } | null;
+  attachment: { id?: string; kind?: string; name?: string; size?: string; url?: string;
+                items?: { id: string; name: string; url: string }[] } | null;
   mentions: string[];
   reply_to: { id: string; author: { name: string } | null; text: string; deleted: boolean } | null;
   reactions: { icon: string; count: number; reactedByMe: boolean }[];
@@ -72,6 +74,10 @@ export default function GroupChat({
   const [showPinned, setShowPinned] = useState(false);
   const [typingWho, setTypingWho] = useState<string | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [topics, setTopics] = useState<any[]>([]);
+  const [activeTopic, setActiveTopic] = useState<string>("main");
+  const [newTopic, setNewTopic] = useState("");
+  const [topicOpen, setTopicOpen] = useState(false);
   const [polls, setPolls] = useState<any[]>([]);
   const [pollOpen, setPollOpen] = useState(false);
   const [pollQ, setPollQ] = useState("");
@@ -85,10 +91,24 @@ export default function GroupChat({
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }));
 
   const load = useCallback(() => {
-    http<GroupMessage[]>(`/groups/${groupId}/messages`)
+    http<GroupMessage[]>(`/groups/${groupId}/messages?topic=${activeTopic}`)
       .then((rows) => { setMessages(rows); scrollDown(); })
       .catch(() => setMessages([]));
+  }, [groupId, activeTopic]);
+
+  // Forum topics — the group's named threads.
+  const loadTopics = useCallback(() => {
+    http<any[]>(`/groups/${groupId}/topics`).then(setTopics).catch(() => setTopics([]));
   }, [groupId]);
+  useEffect(() => { loadTopics(); }, [loadTopics]);
+
+  const createTopic = () => {
+    const name = newTopic.trim();
+    if (!name) return;
+    http<any>(`/groups/${groupId}/topics`, { method: "POST", body: JSON.stringify({ name }) })
+      .then((t) => { setTopics((p) => [...p, t]); setNewTopic(""); setTopicOpen(false); setActiveTopic(t.id); })
+      .catch(() => notify("ساخت تاپیک ناموفق بود.", "warning"));
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -174,7 +194,7 @@ export default function GroupChat({
     http<GroupMessage>(`/groups/${groupId}/messages`, {
       method: "POST",
       body: JSON.stringify({
-        text, reply_to_id: replyTo?.id ?? null, mentions,
+        text, reply_to_id: replyTo?.id ?? null, mentions, topic_id: activeTopic,
         forwarded_from: forwarding ? (forwarding.author?.name ?? "") : "",
       }),
     })
@@ -185,9 +205,79 @@ export default function GroupChat({
   };
 
   const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const albumRef = useRef<HTMLInputElement>(null);
+
+  /** Record from the microphone and send the clip as a real audio attachment. */
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        const ext = (rec.mimeType || "audio/webm").includes("ogg") ? "ogg" : "webm";
+        uploadAndSend(new File([blob], `voice-${Date.now()}.${ext}`, { type: blob.type }));
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setRecording(true);
+      setRecordSecs(0);
+    } catch {
+      notify("دسترسی به میکروفن داده نشد.", "warning");
+    }
+  };
+
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+    setRecording(false);
+  };
+
+  // Tick the recording timer.
+  useEffect(() => {
+    if (!recording) return;
+    const iv = setInterval(() => setRecordSecs((s) => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, [recording]);
+
+  /** Upload several images and post them as one album message. */
+  const sendAlbum = async (files: File[]) => {
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(files.slice(0, 10).map((f) => {
+        const form = new FormData();
+        form.append("file", f);
+        return http<any>("/uploads", { method: "POST", body: form });
+      }));
+      const m = await http<GroupMessage>(`/groups/${groupId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          text: draft.trim(),
+          attachment: {
+            kind: "album",
+            name: `${uploaded.length} تصویر`,
+            size: "",
+            items: uploaded.map((u) => ({ id: u.id, name: u.name, url: u.url })),
+          },
+        }),
+      });
+      setMessages((p) => (p.some((x) => x.id === m.id) ? p : [...p, m]));
+      setDraft("");
+      scrollDown();
+    } catch {
+      notify("ارسال آلبوم ناموفق بود.", "warning");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   /** Upload the file for real, then post a message that points at it. */
-  const attach = (file: File) => {
+  const uploadAndSend = (file: File) => {
     const form = new FormData();
     form.append("file", file);
     setUploading(true);
@@ -259,6 +349,41 @@ export default function GroupChat({
         )}
       </div>
 
+      {(topics.length > 0 || canPost) && (
+        <div className="flex items-center gap-1.5 px-3.5 py-2 border-b border-ink-100 shrink-0 overflow-x-auto">
+          <button onClick={() => setActiveTopic("main")}
+            className={`flex items-center gap-1 text-[11.5px] rounded-full border px-2.5 py-1 shrink-0 ${
+              activeTopic === "main" ? "bg-brand-50 border-brand-300 text-brand-700" : "border-ink-200 text-ink-500"}`}>
+            <Hash size={11} /> گفتگوی اصلی
+          </button>
+          {topics.map((t) => (
+            <button key={t.id} onClick={() => setActiveTopic(t.id)}
+              className={`flex items-center gap-1 text-[11.5px] rounded-full border px-2.5 py-1 shrink-0 ${
+                activeTopic === t.id ? "bg-brand-50 border-brand-300 text-brand-700" : "border-ink-200 text-ink-500"}`}>
+              {t.icon || <Hash size={11} />} {t.name}
+              {t.closed && <Lock size={10} className="text-ink-400" />}
+              {t.message_count > 0 && <span className="text-ink-400">{t.message_count.toLocaleString("fa-IR")}</span>}
+            </button>
+          ))}
+          {canPost && (
+            topicOpen ? (
+              <span className="flex items-center gap-1 shrink-0">
+                <input value={newTopic} onChange={(e) => setNewTopic(e.target.value)} autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") createTopic(); if (e.key === "Escape") setTopicOpen(false); }}
+                  placeholder="نام تاپیک…"
+                  className="text-[11.5px] border border-ink-200 rounded-full px-2.5 py-1 w-28 focus:outline-none focus:border-brand-300" />
+                <button onClick={createTopic} className="text-brand-600 text-[11.5px] font-medium">ثبت</button>
+              </span>
+            ) : (
+              <button onClick={() => setTopicOpen(true)} title="تاپیک جدید"
+                className="flex items-center gap-1 text-[11.5px] text-ink-400 hover:text-brand-600 rounded-full border border-dashed border-ink-200 px-2.5 py-1 shrink-0">
+                <Plus size={11} /> تاپیک
+              </button>
+            )
+          )}
+        </div>
+      )}
+
       {showPinned && pinned.length > 0 && (
         <div className="bg-brand-50/50 border-b border-brand-100 px-3.5 py-2 space-y-1.5 shrink-0 max-h-28 overflow-y-auto">
           {pinned.map((m) => (
@@ -318,7 +443,23 @@ export default function GroupChat({
                     ) : (
                       <>
                         {m.attachment && (
-                          m.attachment.kind === "photo" && m.attachment.url ? (
+                          m.attachment.kind === "album" && m.attachment.items?.length ? (
+                            <div className={`grid gap-1 mb-1 ${m.attachment.items.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                              {m.attachment.items.slice(0, 4).map((it, idx) => (
+                                <a key={it.id} href={it.url} target="_blank" rel="noreferrer" className="relative block">
+                                  <img src={it.url} alt={it.name} className="rounded-lg h-24 w-full object-cover" />
+                                  {idx === 3 && m.attachment!.items!.length > 4 && (
+                                    <span className="absolute inset-0 rounded-lg bg-ink-900/60 text-white flex items-center justify-center text-sm font-bold">
+                                      +{(m.attachment!.items!.length - 4).toLocaleString("fa-IR")}
+                                    </span>
+                                  )}
+                                </a>
+                              ))}
+                            </div>
+                          ) : m.attachment.kind === "audio" && m.attachment.url ? (
+                            <audio controls preload="none" src={m.attachment.url}
+                              className={`mb-1 h-9 w-56 max-w-full ${mine ? "" : ""}`} />
+                          ) : m.attachment.kind === "photo" && m.attachment.url ? (
                             <a href={m.attachment.url} target="_blank" rel="noreferrer" className="block mb-1">
                               <img src={m.attachment.url} alt={m.attachment.name}
                                    className="rounded-lg max-h-56 w-auto object-cover" />
@@ -481,9 +622,28 @@ export default function GroupChat({
             </div>
           )}
 
+          {recording && (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-rose-50 border-b border-rose-100 text-[11.5px] text-rose-700">
+              <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse shrink-0" />
+              در حال ضبط… {Math.floor(recordSecs / 60)}:{String(recordSecs % 60).padStart(2, "0")}
+              <button onClick={stopRecording} className="mr-auto flex items-center gap-1 font-medium hover:underline">
+                <Play size={11} /> پایان و ارسال
+              </button>
+            </div>
+          )}
+
           <div className="flex items-end gap-2 px-3 py-2.5">
             <input ref={fileRef} type="file" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) attach(f); e.target.value = ""; }} />
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAndSend(f); e.target.value = ""; }} />
+            <input ref={albumRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) sendAlbum(fs); e.target.value = ""; }} />
+            <button onClick={() => albumRef.current?.click()} title="آلبوم تصاویر" disabled={uploading}
+              className="text-ink-400 hover:text-brand-600 p-1.5 shrink-0 disabled:opacity-40"><Images size={17} /></button>
+            <button onClick={recording ? stopRecording : startRecording}
+              title={recording ? "پایان ضبط و ارسال" : "پیام صوتی"}
+              className={`p-1.5 shrink-0 ${recording ? "text-rose-600" : "text-ink-400 hover:text-brand-600"}`}>
+              {recording ? <Square size={17} /> : <Mic size={17} />}
+            </button>
             <button onClick={() => setPollOpen((v) => !v)} title="نظرسنجی"
               className="text-ink-400 hover:text-brand-600 p-1.5 shrink-0"><BarChart3 size={17} /></button>
             <button onClick={() => fileRef.current?.click()} title="پیوست فایل" disabled={uploading}
