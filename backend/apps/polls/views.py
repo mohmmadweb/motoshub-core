@@ -5,8 +5,8 @@ from rest_framework.response import Response
 
 from apps.core.viewsets import TenantScopedModelViewSet
 
-from .models import Poll, PollOption, PollVote
-from .serializers import PollSerializer
+from .models import Poll, PollOption, PollVote, Quiz, QuizAttempt
+from .serializers import PollSerializer, QuizSerializer
 
 
 class PollViewSet(TenantScopedModelViewSet):
@@ -32,3 +32,35 @@ class PollViewSet(TenantScopedModelViewSet):
         # Count fresh from the DB (avoid the prefetched cache captured pre-vote).
         results = {str(row["id"]): row["n"] for row in poll.options.values("id").annotate(n=Count("ballots"))}
         return Response({"voted": str(option.id), "results": results})
+
+
+class QuizViewSet(TenantScopedModelViewSet):
+    queryset = Quiz.objects.select_related("author").prefetch_related("attempts").all()
+    serializer_class = QuizSerializer
+    owner_field = "author"
+    filterset_fields = ["status"]
+    search_fields = ["title"]
+    # Uses only ids that exist in the 99-permission catalog. Whoever judges an
+    # assessment («ارزیابی») owns its lifecycle, so edit and delete map there.
+    required_perms = {
+        "list": "training.list", "retrieve": "training.list", "create": "training.create",
+        "update": "training.evaluate", "partial_update": "training.evaluate",
+        "destroy": "training.evaluate", "submit": "training.enroll",
+    }
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        """Record this user's score. Refuses once the assessment has closed, so
+        a result cannot be filed after the deadline has passed."""
+        quiz = self.get_object()
+        if quiz.status == "closed":
+            return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "این آزمون پایان یافته است."}}, status=422)
+        try:
+            score = int((request.data or {}).get("score", 0))
+        except (TypeError, ValueError):
+            return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "امتیاز نامعتبر است."}}, status=422)
+        score = max(0, min(100, score))
+        QuizAttempt.objects.update_or_create(
+            quiz=quiz, user=request.user, defaults={"score": score, "tenant": request.tenant}
+        )
+        return Response({"score": score, "passed": score >= quiz.passing})

@@ -47,7 +47,8 @@ class ForumTopicViewSet(TenantScopedModelViewSet):
     serializer_class = ForumTopicSerializer
     queryset = ForumTopic.objects.select_related("author").all()
     required_perms = _crud_perms("forum", extra={
-        "create": "forum.create", "reply": "forum.reply", "solve": "forum.solve",
+        "create": "forum.create", "replies": "forum.reply", "solve": "forum.solve",
+        "reply_detail": "forum.reply", "accept_reply": "forum.solve",
     })
     filterset_fields = ["solved", "visibility", "group", "category"]
     search_fields = ["title", "body"]
@@ -63,6 +64,56 @@ class ForumTopicViewSet(TenantScopedModelViewSet):
             return Response(ForumReplySerializer(reply, context={"request": request}).data, status=201)
         qs = topic.replies.select_related("author").all()
         return Response(ForumReplySerializer(qs, many=True, context={"request": request}).data)
+
+    @action(detail=True, methods=["patch", "delete"], url_path=r"replies/(?P<reply_id>[^/.]+)")
+    def reply_detail(self, request, pk=None, reply_id=None):
+        """Edit or delete a single reply.
+
+        A reply may be rewritten only by the person who wrote it. Deleting is
+        also open to the topic's author, who is responsible for the thread.
+        """
+        topic = self.get_object()
+        reply = topic.replies.filter(id=reply_id).first()
+        if not reply:
+            return Response({"error": {"code": 404, "type": "not_found", "message": "پاسخ یافت نشد."}}, status=404)
+
+        if request.method == "DELETE":
+            if reply.author_id != request.user.id and topic.author_id != request.user.id:
+                return Response({"error": {"code": 403, "type": "forbidden", "message": "فقط نویسنده‌ی پاسخ یا موضوع می‌تواند آن را حذف کند."}}, status=403)
+            reply.delete()
+            return Response(status=204)
+
+        if reply.author_id != request.user.id:
+            return Response({"error": {"code": 403, "type": "forbidden", "message": "فقط نویسنده‌ی پاسخ می‌تواند آن را ویرایش کند."}}, status=403)
+        body = (request.data or {}).get("body", "").strip()
+        if not body:
+            return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "متن پاسخ الزامی است."}}, status=422)
+        reply.body = body
+        reply.save(update_fields=["body"])
+        return Response(ForumReplySerializer(reply, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path=r"replies/(?P<reply_id>[^/.]+)/accept")
+    def accept_reply(self, request, pk=None, reply_id=None):
+        """Mark a reply as the accepted answer — at most one per topic.
+
+        Only the person who asked decides which answer solved it. Accepting also
+        marks the topic solved; un-accepting clears both, so the badge on the
+        list page never contradicts the thread.
+        """
+        topic = self.get_object()
+        reply = topic.replies.filter(id=reply_id).first()
+        if not reply:
+            return Response({"error": {"code": 404, "type": "not_found", "message": "پاسخ یافت نشد."}}, status=404)
+        if topic.author_id != request.user.id:
+            return Response({"error": {"code": 403, "type": "forbidden", "message": "فقط پرسشگر می‌تواند پاسخ برگزیده را تعیین کند."}}, status=403)
+        accepted = not reply.is_solution
+        topic.replies.update(is_solution=False)
+        if accepted:
+            reply.is_solution = True
+            reply.save(update_fields=["is_solution"])
+        topic.solved = accepted
+        topic.save(update_fields=["solved"])
+        return Response({"accepted": accepted, "solved": topic.solved})
 
     @action(detail=True, methods=["post"])
     def solve(self, request, pk=None):

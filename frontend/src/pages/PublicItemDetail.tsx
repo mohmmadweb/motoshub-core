@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router-dom";
 import {
   Lock,
   LogIn,
-  Layers,
   ArrowRight,
   MessagesSquare,
   NotebookPen,
@@ -26,7 +25,7 @@ import {
 } from "lucide-react";
 import { useContent } from "../context/ContentContext";
 import SiteHeader from "../components/SiteHeader";
-import CreditFooter from "../components/CreditFooter";
+import PublicFooter from "../components/PublicFooter";
 import Badge from "../components/ui/Badge";
 import Avatar from "../components/Avatar";
 import { http } from "../lib/http";
@@ -114,12 +113,7 @@ export default function PublicItemDetail() {
         </div>
       </main>
 
-      <footer className="px-6 lg:px-16 py-5 text-center text-xs text-ink-400 border-t border-ink-100">
-        <p className="flex items-center justify-center gap-2">
-          <Layers size={14} /> پروتوتایپ داخلی — داده‌های این نسخه نمایشی است.
-        </p>
-        <CreditFooter />
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

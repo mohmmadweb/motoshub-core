@@ -1,10 +1,11 @@
+from django.db.models import F
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.core.viewsets import TenantScopedModelViewSet
 
 from .models import Challenge, ChallengeMembership, Competition, CompetitionEntry, EntryVote
-from .serializers import ChallengeSerializer, CompetitionSerializer
+from .serializers import ChallengeSerializer, CompetitionSerializer, EntrySerializer
 
 
 class CompetitionViewSet(TenantScopedModelViewSet):
@@ -29,6 +30,40 @@ class CompetitionViewSet(TenantScopedModelViewSet):
             EntryVote.objects.create(tenant=request.tenant, entry=entry, user=request.user)
             my_vote = True
         return Response({"votes": EntryVote.objects.filter(entry=entry).count(), "my_vote": my_vote})
+
+
+class CompetitionEntryViewSet(TenantScopedModelViewSet):
+    """Submitting and withdrawing a work — «ارسال اثر» in the competition card.
+
+    Entries are read through the nested list on the competition; this ViewSet
+    exists for the write side, which the competition serializer treats as
+    read-only.
+    """
+    queryset = CompetitionEntry.objects.select_related("competition").prefetch_related("votes").all()
+    serializer_class = EntrySerializer
+    owner_field = None
+    filterset_fields = ["competition"]
+
+    # Rotates through the same palette the prototype used, so a fresh entry
+    # lands on a different swatch than the one before it.
+    PALETTE = ["#5e7191", "#0d9488", "#b45309", "#1f4f99", "#7c3aed"]
+
+    def perform_create(self, serializer):
+        competition = serializer.validated_data["competition"]
+        entry = serializer.save(
+            tenant=getattr(self.request, "tenant", None),
+            by=self.request.user.name or self.request.user.username,
+            color=self.PALETTE[competition.entries.count() % len(self.PALETTE)],
+        )
+        Competition.objects.filter(pk=competition.pk).update(participants=F("participants") + 1)
+        return entry
+
+    def perform_destroy(self, instance):
+        competition_id = instance.competition_id
+        instance.delete()
+        # Never let the counter fall below zero if it was seeded lower than the
+        # number of entries.
+        Competition.objects.filter(pk=competition_id, participants__gt=0).update(participants=F("participants") - 1)
 
 
 class ChallengeViewSet(TenantScopedModelViewSet):

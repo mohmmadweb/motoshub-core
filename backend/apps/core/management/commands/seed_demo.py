@@ -33,7 +33,7 @@ from apps.awards.models import AwardEntry, AwardTrack
 from apps.console.models import GuestAccount, Integration
 from apps.chat.models import Channel, DirectMessage, Message
 from apps.notifications.models import Notification
-from apps.polls.models import Poll, PollOption
+from apps.polls.models import Poll, PollOption, Quiz, QuizAttempt
 from apps.projects.models import (Milestone, PlaybookTemplate, Project, ProjectExpense,
                                   ProjectMember, ProjectMinute, Risk, Task)
 from apps.research.models import ResearchOpportunity
@@ -199,6 +199,16 @@ class Command(BaseCommand):
             poll = Poll.objects.create(tenant=tenant, author=admin, question="کدام قابلیت را زودتر می‌خواهید؟")
             for lbl in ["پیام‌رسان", "گزارش‌های پیشرفته", "اپ موبایل"]:
                 PollOption.objects.create(tenant=tenant, poll=poll, label=lbl)
+
+        if not Quiz.objects.filter(tenant=tenant).exists():
+            qz = Quiz.objects.create(tenant=tenant, author=admin, title="آزمون آشنایی با فرآیندهای صندوق نوآور",
+                                     questions=20, minutes=30, deadline="۱۴۰۵/۰۵/۱۰", status="open", passing=70)
+            Quiz.objects.create(tenant=tenant, author=admin, title="ارزیابی دوره امنیت سایبری و افتا",
+                                questions=25, minutes=40, deadline="۱۴۰۵/۰۴/۳۰", status="judging", passing=60)
+            done = Quiz.objects.create(tenant=tenant, author=admin, title="آزمون پایان دوره مدیریت پروژه R&D",
+                                       questions=30, minutes=45, deadline="۱۴۰۵/۰۴/۱۵", status="closed", passing=70)
+            QuizAttempt.objects.create(tenant=tenant, quiz=done, user=admin, score=84)
+            QuizAttempt.objects.create(tenant=tenant, quiz=qz, user=member, score=76)
 
         if not ResearchOpportunity.objects.filter(tenant=tenant).exists():
             ResearchOpportunity.objects.create(tenant=tenant, author=admin, title="فراخوان پژوهشی هوش مصنوعی صنعتی", field="هوش مصنوعی", stage="review", budget=300000000, supervisor="دکتر نمونه")

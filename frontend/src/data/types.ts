@@ -57,6 +57,7 @@ export type Visibility = "عمومی" | "خصوصی";
 export type ForumTopic = {
   id: string;
   title: string;
+  body?: string;
   author: string;
   replies: number;
   views: number;

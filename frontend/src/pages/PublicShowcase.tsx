@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  LogIn, Layers, MessagesSquare, NotebookPen, CalendarDays,
+  LogIn, MessagesSquare, NotebookPen, CalendarDays,
   Image as ImageIcon, BookOpen, Newspaper, Users, CheckCircle2,
   Star, MapPin, PlayCircle,
   FileText, ArrowLeft, Clock, Search, ChevronLeft,
@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { useContent } from "../context/ContentContext";
 import SiteHeader from "../components/SiteHeader";
-import CreditFooter from "../components/CreditFooter";
+import PublicFooter from "../components/PublicFooter";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import type {
@@ -66,12 +66,7 @@ export default function PublicShowcase() {
         </div>
       </div>
 
-      <footer className="bg-navy-950 py-4 text-center text-xs text-navy-400">
-        <p className="flex items-center justify-center gap-2">
-          <Layers size={12} /> بنیاد مستضعفان — پروتوتایپ داخلی — داده‌های این نسخه نمایشی است.
-        </p>
-        <CreditFooter dark />
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

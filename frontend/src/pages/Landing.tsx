@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Building2, Users, BookOpen, KanbanSquare, ShieldCheck, Layers, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Building2, Users, BookOpen, KanbanSquare, ShieldCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
 import SiteHeader from "../components/SiteHeader";
+import PublicFooter from "../components/PublicFooter";
 
 const modules = [
   { icon: Users, title: "شبکه اجتماعی سازمانی", desc: "گروه، انجمن، رویداد، گپ، اعلان و اخبار داخلی برای واحدها و هلدینگ‌ها" },
@@ -95,9 +96,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="px-6 lg:px-16 py-6 text-center text-xs text-ink-400 border-t border-ink-100 flex items-center justify-center gap-2">
-        <Layers size={14} /> پروتوتایپ داخلی — داده‌های این نسخه نمایشی است.
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

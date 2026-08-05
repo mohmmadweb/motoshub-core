@@ -50,3 +50,20 @@ export async function httpRaw<T = unknown>(path: string, opts: RequestInit = {},
 export async function http<T = unknown>(path: string, opts: RequestInit = {}): Promise<T> {
   return (await httpRaw<T>(path, opts)).data;
 }
+
+/**
+ * The Persian message the backend sent, for showing in a toast.
+ *
+ * Rejections from httpRaw are plain `{status, error}` objects, not Errors, so
+ * `err instanceof Error` never matches and a naive handler would discard rules
+ * the API states precisely — «امکان ویرایش فقط یک‌بار وجود دارد» and the like.
+ * Field errors (422) are joined so the user learns which field is wrong.
+ */
+export function apiMessage(err: unknown, fallback: string): string {
+  const e = (err as { error?: { message?: string; details?: Record<string, string[]> } })?.error;
+  if (!e) return fallback;
+  const details = e.details
+    ? Object.values(e.details).flat().filter(Boolean).join(" · ")
+    : "";
+  return details || e.message || fallback;
+}

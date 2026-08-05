@@ -44,7 +44,7 @@ export const fromKnowledge = (k: any) => ({
 export const toKnowledge = (v: any) => ({ title: v.title, category: v.category, doc_type: docTypeApi[v.type] ?? "report", size: v.size, visibility: visToApi(v.visibility) });
 
 export const fromForum = (t: any) => ({
-  id: t.id, title: t.title, author: t.author?.name ?? "—", replies: t.reply_count ?? 0, views: t.views ?? 0,
+  id: t.id, title: t.title, body: t.body ?? "", author: t.author?.name ?? "—", replies: t.reply_count ?? 0, views: t.views ?? 0,
   lastActivity: relativeFa(t.updated_at ?? t.created_at), category: t.category, solved: t.solved, visibility: visToFa(t.visibility),
 });
 export const toForum = (v: any) => ({ title: v.title, body: v.body ?? "", category: v.category, visibility: visToApi(v.visibility) });
@@ -249,6 +249,7 @@ export const toNfProject = (v: any) => ({
 
 // ── Competitions + challenges ────────────────────────────────────────────────
 const cpStatus: Record<string, string> = { open: "ثبت‌نام باز", judging: "در حال داوری", results: "اعلام نتایج" };
+export const cpStatusApi: Record<string, string> = Object.fromEntries(Object.entries(cpStatus).map(([k, v]) => [v, k]));
 export const fromCompetition = (c: any) => ({
   id: c.id, title: c.title, category: c.category, deadline: c.deadline,
   participants: c.participants, status: cpStatus[c.status] ?? c.status, prize: c.prize,
@@ -256,6 +257,7 @@ export const fromCompetition = (c: any) => ({
 });
 
 const chKind: Record<string, string> = { individual: "فردی", collective: "همگانی" };
+export const chKindApi: Record<string, string> = Object.fromEntries(Object.entries(chKind).map(([k, v]) => [v, k]));
 const chStat: Record<string, string> = { active: "فعال", ended: "پایان‌یافته" };
 export const fromChallenge = (c: any) => ({
   id: c.id, title: c.title, kind: chKind[c.kind] ?? c.kind, category: c.category,
@@ -264,6 +266,7 @@ export const fromChallenge = (c: any) => ({
 
 // ── Awards (innovation award: tracks + entries) ─────────────────────────────
 const awStatus: Record<string, string> = { submitted: "ثبت‌شده", validating: "صحت‌سنجی هلدینگ", judging: "در حال داوری", scored: "امتیازدهی شده", finalist: "منتخب مرحله نهایی" };
+export const awStatusApi: Record<string, string> = Object.fromEntries(Object.entries(awStatus).map(([k, v]) => [v, k]));
 export const fromAwardTrack = (t: any) => ({
   id: t.id, title: t.title, categories: Array.isArray(t.categories) ? t.categories : [],
   submissions: t.submission_count ?? (t.entries?.length ?? 0),
@@ -272,6 +275,15 @@ export const fromAwardTrack = (t: any) => ({
 export const fromAwardEntry = (e: any, trackTitle = "") => ({
   id: e.id, title: e.title, track: trackTitle, company: e.company ?? "",
   status: awStatus[e.status] ?? e.status, score: e.score ?? undefined, editUsed: e.edit_used,
+});
+
+// ── Quizzes (assessment + judging) ──────────────────────────────────────────
+const qzStatus: Record<string, string> = { open: "باز", judging: "در حال داوری", closed: "پایان‌یافته" };
+export const qzStatusApi: Record<string, string> = Object.fromEntries(Object.entries(qzStatus).map(([k, v]) => [v, k]));
+export const fromQuiz = (q: any) => ({
+  id: q.id, title: q.title, questions: q.questions ?? 0, minutes: q.minutes ?? 0,
+  deadline: q.deadline ?? "", status: qzStatus[q.status] ?? q.status,
+  passing: q.passing ?? 60, myScore: q.my_score ?? undefined,
 });
 
 // ── Project tasks (Kanban board) ────────────────────────────────────────────

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Poll, PollOption
+from .models import Poll, PollOption, Quiz
 
 
 class PollOptionSerializer(serializers.ModelSerializer):
@@ -31,3 +31,24 @@ class PollSerializer(serializers.ModelSerializer):
         for label in labels:
             PollOption.objects.create(poll=poll, label=label, tenant=poll.tenant)
         return poll
+
+
+class QuizSerializer(serializers.ModelSerializer):
+    my_score = serializers.SerializerMethodField()
+    participants = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Quiz
+        fields = ["id", "title", "questions", "minutes", "deadline", "status",
+                  "passing", "my_score", "participants", "created_at"]
+        read_only_fields = ["id", "my_score", "participants", "created_at"]
+
+    def get_my_score(self, obj):
+        user = getattr(self.context.get("request"), "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return None
+        attempt = obj.attempts.filter(user=user).first()
+        return attempt.score if attempt else None
+
+    def get_participants(self, obj):
+        return obj.attempts.count()

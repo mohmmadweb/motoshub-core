@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Flag, UserPlus, FileText, MessagesSquare } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Flag, UserPlus, UserMinus, FileText, MessagesSquare, Pencil, Trash2 } from "lucide-react";
 import { type Post } from "../data/types";
-import { http } from "../lib/http";
+import { http, apiMessage } from "../lib/http";
 import { fromPost } from "../lib/adapters";
 import { useContent } from "../context/ContentContext";
 import PostCard from "../components/PostCard";
 import Tabs from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
 import EmptyState from "../components/ui/EmptyState";
 import { VisibilityBadge, VisibilityToggle } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 import GroupChat from "../components/GroupChat";
 import GroupMembersPanel, { type GroupMember } from "../components/GroupMembersPanel";
 import { getUser } from "../lib/http";
@@ -19,14 +21,20 @@ type TabId = "chat" | "posts" | "forum" | "members" | "docs";
 
 export default function GroupDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { groups, setGroups } = useContent();
   const { notify } = useToast();
+  const confirm = useConfirm();
   const group = groups.find((g) => g.id === id);
   const [tab, setTab] = useState<TabId>("chat");
   const [groupPosts, setGroupPosts] = useState<Post[]>([]);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [channelId, setChannelId] = useState<string | undefined>();
   const [slowMode, setSlowMode] = useState(0);
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", category: "", privacy: "عمومی" as "عمومی" | "خصوصی" });
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportText, setReportText] = useState("");
   const me = getUser() as { id?: string } | null;
 
   useEffect(() => {
@@ -53,6 +61,76 @@ export default function GroupDetail() {
     notify(`گروه «${group.name}» به ${next} تغییر یافت.`, next === "عمومی" ? "success" : "info");
   };
 
+  const openEdit = () => {
+    setForm({ name: group.name, description: group.description, category: group.category, privacy: group.privacy });
+    setEditOpen(true);
+  };
+
+  const saveEdit = () => {
+    if (!form.name.trim() || !form.category.trim()) {
+      notify("نام گروه و دسته‌بندی الزامی است.", "warning");
+      return;
+    }
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.id === group.id
+          ? { ...g, name: form.name.trim(), description: form.description.trim() || "بدون توضیحات", category: form.category.trim(), privacy: form.privacy }
+          : g
+      )
+    );
+    notify(`گروه «${form.name.trim()}» ویرایش شد.`);
+    setEditOpen(false);
+  };
+
+  const removeGroup = () =>
+    confirm({
+      title: `حذف گروه «${group.name}»؟`,
+      message: `${group.members.toLocaleString("fa-IR")} عضو از این گروه خارج می‌شوند و گفتگوها و اسناد گروه در دسترس نخواهد بود.`,
+      onConfirm: () => {
+        setGroups((prev) => prev.filter((g) => g.id !== group.id));
+        notify(`گروه «${group.name}» حذف شد.`, "info");
+        navigate("/dashboard/groups");
+      },
+    });
+
+  const toggleMembership = async () => {
+    const joining = !myMembership;
+    try {
+      await http(`/groups/${group.id}/${joining ? "join" : "leave"}`, { method: "POST" });
+      const rows = await http<GroupMember[]>(`/groups/${group.id}/members`);
+      setMembers(rows);
+      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, members: rows.length } : g)));
+      notify(joining ? `به گروه «${group.name}» پیوستید.` : `از گروه «${group.name}» خارج شدید.`, "info");
+    } catch (err) {
+      notify(apiMessage(err, joining ? "عضویت ناموفق بود." : "خروج از گروه ناموفق بود."), "warning");
+    }
+  };
+
+  // A report has to reach someone. It opens a real support ticket rather than
+  // showing a toast and vanishing.
+  const sendReport = async () => {
+    if (!reportText.trim()) {
+      notify("شرح تخلف الزامی است.", "warning");
+      return;
+    }
+    try {
+      await http("/tickets", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: `گزارش تخلف در گروه «${group.name}»`,
+          category: "گزارش تخلف",
+          priority: "urgent",
+          body: reportText.trim(),
+        }),
+      });
+      notify("گزارش شما برای ناظمان ارسال شد.");
+      setReportOpen(false);
+      setReportText("");
+    } catch (err) {
+      notify(apiMessage(err, "ارسال گزارش ناموفق بود."), "warning");
+    }
+  };
+
   return (
     <div>
       <div className="rounded-lg border border-ink-200 bg-navy-900 p-6 mb-5 flex items-center justify-between flex-wrap gap-4">
@@ -70,12 +148,27 @@ export default function GroupDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <VisibilityToggle visibility={group.privacy} onChange={togglePrivacy} size="sm" />
-          <Button variant="secondary" size="sm" icon={<Flag size={13} />}>
+          {canModerate && <VisibilityToggle visibility={group.privacy} onChange={togglePrivacy} size="sm" />}
+          {canModerate && (
+            <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={openEdit}>
+              ویرایش گروه
+            </Button>
+          )}
+          {canModerate && (
+            <Button variant="secondary" size="sm" icon={<Trash2 size={13} />} onClick={removeGroup}>
+              حذف گروه
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" icon={<Flag size={13} />} onClick={() => setReportOpen(true)}>
             گزارش تخلف
           </Button>
-          <Button variant="primary" size="sm" icon={<UserPlus size={13} />}>
-            عضو شده‌اید
+          <Button
+            variant={myMembership ? "secondary" : "primary"}
+            size="sm"
+            icon={myMembership ? <UserMinus size={13} /> : <UserPlus size={13} />}
+            onClick={toggleMembership}
+          >
+            {myMembership ? "خروج از گروه" : "پیوستن به گروه"}
           </Button>
         </div>
       </div>
@@ -130,6 +223,49 @@ export default function GroupDetail() {
       {tab === "docs" && (
         <EmptyState icon={<FileText size={20} />} title="اسناد گروه" description="اسناد بارگذاری‌شده در این گروه، از ماژول مدیریت دانش با دسته‌بندی این گروه نمایش داده می‌شود." />
       )}
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="ویرایش گروه" description="تغییرات برای همه‌ی اعضای گروه اعمال می‌شود.">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام گروه <span className="text-rose-500">*</span></label>
+            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="input-field" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">توضیحات</label>
+            <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="input-field min-h-20" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">دسته‌بندی <span className="text-rose-500">*</span></label>
+              <input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">حریم خصوصی</label>
+              <select value={form.privacy} onChange={(e) => setForm((f) => ({ ...f, privacy: e.target.value as "عمومی" | "خصوصی" }))} className="input-field">
+                <option value="عمومی">عمومی</option>
+                <option value="خصوصی">خصوصی</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button variant="primary" className="flex-1 justify-center" onClick={saveEdit}>ذخیره تغییرات</Button>
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={reportOpen} onClose={() => setReportOpen(false)} title={`گزارش تخلف — ${group.name}`} description="گزارش شما به‌صورت یک تیکت فوری برای ناظمان ثبت می‌شود.">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">شرح تخلف <span className="text-rose-500">*</span></label>
+            <textarea value={reportText} onChange={(e) => setReportText(e.target.value)} className="input-field min-h-28" placeholder="چه چیزی را گزارش می‌کنید؟" />
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button variant="primary" className="flex-1 justify-center" onClick={sendReport}>ارسال گزارش</Button>
+            <Button variant="secondary" onClick={() => setReportOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

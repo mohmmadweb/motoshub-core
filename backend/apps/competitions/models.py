@@ -25,6 +25,9 @@ class CompetitionEntry(TenantScopedModel):
     by = models.CharField(max_length=200)
     title = models.CharField(max_length=300)
     color = models.CharField(max_length=9, default="#5e7191")
+    # {url, name, kind, size} as returned by /uploads — the submitted work
+    # itself, so an entry is more than a title in a voting list.
+    attachment = models.JSONField(default=dict, blank=True)
 
     class Meta(TenantScopedModel.Meta):
         db_table = "competitions_entry"

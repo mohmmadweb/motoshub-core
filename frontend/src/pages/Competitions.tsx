@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { Trophy, Plus, Image as ImageIcon, ThumbsUp, Flag, Swords, Users2 } from "lucide-react";
-import { http } from "../lib/http";
-import { fromCompetition, fromChallenge } from "../lib/adapters";
-import { voteEntryApi, joinChallengeApi } from "../lib/competitions";
+import { http, apiMessage } from "../lib/http";
+import { fromCompetition, fromChallenge, cpStatusApi, chKindApi } from "../lib/adapters";
+import { voteEntryApi, joinChallengeApi, submitEntryApi, deleteEntryApi } from "../lib/competitions";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Tabs from "../components/ui/Tabs";
+import Modal from "../components/ui/Modal";
+import RowActions from "../components/ui/RowActions";
+import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 import { useTabParam } from "../lib/useTabParam";
 
 // مسابقات (iiscompetition) + چالش‌ها (iischallenge)
@@ -34,17 +38,130 @@ type Challenge = {
 };
 
 const compTone: Record<Competition["status"], BadgeTone> = { "ثبت‌نام باز": "success", "در حال داوری": "warning", "اعلام نتایج": "navy" };
+const compStatuses: Competition["status"][] = ["ثبت‌نام باز", "در حال داوری", "اعلام نتایج"];
 
 export default function Competitions() {
   const [tab, setTab] = useTabParam<"comp" | "challenge">("comp", ["comp", "challenge"]);
   const [comps, setComps] = useState<Competition[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const { notify } = useToast();
+  const confirm = useConfirm();
+
+  const [compOpen, setCompOpen] = useState(false);
+  const [editingCompId, setEditingCompId] = useState<string | null>(null);
+  const [compForm, setCompForm] = useState({ title: "", category: "", deadline: "", prize: "", status: "ثبت‌نام باز" as Competition["status"] });
+
+  const [chOpen, setChOpen] = useState(false);
+  const [editingChId, setEditingChId] = useState<string | null>(null);
+  const [chForm, setChForm] = useState({ title: "", category: "", kind: "همگانی" as Challenge["kind"] });
+
+  const [entryOpen, setEntryOpen] = useState(false);
+  const [entryComp, setEntryComp] = useState<Competition | null>(null);
+  const [entryTitle, setEntryTitle] = useState("");
+  const [entryFile, setEntryFile] = useState<File | null>(null);
+
+  const loadComps = () =>
+    http<any[]>("/competitions?page_size=100").then((rows) => setComps(rows.map(fromCompetition) as Competition[]));
+  const loadChallenges = () =>
+    http<any[]>("/challenges?page_size=100").then((rows) => setChallenges(rows.map(fromChallenge) as Challenge[]));
 
   useEffect(() => {
-    http<any[]>("/competitions?page_size=100").then((rows) => setComps(rows.map(fromCompetition) as Competition[])).catch(() => {});
-    http<any[]>("/challenges?page_size=100").then((rows) => setChallenges(rows.map(fromChallenge) as Challenge[])).catch(() => {});
+    loadComps().catch(() => {});
+    loadChallenges().catch(() => {});
   }, []);
+
+  // ── competitions ──────────────────────────────────────────────────────────
+  const openCompModal = (c?: Competition) => {
+    if (c) {
+      setEditingCompId(c.id);
+      setCompForm({ title: c.title, category: c.category, deadline: c.deadline, prize: c.prize, status: c.status });
+    } else {
+      setEditingCompId(null);
+      setCompForm({ title: "", category: "", deadline: "", prize: "", status: "ثبت‌نام باز" });
+    }
+    setCompOpen(true);
+  };
+
+  const submitComp = async () => {
+    if (!compForm.title.trim()) {
+      notify("عنوان مسابقه الزامی است.", "warning");
+      return;
+    }
+    const body = {
+      title: compForm.title.trim(),
+      category: compForm.category.trim() || "عمومی",
+      deadline: compForm.deadline.trim(),
+      prize: compForm.prize.trim(),
+      status: cpStatusApi[compForm.status] ?? "open",
+    };
+    try {
+      if (editingCompId) {
+        await http(`/competitions/${editingCompId}`, { method: "PATCH", body: JSON.stringify(body) });
+        notify("مسابقه ویرایش شد.");
+      } else {
+        await http("/competitions", { method: "POST", body: JSON.stringify(body) });
+        notify("مسابقه ایجاد شد.");
+      }
+      await loadComps();
+      setCompOpen(false);
+      setEditingCompId(null);
+    } catch (err) {
+      notify(apiMessage(err, "ثبت مسابقه ناموفق بود."), "warning");
+    }
+  };
+
+  const removeComp = (c: Competition) =>
+    confirm({
+      title: `حذف مسابقه «${c.title}»؟`,
+      message: `${c.entries.length.toLocaleString("fa-IR")} اثر ارسال‌شده و آرای آن نیز حذف می‌شود.`,
+      onConfirm: async () => {
+        try {
+          await http(`/competitions/${c.id}`, { method: "DELETE" });
+          await loadComps();
+          notify("مسابقه حذف شد.", "info");
+        } catch (err) {
+          notify(apiMessage(err, "حذف مسابقه ناموفق بود."), "warning");
+        }
+      },
+    });
+
+  // ── entries ───────────────────────────────────────────────────────────────
+  const openEntryModal = (c: Competition) => {
+    setEntryComp(c);
+    setEntryTitle("");
+    setEntryFile(null);
+    setEntryOpen(true);
+  };
+
+  const submitEntry = async () => {
+    if (!entryComp || !entryTitle.trim()) {
+      notify("عنوان اثر الزامی است.", "warning");
+      return;
+    }
+    try {
+      await submitEntryApi(entryComp.id, entryTitle.trim(), entryFile);
+      await loadComps();
+      notify(`اثر «${entryTitle.trim()}» ارسال شد.`);
+      setEntryOpen(false);
+    } catch (err) {
+      notify(apiMessage(err, "ارسال اثر ناموفق بود."), "warning");
+    }
+  };
+
+  const removeEntry = (e: Competition["entries"][number]) =>
+    confirm({
+      title: `حذف اثر «${e.title}»؟`,
+      message: "آرای ثبت‌شده روی این اثر نیز حذف می‌شود.",
+      onConfirm: async () => {
+        try {
+          await deleteEntryApi(e.id);
+          await loadComps();
+          notify("اثر حذف شد.", "info");
+        } catch (err) {
+          notify(apiMessage(err, "حذف اثر ناموفق بود."), "warning");
+        }
+      },
+    });
 
   const voteEntry = (cid: string, eid: string) => {
     setComps((prev) =>
@@ -62,6 +179,59 @@ export default function Competitions() {
     voteEntryApi(eid).catch(() => {});
   };
 
+  // ── challenges ────────────────────────────────────────────────────────────
+  const openChModal = (c?: Challenge) => {
+    if (c) {
+      setEditingChId(c.id);
+      setChForm({ title: c.title, category: c.category, kind: c.kind });
+    } else {
+      setEditingChId(null);
+      setChForm({ title: "", category: "", kind: "همگانی" });
+    }
+    setChOpen(true);
+  };
+
+  const submitCh = async () => {
+    if (!chForm.title.trim()) {
+      notify("عنوان چالش الزامی است.", "warning");
+      return;
+    }
+    const body = {
+      title: chForm.title.trim(),
+      category: chForm.category.trim() || "عمومی",
+      kind: chKindApi[chForm.kind] ?? "collective",
+    };
+    try {
+      if (editingChId) {
+        await http(`/challenges/${editingChId}`, { method: "PATCH", body: JSON.stringify(body) });
+        notify("چالش ویرایش شد.");
+      } else {
+        await http("/challenges", { method: "POST", body: JSON.stringify(body) });
+        notify("چالش ایجاد شد.");
+      }
+      await loadChallenges();
+      setChOpen(false);
+      setEditingChId(null);
+    } catch (err) {
+      notify(apiMessage(err, "ثبت چالش ناموفق بود."), "warning");
+    }
+  };
+
+  const removeCh = (c: Challenge) =>
+    confirm({
+      title: `حذف چالش «${c.title}»؟`,
+      message: "پیشرفت ثبت‌شده‌ی شرکت‌کنندگان نیز حذف می‌شود.",
+      onConfirm: async () => {
+        try {
+          await http(`/challenges/${c.id}`, { method: "DELETE" });
+          await loadChallenges();
+          notify("چالش حذف شد.", "info");
+        } catch (err) {
+          notify(apiMessage(err, "حذف چالش ناموفق بود."), "warning");
+        }
+      },
+    });
+
   return (
     <div>
       <PageHeader
@@ -69,8 +239,8 @@ export default function Competitions() {
         description="مسابقات سازمانی با ارسال اثر و رأی‌گیری، و چالش‌های فردی/همگانی با پایش پیشرفت"
         icon={<Trophy size={18} />}
         actions={
-          <Button variant="primary" icon={<Plus size={15} />} onClick={() => notify("فرم تعریف مسابقه/چالش جدید (ویژه راهبران) باز شد.", "info")}>
-            مورد جدید
+          <Button variant="primary" icon={<Plus size={15} />} onClick={() => (tab === "comp" ? openCompModal() : openChModal())}>
+            {tab === "comp" ? "مسابقه جدید" : "چالش جدید"}
           </Button>
         }
       />
@@ -83,18 +253,23 @@ export default function Competitions() {
         onChange={setTab}
       />
 
+      {tab === "comp" && comps.length === 0 && <EmptyState icon={<Trophy size={20} />} title="هنوز مسابقه‌ای تعریف نشده" />}
+
       {tab === "comp" && (
         <div className="space-y-4">
           {comps.map((c) => (
             <div key={c.id} className="card p-4">
               <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
                 <p className="text-sm font-bold text-ink-900">{c.title}</p>
-                <Badge tone={compTone[c.status]}>{c.status}</Badge>
+                <span className="flex items-center gap-1">
+                  <Badge tone={compTone[c.status]}>{c.status}</Badge>
+                  <RowActions onEdit={() => openCompModal(c)} onDelete={() => removeComp(c)} />
+                </span>
               </div>
               <p className="text-[11.5px] text-ink-400 mb-3 flex items-center gap-2 flex-wrap">
                 <Badge tone="neutral">{c.category}</Badge>
                 <span className="flex items-center gap-1"><Users2 size={11} /> {c.participants.toLocaleString("fa-IR")} شرکت‌کننده</span>
-                · مهلت ارسال {c.deadline} · جایزه: {c.prize}
+                · مهلت ارسال {c.deadline || "—"} · جایزه: {c.prize || "—"}
               </p>
               {c.entries.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
@@ -106,7 +281,10 @@ export default function Competitions() {
                       <div className="p-2.5">
                         <p className="text-[12px] font-medium text-ink-900 truncate">{e.title}</p>
                         <div className="flex items-center justify-between mt-1.5">
-                          <span className="text-[10.5px] text-ink-400 truncate">{e.by}</span>
+                          <span className="text-[10.5px] text-ink-400 truncate flex items-center gap-0.5">
+                            {e.by}
+                            <RowActions onDelete={() => removeEntry(e)} size={12} />
+                          </span>
                           <button
                             onClick={() => voteEntry(c.id, e.id)}
                             className={`flex items-center gap-1 text-[11px] rounded-full border px-2 py-0.5 transition-colors ${
@@ -122,7 +300,7 @@ export default function Competitions() {
                 </div>
               )}
               {c.status === "ثبت‌نام باز" && (
-                <Button variant="secondary" size="sm" onClick={() => notify(`فرم ارسال اثر برای «${c.title}» باز شد.`, "info")}>
+                <Button variant="secondary" size="sm" onClick={() => openEntryModal(c)}>
                   ارسال اثر
                 </Button>
               )}
@@ -136,6 +314,7 @@ export default function Competitions() {
 
       {tab === "challenge" && (
         <div className="card divide-y divide-ink-100">
+          {challenges.length === 0 && <p className="p-6 text-center text-sm text-ink-400">هنوز چالشی تعریف نشده است.</p>}
           {challenges.map((c) => {
             const isJoined = !!c.isJoined;
             return (
@@ -172,12 +351,91 @@ export default function Competitions() {
                       {isJoined ? "عضو هستید" : "پیوستن"}
                     </Button>
                   )}
+                  <RowActions onEdit={() => openChModal(c)} onDelete={() => removeCh(c)} />
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <Modal open={compOpen} onClose={() => setCompOpen(false)} title={editingCompId ? "ویرایش مسابقه" : "تعریف مسابقه جدید"}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان مسابقه <span className="text-rose-500">*</span></label>
+            <input value={compForm.title} onChange={(e) => setCompForm((f) => ({ ...f, title: e.target.value }))} className="input-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">دسته‌بندی</label>
+              <input value={compForm.category} onChange={(e) => setCompForm((f) => ({ ...f, category: e.target.value }))} className="input-field" placeholder="عکاسی" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مهلت ارسال</label>
+              <input value={compForm.deadline} onChange={(e) => setCompForm((f) => ({ ...f, deadline: e.target.value }))} className="input-field" placeholder="۱۴۰۵/۰۵/۲۰" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">جایزه</label>
+              <input value={compForm.prize} onChange={(e) => setCompForm((f) => ({ ...f, prize: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">وضعیت</label>
+              <select value={compForm.status} onChange={(e) => setCompForm((f) => ({ ...f, status: e.target.value as Competition["status"] }))} className="input-field">
+                {compStatuses.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitComp}>{editingCompId ? "ذخیره تغییرات" : "ایجاد مسابقه"}</Button>
+            <Button variant="secondary" onClick={() => setCompOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={chOpen} onClose={() => setChOpen(false)} title={editingChId ? "ویرایش چالش" : "تعریف چالش جدید"}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان چالش <span className="text-rose-500">*</span></label>
+            <input value={chForm.title} onChange={(e) => setChForm((f) => ({ ...f, title: e.target.value }))} className="input-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">دسته‌بندی</label>
+              <input value={chForm.category} onChange={(e) => setChForm((f) => ({ ...f, category: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">نوع</label>
+              <select value={chForm.kind} onChange={(e) => setChForm((f) => ({ ...f, kind: e.target.value as Challenge["kind"] }))} className="input-field">
+                <option value="همگانی">همگانی</option>
+                <option value="فردی">فردی</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitCh}>{editingChId ? "ذخیره تغییرات" : "ایجاد چالش"}</Button>
+            <Button variant="secondary" onClick={() => setChOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={entryOpen} onClose={() => setEntryOpen(false)} title={`ارسال اثر${entryComp ? ` — ${entryComp.title}` : ""}`}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان اثر <span className="text-rose-500">*</span></label>
+            <input value={entryTitle} onChange={(e) => setEntryTitle(e.target.value)} className="input-field" placeholder="مثلاً: ربات جوشکار خط بدنه" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">فایل اثر</label>
+            <input type="file" className="input-field" onChange={(e) => setEntryFile(e.target.files?.[0] ?? null)} />
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitEntry}>ارسال اثر</Button>
+            <Button variant="secondary" onClick={() => setEntryOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

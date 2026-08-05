@@ -9,7 +9,11 @@ class EntrySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CompetitionEntry
-        fields = ["id", "by", "title", "color", "votes", "my_vote"]
+        fields = ["id", "competition", "by", "title", "color", "attachment", "votes", "my_vote"]
+        # `by` is stamped from the signed-in user — a submitter must not be able
+        # to enter someone else's name on an entry that then collects votes.
+        read_only_fields = ["id", "by", "votes", "my_vote"]
+        extra_kwargs = {"competition": {"write_only": True}}
 
     def get_votes(self, obj):
         return obj.votes.count()

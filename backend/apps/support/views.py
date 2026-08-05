@@ -24,7 +24,13 @@ class TicketViewSet(TenantScopedModelViewSet):
     def perform_create(self, serializer):
         import time
         number = f"TK-{int(time.time()) % 100000:05d}"
-        serializer.save(tenant=self.request.tenant, author=self.request.user, number=number)
+        body = serializer.validated_data.pop("body", "").strip()
+        ticket = serializer.save(tenant=self.request.tenant, author=self.request.user, number=number)
+        if body:
+            TicketMessage.objects.create(
+                ticket=ticket, author=self.request.user, body=body,
+                from_support=False, tenant=self.request.tenant,
+            )
 
     @action(detail=True, methods=["post"])
     def reply(self, request, pk=None):
