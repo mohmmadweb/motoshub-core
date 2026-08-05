@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from .storage import StorageUsageView
 from .views import (
     AssistantView,
     ReportDimensionsView,
@@ -28,4 +29,5 @@ urlpatterns = router.urls + [
     path("assistant/suggestions", AssistantView.as_view(), name="assistant-suggestions"),
     path("assistant/ask", AssistantView.as_view(), name="assistant-ask"),
     path("search", SearchView.as_view(), name="search"),
+    path("settings/storage", StorageUsageView.as_view(), name="storage-usage"),
 ]

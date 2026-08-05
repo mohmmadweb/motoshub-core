@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { http, apiMessage } from "../lib/http";
 import {
   SlidersHorizontal,
   HardDrive,
@@ -128,48 +129,66 @@ export function SystemSection({ notify }: { notify: Notify }) {
   );
 }
 
-const storageCategories = [
-  { label: "پیوست‌ها و اسناد", sizeGb: 48.2, files: 12840, color: "bg-brand-600" },
-  { label: "تصاویر و آواتارها", sizeGb: 21.6, files: 30125, color: "bg-emerald-500" },
-  { label: "ویدئو و رسانه", sizeGb: 64.9, files: 1890, color: "bg-navy-700" },
-  { label: "فایل‌های موقت", sizeGb: 3.1, files: 4210, color: "bg-amber-500" },
-  { label: "نسخه‌های پشتیبان", sizeGb: 38.4, files: 42, color: "bg-rose-500" },
-];
+type StorageCategory = { kind: string; label: string; color: string; sizeGb: number; files: number };
+type StorageConsumer = { id: string; name: string; type: string; sizeGb: number; files: number };
+type StorageUsage = {
+  disk_total_gb: number; disk_used_gb: number; disk_free_gb: number;
+  attachments_gb: number; attachments_files: number; database_gb: number;
+  categories: StorageCategory[]; top_consumers: StorageConsumer[]; orphan_records: number;
+};
 
-const topConsumers = [
-  { id: "s1", name: "گروه ستاد محرومیت‌زدایی", type: "گروه", sizeGb: 18.4 },
-  { id: "s2", name: "آرشیو رسانه روابط عمومی", type: "رسانه", sizeGb: 14.2 },
-  { id: "s3", name: "بنیاد علوی", type: "سازمان", sizeGb: 11.7 },
-  { id: "s4", name: "مستندات قراردادها", type: "اسناد", sizeGb: 8.9 },
-];
+const EMPTY_USAGE: StorageUsage = {
+  disk_total_gb: 0, disk_used_gb: 0, disk_free_gb: 0,
+  attachments_gb: 0, attachments_files: 0, database_gb: 0,
+  categories: [], top_consumers: [], orphan_records: 0,
+};
 
 export function StorageSection({ notify }: { notify: Notify }) {
-  const totalGb = 250;
-  const usedGb = storageCategories.reduce((s, c) => s + c.sizeGb, 0);
-  const usedPct = Math.round((usedGb / totalGb) * 100);
+  const [usage, setUsage] = useState<StorageUsage>(EMPTY_USAGE);
   const [cleaning, setCleaning] = useState(false);
 
-  const cleanTemp = () => {
+  const loadUsage = () => http<StorageUsage>("/settings/storage").then(setUsage);
+  useEffect(() => { loadUsage().catch(() => {}); }, []);
+
+  const storageCategories = usage.categories;
+  const topConsumers = usage.top_consumers;
+  const totalGb = usage.disk_total_gb;
+  const usedGb = usage.disk_used_gb;
+  const usedPct = totalGb ? Math.round((usedGb / totalGb) * 100) : 0;
+  // Guards the width calculation below when every category is still zero.
+  const largestGb = Math.max(1e-9, ...storageCategories.map((x) => x.sizeGb));
+
+  const cleanTemp = async () => {
     setCleaning(true);
-    setTimeout(() => {
+    try {
+      const res = await http<{ removed: number }>("/settings/storage", { method: "POST" });
+      await loadUsage();
+      notify(
+        res.removed > 0
+          ? `${res.removed.toLocaleString("fa-IR")} رکورد بدون فایل پاک‌سازی شد.`
+          : "رکورد بدون فایلی برای پاک‌سازی یافت نشد.",
+        res.removed > 0 ? "success" : "info"
+      );
+    } catch (err) {
+      notify(apiMessage(err, "پاک‌سازی ناموفق بود."), "warning");
+    } finally {
       setCleaning(false);
-      notify("فایل‌های موقت پاک‌سازی شد — ۳٫۱ گیگابایت آزاد شد.", "success");
-    }, 900);
+    }
   };
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="فضای کل دیسک" value={`${totalGb} GB`} icon={<HardDrive size={16} />} tone="brand" />
-        <StatCard label="فضای مصرف‌شده" value={`${usedGb.toFixed(1)} GB`} hint={`${usedPct}٪ از کل`} tone={usedPct > 80 ? "danger" : "success"} icon={<Database size={16} />} />
-        <StatCard label="تعداد کل فایل‌ها" value={storageCategories.reduce((s, c) => s + c.files, 0).toLocaleString("fa-IR")} icon={<FolderOpen size={16} />} />
-        <StatCard label="آخرین پشتیبان‌گیری" value="امروز ۰۳:۰۰" hint="روزانه — خودکار" tone="success" icon={<Archive size={16} />} />
+        <StatCard label="فضای کل دیسک" value={`${totalGb.toLocaleString("fa-IR")} GB`} icon={<HardDrive size={16} />} tone="brand" />
+        <StatCard label="فضای مصرف‌شده" value={`${usedGb.toFixed(1)} GB`} hint={`${usedPct.toLocaleString("fa-IR")}٪ از کل`} tone={usedPct > 80 ? "danger" : "success"} icon={<Database size={16} />} />
+        <StatCard label="تعداد کل فایل‌ها" value={usage.attachments_files.toLocaleString("fa-IR")} hint={`${usage.attachments_gb.toFixed(2)} GB پیوست`} icon={<FolderOpen size={16} />} />
+        <StatCard label="حجم پایگاه داده" value={`${usage.database_gb.toFixed(2)} GB`} hint="پشتیبان‌گیری روزانه — خودکار" tone="success" icon={<Archive size={16} />} />
       </div>
 
       <div className="card p-5">
         <div className="flex items-center justify-between text-xs mb-2">
           <h4 className="text-sm font-bold text-ink-900">مصرف کل دیسک</h4>
-          <span className="text-ink-500">{usedGb.toFixed(1)} از {totalGb} گیگابایت</span>
+          <span className="text-ink-500">{usedGb.toFixed(1)} از {totalGb.toLocaleString("fa-IR")} گیگابایت</span>
         </div>
         <div className="h-3 rounded-full bg-ink-100 overflow-hidden flex">
           {storageCategories.map((c) => (
@@ -196,7 +215,7 @@ export function StorageSection({ notify }: { notify: Notify }) {
                 <span className="text-ink-400">{c.sizeGb} GB · {c.files.toLocaleString("fa-IR")} فایل</span>
               </div>
               <div className="h-2 rounded-full bg-ink-100 overflow-hidden">
-                <div className={`h-full rounded-full ${c.color}`} style={{ width: `${(c.sizeGb / Math.max(...storageCategories.map((x) => x.sizeGb))) * 100}%` }} />
+                <div className={`h-full rounded-full ${c.color}`} style={{ width: `${(c.sizeGb / largestGb) * 100}%` }} />
               </div>
             </div>
           ))}
@@ -207,11 +226,12 @@ export function StorageSection({ notify }: { notify: Notify }) {
         <div className="card p-5">
           <h4 className="text-sm font-bold text-ink-900 mb-3">پرمصرف‌ترین‌ها</h4>
           <div className="space-y-2">
+            {topConsumers.length === 0 && <p className="text-xs text-ink-400">هنوز فایلی بارگذاری نشده است.</p>}
             {topConsumers.map((t) => (
               <div key={t.id} className="flex items-center justify-between text-xs bg-ink-50 rounded-lg p-2.5">
                 <div>
                   <p className="font-medium text-ink-800">{t.name}</p>
-                  <p className="text-ink-400 mt-0.5">{t.type}</p>
+                  <p className="text-ink-400 mt-0.5">{t.type} · {t.files.toLocaleString("fa-IR")} فایل</p>
                 </div>
                 <Badge tone="brand">{t.sizeGb} GB</Badge>
               </div>
@@ -224,8 +244,8 @@ export function StorageSection({ notify }: { notify: Notify }) {
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2 text-xs">
               <div>
-                <p className="font-medium text-ink-800">پاک‌سازی فایل‌های موقت</p>
-                <p className="text-ink-400 mt-0.5">فایل‌های tmp و chunkهای ناتمام قدیمی‌تر از ۲۴ ساعت</p>
+                <p className="font-medium text-ink-800">پاک‌سازی رکوردهای بدون فایل</p>
+                <p className="text-ink-400 mt-0.5">{usage.orphan_records.toLocaleString("fa-IR")} رکورد که فایلشان روی دیسک نیست (فایلی حذف نمی‌شود)</p>
               </div>
               <Button variant="secondary" size="sm" icon={<Trash2 size={13} />} onClick={cleanTemp} disabled={cleaning}>
                 {cleaning ? "در حال پاک‌سازی…" : "پاک‌سازی"}

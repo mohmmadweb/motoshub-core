@@ -104,9 +104,10 @@ const tStatus: Record<string, string> = { open: "باز", in_review: "در حا�
 export const fromTicket = (t: any) => ({
   id: t.id, no: t.number ?? "", subject: t.subject, category: t.category ?? "",
   priority: prio[t.priority] ?? "متوسط", status: tStatus[t.status] ?? "باز", updated: toJalali(t.updated_at ?? t.created_at),
-  messages: (t.messages ?? []).map((m: any) => ({ from: m.from_support ? "support" : "me", text: m.body, time: toTime(m.created_at) })),
+  messages: (t.messages ?? []).map((m: any) => ({ id: m.id, from: m.from_support ? "support" : "me", text: m.body, time: toTime(m.created_at) })),
 });
 export const toTicket = (v: any) => ({ subject: v.subject, category: v.category, priority: prioApi[v.priority] ?? "medium" });
+export const tPrioApi = prioApi;
 
 export const fromPoll = (p: any) => ({
   id: p.id, question: p.question, by: p.author?.name ?? "—", ends: toJalali(p.ends_at),

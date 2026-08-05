@@ -26,8 +26,9 @@ import {
   Award,
 } from "lucide-react";
 import { useTenant } from "../lib/useTenant";
+import { canAccessAdmin } from "../lib/perms";
 
-type Item = { to: string; label: string; icon: typeof Users; end?: boolean };
+type Item = { to: string; label: string; icon: typeof Users; end?: boolean; adminOnly?: boolean };
 
 export const navSections: { title: string; items: Item[] }[] = [
   {
@@ -68,7 +69,7 @@ export const navSections: { title: string; items: Item[] }[] = [
   {
     title: "مدیریت",
     items: [
-      { to: "/dashboard/admin", label: "پنل راهبری", icon: Settings },
+      { to: "/dashboard/admin", label: "پنل راهبری", icon: Settings, adminOnly: true },
       { to: "/dashboard/appearance", label: "ظاهر و برندسازی", icon: Palette },
       { to: "/dashboard/tickets", label: "تیکت پشتیبانی", icon: LifeBuoy },
       { to: "/dashboard/help", label: "راهنما", icon: HelpCircle },
@@ -80,6 +81,13 @@ const sections = navSections;
 
 export default function Sidebar() {
   const currentTenant = useTenant();
+  // ناوبری نقش‌محور: آیتم‌های مدیریتی فقط برای نقش‌های دارای اختیار.
+  // The console enforces the same permissions server-side; this only stops
+  // offering a destination the member would be refused at.
+  const isAdmin = canAccessAdmin();
+  const visibleSections = sections
+    .map((s) => ({ ...s, items: s.items.filter((i) => !i.adminOnly || isAdmin) }))
+    .filter((s) => s.items.length > 0);
   return (
     <aside className="hidden lg:flex flex-col w-[260px] shrink-0 border-l border-ink-200 bg-navy-900 h-screen sticky top-0">
       <div className="flex items-center gap-2.5 px-4 h-16 border-b border-white/10">
@@ -93,7 +101,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.title}>
             <p className="text-[10.5px] font-semibold text-navy-300 uppercase tracking-wide px-2.5 mb-1.5">{section.title}</p>
             <div className="space-y-0.5">

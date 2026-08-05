@@ -49,6 +49,9 @@ export default function Polls() {
   const [quizOpen, setQuizOpen] = useState(false);
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   const [quizForm, setQuizForm] = useState({ title: "", questions: "", minutes: "", deadline: "", passing: "", status: "باز" as Quiz["status"] });
+  const [sitOpen, setSitOpen] = useState(false);
+  const [sitQuiz, setSitQuiz] = useState<Quiz | null>(null);
+  const [sitScore, setSitScore] = useState("");
   const { notify } = useToast();
   const confirm = useConfirm();
 
@@ -165,6 +168,38 @@ export default function Polls() {
     }
   };
 
+  // Sitting the assessment. The question bank is not modelled yet, so what is
+  // recorded is the result — which is what the کارنامه and the pass mark act on.
+  const openSit = (q: Quiz) => {
+    setSitQuiz(q);
+    setSitScore(q.myScore !== undefined ? String(q.myScore) : "");
+    setSitOpen(true);
+  };
+
+  const submitScore = async () => {
+    if (!sitQuiz) return;
+    const n = Number(sitScore);
+    if (!sitScore.trim() || Number.isNaN(n) || n < 0 || n > 100) {
+      notify("نمره باید عددی بین ۰ تا ۱۰۰ باشد.", "warning");
+      return;
+    }
+    try {
+      const res = await http<{ score: number; passed: boolean }>(
+        `/quizzes/${sitQuiz.id}/submit`, { method: "POST", body: JSON.stringify({ score: n }) }
+      );
+      await loadQuizzes();
+      notify(
+        res.passed
+          ? `کارنامه ثبت شد — نمره ${res.score.toLocaleString("fa-IR")}؛ حدنصاب را کسب کردید.`
+          : `کارنامه ثبت شد — نمره ${res.score.toLocaleString("fa-IR")}؛ حدنصاب کسب نشد.`,
+        res.passed ? "success" : "warning"
+      );
+      setSitOpen(false);
+    } catch (err) {
+      notify(apiMessage(err, "ثبت کارنامه ناموفق بود."), "warning");
+    }
+  };
+
   const removeQuiz = (q: Quiz) =>
     confirm({
       title: `حذف آزمون «${q.title}»؟`,
@@ -265,6 +300,11 @@ export default function Polls() {
                   <Badge tone={q.myScore >= q.passing ? "success" : "danger"}>نمره شما: {q.myScore.toLocaleString("fa-IR")}</Badge>
                 )}
                 <Badge tone={quizTone[q.status]}>{q.status}</Badge>
+                {q.status === "باز" && (
+                  <Button variant="primary" size="sm" onClick={() => openSit(q)}>
+                    شرکت در آزمون
+                  </Button>
+                )}
                 <RowActions onEdit={() => openQuizModal(q)} onDelete={() => removeQuiz(q)} />
               </div>
             </div>
@@ -301,6 +341,24 @@ export default function Polls() {
               {editingPollId ? "ذخیره تغییرات" : "انتشار نظرسنجی"}
             </Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={sitOpen}
+        onClose={() => setSitOpen(false)}
+        title={`شرکت در آزمون${sitQuiz ? ` — ${sitQuiz.title}` : ""}`}
+        description={sitQuiz ? `${sitQuiz.questions.toLocaleString("fa-IR")} سوال · ${sitQuiz.minutes.toLocaleString("fa-IR")} دقیقه · حدنصاب ${sitQuiz.passing.toLocaleString("fa-IR")}` : undefined}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نمره کسب‌شده (۰ تا ۱۰۰) <span className="text-rose-500">*</span></label>
+            <input value={sitScore} onChange={(e) => setSitScore(e.target.value)} className="input-field" placeholder="۷۵" />
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitScore}>ثبت کارنامه</Button>
+            <Button variant="secondary" onClick={() => setSitOpen(false)}>انصراف</Button>
           </div>
         </div>
       </Modal>

@@ -39,6 +39,7 @@ import { me } from "../lib/me";
 import { useApiList } from "../lib/useApiList";
 import { fromUser, fromIntegration, toIntegration, fromGuestAccount, toGuestAccount } from "../lib/adapters";
 import { useTenant } from "../lib/useTenant";
+import { canAccessAdmin } from "../lib/perms";
 
 // The RBAC catalog is served by the backend (apps/rbac/catalog.py is the source of
 // truth); mapped here into the shape this screen renders.
@@ -98,6 +99,7 @@ const sections: { id: SectionId; label: string; icon: typeof Settings }[] = [
 const tenantPalette = ["#1f4f99", "#2a66bd", "#0d9488", "#7c3aed", "#b45309", "#0f172a"];
 
 export default function Admin() {
+  const isAdmin = canAccessAdmin();
   const [section, setSection] = useState<SectionId>("tenants");
   const realTenant = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -127,6 +129,24 @@ export default function Admin() {
   const [integrations, setIntegrations] = useApiCollection<Integration>("/integrations", fromIntegration as any, toIntegration as any);
   const [guestAccounts, setGuestAccounts] = useApiCollection<GuestAccount>("/guest-accounts", fromGuestAccount as any, toGuestAccount as any);
   const { notify } = useToast();
+
+  // Placed after every hook so the hook order stays stable between renders.
+  // The API refuses these operations independently; this only avoids showing a
+  // console the member cannot use.
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center py-24 px-6">
+        <span className="w-14 h-14 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+          <ShieldCheck size={24} />
+        </span>
+        <h1 className="text-lg font-bold text-ink-900 mb-2">دسترسی به پنل راهبری ندارید</h1>
+        <p className="text-sm text-ink-500 max-w-sm leading-7">
+          این بخش مخصوص نقش‌های مدیریتی (مدیر سیستم، مدیر هلدینگ یا مدیر شرکت) است. در صورت نیاز،
+          از مدیر مجموعه‌ی خود درخواست دسترسی کنید.
+        </p>
+      </div>
+    );
+  }
 
   const toggleModule = (id: string) => {
     setEnabledModules((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
