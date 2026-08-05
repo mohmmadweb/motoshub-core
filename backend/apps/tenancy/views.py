@@ -42,6 +42,29 @@ class PublicTenantsView(APIView):
         ])
 
 
+class PublicOrgStatsView(APIView):
+    """Unauthenticated: the figures and holding names on the landing page.
+
+    Aggregates and holding names only — nothing here identifies a person or
+    exposes anything a visitor could not already read on the public site.
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from apps.accounts.models import User
+
+        return Response({
+            "holdings": [
+                {"id": str(h.id), "name": h.name, "color": h.color}
+                for h in Holding.objects.order_by("name")[:24]
+            ],
+            "holding_count": Holding.objects.count(),
+            "company_count": Company.objects.count(),
+            "user_count": User.objects.filter(is_active=True).count(),
+        })
+
+
 class _TenantScoped(ModelViewSet):
     permission_classes = [HasPerm]
 

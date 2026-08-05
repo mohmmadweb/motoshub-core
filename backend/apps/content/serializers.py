@@ -17,7 +17,7 @@ class NewsSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = [
-            "id", "title", "summary", "body", "author", "pinned", "views",
+            "id", "title", "topic", "summary", "body", "author", "pinned", "views",
             "comment_count", "visibility", "scope", "holding", "company",
             "created_at", "updated_at", "image"]
         read_only_fields = ["id", "author", "views", "comment_count", "created_at", "updated_at"]
@@ -39,8 +39,8 @@ class EventSerializer(serializers.ModelSerializer):
         model = Event
         fields = [
             "id", "title", "starts_at", "location", "description", "attendees",
-            "hashtags", "mode", "join_link", "map_url", "author", "visibility",
-            "created_at", "updated_at", "image"]
+            "capacity", "category", "hashtags", "mode", "join_link", "map_url",
+            "author", "visibility", "created_at", "updated_at", "image"]
         read_only_fields = ["id", "author", "created_at", "updated_at"]
 
 
@@ -49,7 +49,7 @@ class MediaItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MediaItem
-        fields = ["id", "kind", "title", "album", "file", "color", "rating", "tags", "author", "visibility", "created_at", "updated_at", "image"]
+        fields = ["id", "kind", "title", "album", "file", "color", "rating", "duration", "tags", "author", "visibility", "created_at", "updated_at", "image"]
         read_only_fields = ["id", "author", "created_at", "updated_at"]
 
 

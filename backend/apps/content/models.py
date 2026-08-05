@@ -10,8 +10,17 @@ from django.db import models
 from apps.core.models import ContentScope, TenantScopedModel, Visibility
 
 
+class NewsTopic(models.TextChoices):
+    ECONOMIC = "economic", "اقتصادی"
+    SOCIAL = "social", "اجتماعی"
+    CULTURAL = "cultural", "فرهنگی"
+    CIVIL = "civil", "عمرانی"
+    ORG = "org", "سازمانی"
+
+
 class News(TenantScopedModel):
     title = models.CharField(max_length=300)
+    topic = models.CharField(max_length=10, choices=NewsTopic.choices, blank=True, help_text="برچسب موضوعی خبر")
     summary = models.CharField(max_length=500, blank=True)
     body = models.TextField(blank=True)
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="news")
@@ -59,12 +68,22 @@ class EventMode(models.TextChoices):
     ONLINE = "online", "آنلاین"
 
 
+class EventCategory(models.TextChoices):
+    MEETING = "meeting", "جلسه"
+    WORKSHOP = "workshop", "کارگاه"
+    WEBINAR = "webinar", "وبینار"
+    CONFERENCE = "conference", "همایش"
+    TRAINING = "training", "آموزش"
+
+
 class Event(TenantScopedModel):
     title = models.CharField(max_length=300)
     starts_at = models.DateTimeField()
     location = models.CharField(max_length=300, blank=True)
     description = models.TextField(blank=True)
     attendees = models.PositiveIntegerField(default=0)
+    capacity = models.PositiveIntegerField(default=0, help_text="ظرفیت کل ثبت‌نام؛ ۰ یعنی نامحدود")
+    category = models.CharField(max_length=12, choices=EventCategory.choices, blank=True)
     hashtags = models.JSONField(default=list, blank=True)
     mode = models.CharField(max_length=10, choices=EventMode.choices, default=EventMode.IN_PERSON)
     join_link = models.URLField(blank=True)
@@ -94,6 +113,7 @@ class MediaItem(TenantScopedModel):
     file = models.FileField(upload_to="media/", blank=True, null=True)
     color = models.CharField(max_length=9, default="#1f4f99")
     rating = models.DecimalField(max_digits=3, decimal_places=1, default=0)
+    duration = models.CharField(max_length=8, blank=True, help_text="مدت ویدیو، مثل ۰۴:۳۲")
     tags = models.JSONField(default=list, blank=True)
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="media")
     visibility = models.CharField(max_length=8, choices=Visibility.choices, default=Visibility.PRIVATE)

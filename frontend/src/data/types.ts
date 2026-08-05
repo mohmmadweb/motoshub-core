@@ -132,7 +132,14 @@ export type EventItem = {
   mode: "حضوری" | "آنلاین";
   joinLink?: string;
   mapUrl?: string;
+  /** دسته‌ی رویداد — مبنای فیلتر موضوعی */
+  category?: EventCategory;
+  /** ظرفیت کل ثبت‌نام (در کنار attendees = ثبت‌نام‌شده) */
+  capacity?: number;
 };
+
+export type EventCategory = "جلسه" | "کارگاه" | "وبینار" | "همایش" | "آموزش";
+export const eventCategories: EventCategory[] = ["جلسه", "کارگاه", "وبینار", "همایش", "آموزش"];
 
 export type BlogPost = {
   id: string;
@@ -156,7 +163,12 @@ export type MediaItem = {
   tags: string[];
   color: string;
   visibility: Visibility;
+  /** مدت ویدیو */
+  duration?: string;
 };
+
+export type NewsTopic = "اقتصادی" | "اجتماعی" | "فرهنگی" | "عمرانی" | "سازمانی";
+export const newsTopics: NewsTopic[] = ["اقتصادی", "اجتماعی", "فرهنگی", "عمرانی", "سازمانی"];
 
 export type NewsItem = {
   id: string;
@@ -167,6 +179,8 @@ export type NewsItem = {
   views: number;
   pinned?: boolean;
   visibility: Visibility;
+  /** برچسب موضوعی خبر */
+  topic?: NewsTopic;
 };
 
 export type SessionItem = {

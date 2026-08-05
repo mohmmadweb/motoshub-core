@@ -52,3 +52,15 @@ export const faToNumber = (s: string | number): number => {
   const latin = String(s).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
   return Number(latin.replace(/[^0-9.]/g, "")) || 0;
 };
+
+/**
+ * A Jalali date string as a sortable/comparable integer: ۱۴۰۵/۰۵/۱۳ → 14050513.
+ * Persian digits are accepted, since that is how dates travel through the UI.
+ */
+export const jalaliKey = (jalali: string): number => {
+  const [y, m, d] = (jalali || "").split("/").map(faToNumber);
+  return (y || 0) * 10000 + (m || 0) * 100 + (d || 0);
+};
+
+/** Today's Jalali date in the same integer form — the real today, not a fixed one. */
+export const todayJalaliKey = (): number => jalaliKey(toJalali(new Date().toISOString()));

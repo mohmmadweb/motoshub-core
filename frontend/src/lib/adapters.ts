@@ -8,11 +8,14 @@ const docType: Record<string, string> = { contract: "قرارداد", training: 
 const docTypeApi: Record<string, string> = { "قرارداد": "contract", "آموزشی": "training", "صورت‌جلسه": "minutes", "گزارش": "report" };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+const nwTopic: Record<string, string> = { economic: "اقتصادی", social: "اجتماعی", cultural: "فرهنگی", civil: "عمرانی", org: "سازمانی" };
+export const nwTopicApi: Record<string, string> = Object.fromEntries(Object.entries(nwTopic).map(([k, v]) => [v, k]));
 export const fromNews = (n: any) => ({
   id: n.id, title: n.title, summary: n.summary, date: toJalali(n.created_at),
   comments: n.comment_count ?? 0, views: n.views ?? 0, pinned: n.pinned, visibility: visToFa(n.visibility), image: n.image ?? "",
+  topic: nwTopic[n.topic] as any,
 });
-export const toNews = (v: any) => ({ title: v.title, summary: v.summary, pinned: v.pinned, visibility: visToApi(v.visibility) });
+export const toNews = (v: any) => ({ title: v.title, summary: v.summary, pinned: v.pinned, visibility: visToApi(v.visibility), ...(v.topic ? { topic: nwTopicApi[v.topic] ?? "" } : {}) });
 
 export const fromBlog = (b: any) => ({
   id: b.id, title: b.title, author: b.author?.name ?? "—", excerpt: b.excerpt,
@@ -20,20 +23,26 @@ export const fromBlog = (b: any) => ({
 });
 export const toBlog = (v: any) => ({ title: v.title, excerpt: v.excerpt, tags: v.tags ?? [], visibility: visToApi(v.visibility) });
 
+const evCat: Record<string, string> = { meeting: "جلسه", workshop: "کارگاه", webinar: "وبینار", conference: "همایش", training: "آموزش" };
+export const evCatApi: Record<string, string> = Object.fromEntries(Object.entries(evCat).map(([k, v]) => [v, k]));
 export const fromEvent = (e: any) => ({
   id: e.id, title: e.title, date: toJalali(e.starts_at), jalaliDate: toJalali(e.starts_at), time: toTime(e.starts_at),
   location: e.location, attendees: e.attendees ?? 0, hashtags: e.hashtags ?? [], description: e.description,
   visibility: visToFa(e.visibility), mode: e.mode === "online" ? "آنلاین" : "حضوری", joinLink: e.join_link, mapUrl: e.map_url, image: e.image ?? "",
+  category: evCat[e.category] as any, capacity: e.capacity || undefined,
 });
 export const toEvent = (v: any) => ({
   title: v.title, location: v.location, description: v.description, visibility: visToApi(v.visibility),
   mode: v.mode === "آنلاین" ? "online" : "in_person",
+  ...(v.category ? { category: evCatApi[v.category] ?? "" } : {}),
+  ...(v.capacity != null ? { capacity: v.capacity } : {}),
   ...(v.starts_at || v.date ? { starts_at: v.starts_at || v.date } : {}),
 });
 
 export const fromMedia = (m: any) => ({
   id: m.id, kind: m.kind, title: m.title, album: m.album, uploadedBy: m.author?.name ?? "—",
   date: toJalali(m.created_at), rating: Number(m.rating ?? 0), tags: m.tags ?? [], color: m.color ?? "#1f4f99", visibility: visToFa(m.visibility), image: m.image ?? "",
+  duration: m.duration || undefined,
 });
 export const toMedia = (v: any) => ({ kind: v.kind, title: v.title, album: v.album, color: v.color, visibility: visToApi(v.visibility) });
 
