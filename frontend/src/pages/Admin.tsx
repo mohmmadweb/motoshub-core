@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { SystemSection, StorageSection } from "./AdminSections";
 import { moduleCatalog, adminMenus } from "../data/constants";
-import { http } from "../lib/http";
+import { http, apiMessage } from "../lib/http";
 import { me } from "../lib/me";
 import { useApiList } from "../lib/useApiList";
 import { fromUser, fromIntegration, toIntegration, fromGuestAccount, toGuestAccount } from "../lib/adapters";
@@ -75,6 +75,7 @@ import Button from "../components/ui/Button";
 import Toggle from "../components/ui/Toggle";
 import StatCard from "../components/ui/StatCard";
 import Modal from "../components/ui/Modal";
+import RowActions from "../components/ui/RowActions";
 import { useToast } from "../components/ui/ToastProvider";
 
 type SectionId = "tenants" | "holdings" | "modules" | "branding" | "roles" | "pages" | "users" | "integrations" | "security" | "network" | "workflow" | "monitor" | "system" | "storage";
@@ -310,22 +311,84 @@ function WorkflowParamsSection({ notify }: { notify: Notify }) {
 type HoldingRow = { id: string; name: string; color: string; companies: { id: string; name: string }[] };
 
 function HoldingsSection({ notify }: { notify: Notify }) {
+  const confirm = useConfirm();
   const [holdingsList, setHoldingsList] = useState<HoldingRow[]>([]);
+  const [holdingOpen, setHoldingOpen] = useState(false);
+  const [editingHolding, setEditingHolding] = useState<HoldingRow | null>(null);
+  const [holdingForm, setHoldingForm] = useState({ name: "", color: "#0d9488" });
   const [open, setOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<{ id: string; name: string } | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [holdingId, setHoldingId] = useState("");
 
   // Real org tree from /holdings (each holding carries its companies).
-  useEffect(() => {
+  const load = () =>
     http<HoldingRow[]>("/holdings?page_size=100").then((r) => {
       setHoldingsList(r);
       setHoldingId((cur) => cur || (r[0]?.id ?? ""));
-    }).catch(() => {});
-  }, []);
+    });
+  useEffect(() => { load().catch(() => {}); }, []);
 
-  const addCompany = () => {
+  // ── holdings ──────────────────────────────────────────────────────────────
+  const openHoldingModal = (h?: HoldingRow) => {
+    if (h) {
+      setEditingHolding(h);
+      setHoldingForm({ name: h.name, color: h.color });
+    } else {
+      setEditingHolding(null);
+      setHoldingForm({ name: "", color: "#0d9488" });
+    }
+    setHoldingOpen(true);
+  };
+
+  const submitHolding = async () => {
+    if (!holdingForm.name.trim()) {
+      notify("نام هلدینگ الزامی است.", "warning");
+      return;
+    }
+    const body = { name: holdingForm.name.trim(), color: holdingForm.color };
+    try {
+      if (editingHolding) {
+        await http(`/holdings/${editingHolding.id}`, { method: "PATCH", body: JSON.stringify(body) });
+        notify(`هلدینگ «${body.name}» ویرایش شد.`);
+      } else {
+        await http("/holdings", { method: "POST", body: JSON.stringify(body) });
+        notify(`هلدینگ «${body.name}» ایجاد شد. حالا می‌توانید شرکت‌های زیرمجموعه‌اش را تعریف کنید.`);
+      }
+      await load();
+      setHoldingOpen(false);
+      setEditingHolding(null);
+    } catch (err) {
+      notify(apiMessage(err, "ثبت هلدینگ ناموفق بود."), "warning");
+    }
+  };
+
+  const removeHolding = (h: HoldingRow) =>
+    confirm({
+      title: `حذف هلدینگ «${h.name}»؟`,
+      message: `${h.companies.length.toLocaleString("fa-IR")} شرکت زیرمجموعه و همه‌ی محتوای اختصاصی آن‌ها نیز حذف می‌شود.`,
+      onConfirm: async () => {
+        try {
+          await http(`/holdings/${h.id}`, { method: "DELETE" });
+          await load();
+          notify(`هلدینگ «${h.name}» حذف شد.`, "info");
+        } catch (err) {
+          notify(apiMessage(err, "حذف هلدینگ ناموفق بود."), "warning");
+        }
+      },
+    });
+
+  // ── companies ─────────────────────────────────────────────────────────────
+  const openCompanyModal = (c?: { id: string; name: string }, parent?: string) => {
+    setEditingCompany(c ?? null);
+    setCompanyName(c?.name ?? "");
+    if (parent) setHoldingId(parent);
+    setOpen(true);
+  };
+
+  const submitCompany = async () => {
     if (!companyName.trim()) {
-      notify("نام شرکت الزامی است.", "warning");
+      notify("نام شرکت و هلدینگ مادر الزامی است.", "warning");
       return;
     }
     if (!holdingId) {
@@ -333,28 +396,57 @@ function HoldingsSection({ notify }: { notify: Notify }) {
       return;
     }
     const clean = companyName.trim();
-    // Persist, then reflect the server's row in the tree.
-    http<{ id: string; name: string }>("/companies", {
-      method: "POST", body: JSON.stringify({ name: clean, holding: holdingId }),
-    })
-      .then((created) =>
-        setHoldingsList((prev) =>
-          prev.map((h) => (h.id === holdingId ? { ...h, companies: [...h.companies, created] } : h))))
-      .catch(() => notify("ثبت شرکت ناموفق بود — دسترسی لازم را ندارید.", "warning"));
-    const holdingName = holdingsList.find((h) => h.id === holdingId)?.name ?? "";
-    notify(`شرکت «${clean}» به «${holdingName}» افزوده شد. از این پس محتوای اختصاصی و کاربران این شرکت قابل تعریف است.`);
-    setOpen(false);
-    setCompanyName("");
+    try {
+      if (editingCompany) {
+        await http(`/companies/${editingCompany.id}`, {
+          method: "PATCH", body: JSON.stringify({ name: clean, holding: holdingId }),
+        });
+        notify(`شرکت «${clean}» ویرایش شد.`);
+      } else {
+        await http("/companies", { method: "POST", body: JSON.stringify({ name: clean, holding: holdingId }) });
+        const holdingName = holdingsList.find((h) => h.id === holdingId)?.name ?? "";
+        // Announced only after the server accepted it — the previous version
+        // reported success while the request was still in flight.
+        notify(`شرکت «${clean}» به «${holdingName}» افزوده شد. از این پس محتوای اختصاصی و کاربران این شرکت قابل تعریف است.`);
+      }
+      await load();
+      setOpen(false);
+      setEditingCompany(null);
+      setCompanyName("");
+    } catch (err) {
+      notify(apiMessage(err, "ثبت شرکت ناموفق بود — دسترسی لازم را ندارید."), "warning");
+    }
   };
+
+  const removeCompany = (c: { id: string; name: string }) =>
+    confirm({
+      title: `حذف شرکت «${c.name}»؟`,
+      message: "کاربران و محتوای اختصاصی این شرکت دیگر در دسترس نخواهد بود.",
+      onConfirm: async () => {
+        try {
+          await http(`/companies/${c.id}`, { method: "DELETE" });
+          await load();
+          notify(`شرکت «${c.name}» حذف شد.`, "info");
+        } catch (err) {
+          notify(apiMessage(err, "حذف شرکت ناموفق بود."), "warning");
+        }
+      },
+    });
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <h3 className="text-sm font-bold text-ink-900">ساختار هلدینگ‌ها و شرکت‌های زیرمجموعه</h3>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
-          افزودن شرکت
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => openHoldingModal()}>
+            هلدینگ جدید
+          </Button>
+          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => openCompanyModal()}>
+            افزودن شرکت
+          </Button>
+        </div>
       </div>
+
       <div className="card p-4 mb-4 bg-brand-50 border-brand-200 flex items-start gap-3">
         <Network size={18} className="text-brand-700 shrink-0 mt-0.5" />
         <p className="text-xs text-brand-800 leading-6">
@@ -363,6 +455,21 @@ function HoldingsSection({ notify }: { notify: Notify }) {
           محتوای دامنه‌ی خودشان را می‌بینند (نمونه‌ی زنده در صفحه‌ی «اخبار سازمان»).
         </p>
       </div>
+
+      <div className="card p-4 mb-4 bg-ink-50 border-ink-200 flex items-start gap-3">
+        <ShieldCheck size={18} className="text-ink-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-ink-600 leading-6">
+          <p className="font-bold text-ink-800 mb-1">زنجیره‌ی واگذاری اختیار</p>
+          مدیر سیستم هلدینگ‌ها را می‌سازد و مدیر هر هلدینگ را منصوب می‌کند؛
+          مدیر هلدینگ شرکت‌های هلدینگ خودش را می‌سازد و مدیر شرکت را تعیین می‌کند؛ مدیر شرکت کاربران همان
+          شرکت را اضافه می‌کند. هیچ سطحی نمی‌تواند بیرون از دامنه‌ی خودش چیزی بدهد.
+        </div>
+      </div>
+
+      {holdingsList.length === 0 && (
+        <div className="card p-6 text-center text-xs text-ink-400">در دامنه‌ی شما هلدینگی برای مدیریت وجود ندارد.</div>
+      )}
+
       <div className="space-y-3">
         {holdingsList.map((h) => (
           <div key={h.id} className="card p-4">
@@ -370,11 +477,17 @@ function HoldingsSection({ notify }: { notify: Notify }) {
               <span className="w-7 h-7 rounded-lg shrink-0" style={{ backgroundColor: h.color }} />
               <p className="text-sm font-bold text-ink-900">{h.name}</p>
               <span className="text-xs text-ink-400">{h.companies.length.toLocaleString("fa-IR")} شرکت</span>
+              <span className="flex-1" />
+              <RowActions onEdit={() => openHoldingModal(h)} onDelete={() => removeHolding(h)} size={13} />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              {h.companies.length === 0 && (
+                <span className="text-xs text-ink-400">این هلدینگ شرکت زیرمجموعه‌ای ندارد.</span>
+              )}
               {h.companies.map((c) => (
                 <span key={c.id} className="text-xs text-ink-700 bg-ink-50 border border-ink-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5">
                   <Building2 size={12} className="text-ink-400" /> {c.name}
+                  <RowActions onEdit={() => openCompanyModal(c, h.id)} onDelete={() => removeCompany(c)} size={11} />
                 </span>
               ))}
             </div>
@@ -382,10 +495,50 @@ function HoldingsSection({ notify }: { notify: Notify }) {
         ))}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="افزودن شرکت زیرمجموعه" description="شرکت جدید زیر هلدینگ انتخابی قرار می‌گیرد و محتوای اختصاصی خودش را خواهد داشت.">
+      <Modal
+        open={holdingOpen}
+        onClose={() => setHoldingOpen(false)}
+        title={editingHolding ? "ویرایش هلدینگ" : "تعریف هلدینگ جدید"}
+        description="هلدینگ، لایه‌ی میانی بین سازمان و شرکت‌هاست و دامنه‌ی انتشار محتوا را تعیین می‌کند."
+      >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام شرکت</label>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام هلدینگ <span className="text-rose-500">*</span></label>
+            <input value={holdingForm.name} onChange={(e) => setHoldingForm((f) => ({ ...f, name: e.target.value }))} placeholder="مثلاً: هلدینگ ساختمان و مسکن" className="input-field" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">رنگ شناسه</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {tenantPalette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`رنگ ${c}`}
+                  onClick={() => setHoldingForm((f) => ({ ...f, color: c }))}
+                  className={`w-8 h-8 rounded-lg border-2 transition-colors ${holdingForm.color === c ? "border-ink-900" : "border-transparent"}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitHolding}>
+              {editingHolding ? "ذخیره تغییرات" : "ایجاد هلدینگ"}
+            </Button>
+            <Button variant="secondary" onClick={() => setHoldingOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editingCompany ? "ویرایش شرکت" : "افزودن شرکت زیرمجموعه"}
+        description="شرکت جدید زیر هلدینگ انتخابی قرار می‌گیرد و محتوای اختصاصی خودش را خواهد داشت."
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام شرکت <span className="text-rose-500">*</span></label>
             <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="مثلاً: شرکت کشت و صنعت جدید" className="input-field" />
           </div>
           <div>
@@ -397,7 +550,9 @@ function HoldingsSection({ notify }: { notify: Notify }) {
             </select>
           </div>
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="primary" className="flex-1 justify-center" onClick={addCompany}>افزودن شرکت</Button>
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitCompany}>
+              {editingCompany ? "ذخیره تغییرات" : "افزودن شرکت"}
+            </Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
           </div>
         </div>
