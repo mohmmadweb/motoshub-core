@@ -18,6 +18,29 @@ export default function Assistant() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [listening, setListening] = useState(false);
+
+  // Persian dictation via the browser's own speech API. Where the browser has
+  // none (Firefox, most of Safari) the button says so rather than pretending.
+  const startDictation = () => {
+    const w = window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any };
+    const Recognition = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!Recognition) {
+      notify("مرورگر شما از ورودی صوتی پشتیبانی نمی‌کند؛ لطفاً پرسش را تایپ کنید.", "warning");
+      return;
+    }
+    const rec = new Recognition();
+    rec.lang = "fa-IR";
+    rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      const text = e.results?.[0]?.[0]?.transcript ?? "";
+      if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
+    };
+    rec.onerror = () => notify("شنیدن صدا ناموفق بود.", "warning");
+    rec.onend = () => setListening(false);
+    setListening(true);
+    rec.start();
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const { notify } = useToast();
 
@@ -56,7 +79,7 @@ export default function Assistant() {
             <p className="text-sm font-bold text-ink-900 flex items-center gap-1.5">
               <Sparkles size={14} className="text-brand-600" /> دستیار مدیریت ارشد
             </p>
-            <Badge tone="success">متصل به داده‌های نمایشی صندوق نوآور</Badge>
+            <Badge tone="success">متصل به داده‌های زندهٔ سامانه</Badge>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((m, i) => (
@@ -80,9 +103,10 @@ export default function Assistant() {
           </div>
           <div className="p-3 border-t border-ink-100 flex items-center gap-2">
             <button
-              onClick={() => notify("در نسخه عملیاتی، پرسش صوتی فارسی نیز پشتیبانی می‌شود.", "info")}
-              className="w-9 h-9 rounded-lg bg-ink-100 text-ink-500 flex items-center justify-center hover:bg-ink-200 shrink-0"
-              title="فرمان صوتی"
+              onClick={startDictation}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${listening ? "bg-rose-100 text-rose-600" : "bg-ink-100 text-ink-500 hover:bg-ink-200"}`}
+              title={listening ? "در حال شنیدن…" : "فرمان صوتی"}
+              aria-pressed={listening}
             >
               <Mic size={15} />
             </button>

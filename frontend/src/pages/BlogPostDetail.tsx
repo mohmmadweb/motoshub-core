@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { NotebookPen, Star, Hash, Send, MessageCircle } from "lucide-react";
+import { NotebookPen, Star, Hash } from "lucide-react";
 import { useContent } from "../context/ContentContext";
 import { type UserProfile } from "../data/types";
 import { http } from "../lib/http";
@@ -8,9 +8,9 @@ import { fromUser } from "../lib/adapters";
 import Avatar from "../components/Avatar";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
 import { VisibilityToggle, VisibilityBadge } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import CommentThread from "../components/CommentThread";
 
 export default function BlogPostDetail() {
   const { id } = useParams();
@@ -74,15 +74,7 @@ export default function BlogPostDetail() {
           </div>
         </div>
 
-        <div className="card p-4">
-          <p className="text-xs font-semibold text-ink-600 mb-3 flex items-center gap-1.5">
-            <MessageCircle size={13} /> نظرات
-          </p>
-          <div className="flex items-center gap-2">
-            <input className="input-field flex-1" placeholder="نظر یا سوال خود را بنویسید…" />
-            <Button variant="primary" icon={<Send size={14} />}>ارسال</Button>
-          </div>
-        </div>
+        <CommentThread kind="blog" objectId={post.id} title="نظرات" placeholder="نظر یا سوال خود را بنویسید…" />
       </div>
     </div>
   );

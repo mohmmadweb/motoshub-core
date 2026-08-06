@@ -19,12 +19,17 @@ class MessageSerializer(serializers.ModelSerializer):
     reactions = serializers.SerializerMethodField()
     reply_to = ReplyPreviewSerializer(read_only=True)
     reply_to_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
+    thread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = ["id", "channel", "author", "text", "pinned", "reactions", "reply_to", "reply_to_id",
-                  "edited_at", "deleted", "forwarded_from", "attachment", "mentions", "created_at"]
-        read_only_fields = ["id", "author", "reactions", "reply_to", "edited_at", "created_at"]
+                  "thread_count", "edited_at", "deleted", "forwarded_from", "attachment", "mentions", "created_at"]
+        read_only_fields = ["id", "author", "reactions", "reply_to", "thread_count", "edited_at", "created_at"]
+
+    def get_thread_count(self, obj):
+        """How many messages reply to this one — the thread's real size."""
+        return obj.replies.count() if hasattr(obj, "replies") else 0
 
     def to_representation(self, obj):
         data = super().to_representation(obj)

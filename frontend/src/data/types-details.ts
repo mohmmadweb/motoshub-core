@@ -118,10 +118,6 @@ export type FundDetail = {
 };
 
 export type ReviewSession = { id: string; title: string; date: string; items: number; committee: string };
-export const reviewSessions: ReviewSession[] = [
-  { id: "rv1", title: "جلسه داوری طرح‌های اشتغال خرد — نوبت ۱۴", date: "۱۴۰۵/۰۴/۱۸", items: 6, committee: "کارگروه اشتغال روستایی" },
-  { id: "rv2", title: "بررسی طرح‌های کشاورزی نیمه اول سال", date: "۱۴۰۵/۰۴/۲۵", items: 4, committee: "کارگروه کشاورزی" },
-];
 
 // ------------------------------ Research -----------------------------------
 export type ResearchApplicant = {

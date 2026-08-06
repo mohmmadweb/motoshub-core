@@ -5,7 +5,6 @@ import {
   HardDrive,
   Database,
   Trash2,
-  RefreshCw,
   Archive,
   FolderOpen,
   AlertTriangle,
@@ -17,51 +16,88 @@ import StatCard from "../components/ui/StatCard";
 
 type Notify = (message: string, tone?: "success" | "info" | "warning") => void;
 
-const defaultSystemSettings = [
+// The panel's field layout. Values are never hardcoded here — each `key` maps
+// to a column on the tenant's WorkflowSettings row, loaded and saved over
+// /settings/workflow. `upload_max_mb` and `maintenance_mode` are enforced
+// server-side, so the switch and the limit do what the labels claim.
+const systemFieldGroups: { group: string; items: { key: string; label: string; hint: string }[] }[] = [
   {
     group: "آپلود و فایل",
     items: [
-      { key: "upload_max_mb", label: "حداکثر حجم آپلود (مگابایت)", value: "100", hint: "برای هر فایل؛ فایل‌های بزرگ‌تر به صورت چندتکه (chunk) ارسال می‌شوند" },
-      { key: "chunk_size_mb", label: "اندازه هر تکه آپلود (مگابایت)", value: "10", hint: "کوچک‌تر = پایدارتر روی اینترنت ضعیف، بزرگ‌تر = سریع‌تر" },
-      { key: "user_quota_gb", label: "سهمیه دیسک هر کاربر (گیگابایت)", value: "5", hint: "پس از پر شدن، آپلود جدید مسدود می‌شود" },
-      { key: "image_max_px", label: "حداکثر ابعاد تصویر (پیکسل)", value: "1920", hint: "تصاویر بزرگ‌تر به این ابعاد کوچک می‌شوند" },
+      { key: "upload_max_mb", label: "حداکثر حجم آپلود (مگابایت)", hint: "برای هر فایل؛ سقف سرور ۲۵ مگابایت است و مقدار بزرگ‌تر تا همان محدود می‌شود" },
+      { key: "chunk_size_mb", label: "اندازه هر تکه آپلود (مگابایت)", hint: "کوچک‌تر = پایدارتر روی اینترنت ضعیف، بزرگ‌تر = سریع‌تر" },
+      { key: "user_quota_gb", label: "سهمیه دیسک هر کاربر (گیگابایت)", hint: "پس از پر شدن، آپلود جدید مسدود می‌شود" },
+      { key: "image_max_px", label: "حداکثر ابعاد تصویر (پیکسل)", hint: "تصاویر بزرگ‌تر به این ابعاد کوچک می‌شوند" },
     ],
   },
   {
     group: "نشست و امنیت",
     items: [
-      { key: "session_hours", label: "طول عمر نشست (ساعت)", value: "24", hint: "پس از این مدت کاربر باید دوباره وارد شود" },
-      { key: "login_attempts", label: "حداکثر تلاش ناموفق ورود", value: "5", hint: "پس از آن حساب موقتاً قفل می‌شود" },
-      { key: "lock_minutes", label: "مدت قفل حساب (دقیقه)", value: "15", hint: "" },
+      { key: "session_hours", label: "طول عمر نشست (ساعت)", hint: "پس از این مدت کاربر باید دوباره وارد شود" },
+      { key: "login_attempts", label: "حداکثر تلاش ناموفق ورود", hint: "پس از آن حساب موقتاً قفل می‌شود" },
+      { key: "lock_minutes", label: "مدت قفل حساب (دقیقه)", hint: "" },
+      { key: "rate_limit_per_minute", label: "سقف درخواست در دقیقه", hint: "محدودسازی نرخ درخواست هر کاربر" },
     ],
   },
   {
     group: "محتوا و اعلان",
     items: [
-      { key: "feed_page_size", label: "تعداد آیتم هر صفحه فید", value: "20", hint: "" },
-      { key: "notif_batch", label: "حداکثر اعلان ارسالی در هر دقیقه", value: "500", hint: "برای کنترل فشار روی صف اعلان‌ها" },
-      { key: "digest_hour", label: "ساعت ارسال خلاصه روزانه", value: "8", hint: "به وقت سرور" },
+      { key: "feed_page_size", label: "تعداد آیتم هر صفحه فید", hint: "" },
+      { key: "notif_batch", label: "حداکثر اعلان ارسالی در هر دقیقه", hint: "برای کنترل فشار روی صف اعلان‌ها" },
+      { key: "digest_hour", label: "ساعت ارسال خلاصه روزانه", hint: "به وقت سرور" },
     ],
   },
 ];
 
+type SettingsPayload = Record<string, unknown>;
+
 export function SystemSection({ notify }: { notify: Notify }) {
-  const [settings, setSettings] = useState(defaultSystemSettings);
+  const [values, setValues] = useState<Record<string, string>>({});
   const [maintenance, setMaintenance] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const updateValue = (groupIdx: number, itemIdx: number, value: string) => {
-    setSettings((prev) =>
-      prev.map((g, gi) =>
-        gi === groupIdx ? { ...g, items: g.items.map((it, ii) => (ii === itemIdx ? { ...it, value } : it)) } : g
-      )
-    );
+  const load = () =>
+    http<SettingsPayload>("/settings/workflow").then((cfg) => {
+      const next: Record<string, string> = {};
+      systemFieldGroups.forEach((g) => g.items.forEach((it) => { next[it.key] = String(cfg[it.key] ?? ""); }));
+      setValues(next);
+      setMaintenance(!!cfg.maintenance_mode);
+      setDirty(false);
+    });
+  useEffect(() => { load().catch(() => {}); }, []);
+
+  const updateValue = (key: string, value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
   };
 
+  const persist = async (patch: SettingsPayload, message: string) => {
+    setSaving(true);
+    try {
+      await http("/settings/workflow", { method: "PUT", body: JSON.stringify(patch) });
+      await load();
+      notify(message);
+    } catch (err) {
+      notify(apiMessage(err, "ذخیره تنظیمات ناموفق بود."), "warning");
+      await load().catch(() => {});   // never leave the form showing unsaved values
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const save = () => {
-    setDirty(false);
-    notify("تنظیمات سیستم ذخیره شد و بدون نیاز به دیپلوی مجدد روی همه سرویس‌ها اعمال می‌شود.");
+    const patch: SettingsPayload = {};
+    Object.entries(values).forEach(([k, v]) => { patch[k] = Number(v) || 0; });
+    persist(patch, "تنظیمات سیستم ذخیره شد و بدون نیاز به دیپلوی مجدد اعمال می‌شود.");
+  };
+
+  const toggleMaintenance = () => {
+    const next = !maintenance;
+    persist(
+      { maintenance_mode: next },
+      next ? "حالت تعمیر فعال شد — فقط راهبران به سامانه دسترسی دارند." : "حالت تعمیر غیرفعال شد.",
+    );
   };
 
   return (
@@ -78,25 +114,27 @@ export function SystemSection({ notify }: { notify: Notify }) {
                 همه‌ی مقادیر ثابت سیستم از اینجا مدیریت می‌شوند — بدون تغییر کد و بدون دیپلوی مجدد.
               </p>
             </div>
-            <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>
-              ذخیره تغییرات
+            <Button variant="primary" size="sm" onClick={save} disabled={!dirty || saving}>
+              {saving ? "در حال ذخیره…" : dirty ? "ذخیره تغییرات" : "تغییری برای ذخیره وجود ندارد"}
             </Button>
           </div>
         </div>
       </div>
 
-      {settings.map((group, gi) => (
+      {systemFieldGroups.map((group) => (
         <div key={group.group} className="card p-5">
           <h4 className="text-sm font-bold text-ink-900 mb-4">{group.group}</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {group.items.map((item, ii) => (
+            {group.items.map((item) => (
               <div key={item.key}>
-                <label className="text-xs font-medium text-ink-600 block mb-1.5">{item.label}</label>
+                <label className="text-xs font-medium text-ink-600 block mb-1.5" htmlFor={`sys-${item.key}`}>{item.label}</label>
                 <input
-                  value={item.value}
-                  onChange={(e) => updateValue(gi, ii, e.target.value)}
+                  id={`sys-${item.key}`}
+                  value={values[item.key] ?? ""}
+                  onChange={(e) => updateValue(item.key, e.target.value)}
                   className="input-field"
                   dir="ltr"
+                  inputMode="numeric"
                 />
                 {item.hint && <p className="text-[11px] text-ink-400 mt-1">{item.hint}</p>}
               </div>
@@ -112,16 +150,11 @@ export function SystemSection({ notify }: { notify: Notify }) {
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-ink-900">حالت تعمیر و نگهداری</h3>
-            <Toggle
-              on={maintenance}
-              onChange={() => {
-                setMaintenance(!maintenance);
-                notify(!maintenance ? "حالت تعمیر فعال شد — فقط راهبران به سامانه دسترسی دارند." : "حالت تعمیر غیرفعال شد.", "info");
-              }}
-            />
+            <Toggle on={maintenance} disabled={saving} onChange={toggleMaintenance} label="حالت تعمیر و نگهداری" />
           </div>
           <p className="text-xs text-ink-500 mt-2 leading-6">
-            با فعال‌سازی، کاربران عادی صفحه‌ی «در حال به‌روزرسانی» می‌بینند و فقط راهبران وارد می‌شوند.
+            با فعال‌سازی، درخواست‌های کاربران عادی با پاسخ «در حال به‌روزرسانی» رد می‌شوند و فقط
+            دارندگان دسترسی «تنظیمات سیستم» می‌توانند کار کنند.
           </p>
         </div>
       </div>
@@ -251,23 +284,18 @@ export function StorageSection({ notify }: { notify: Notify }) {
                 {cleaning ? "در حال پاک‌سازی…" : "پاک‌سازی"}
               </Button>
             </div>
-            <div className="flex items-center justify-between gap-2 text-xs pt-3 border-t border-ink-100">
+            {/* Backups are taken by a separate scheduled container the API cannot
+                reach, so this panel reports the arrangement instead of offering a
+                «شروع» that could not start anything. */}
+            <div className="flex items-start justify-between gap-2 text-xs pt-3 border-t border-ink-100">
               <div>
-                <p className="font-medium text-ink-800">بازسازی بندانگشتی‌ها</p>
-                <p className="text-ink-400 mt-0.5">تولید مجدد پیش‌نمایش تصاویر پس از تغییر ابعاد</p>
+                <p className="font-medium text-ink-800">پشتیبان‌گیری خودکار پایگاه داده</p>
+                <p className="text-ink-400 mt-0.5 leading-5">
+                  توسط سرویس زمان‌بندی‌شده و مستقل از این پنل انجام می‌شود؛ دوره و مدت نگه‌داری
+                  از پیکربندی استقرار خوانده می‌شود.
+                </p>
               </div>
-              <Button variant="secondary" size="sm" icon={<RefreshCw size={13} />} onClick={() => notify("بازسازی بندانگشتی‌ها در صف پردازش قرار گرفت.", "info")}>
-                شروع
-              </Button>
-            </div>
-            <div className="flex items-center justify-between gap-2 text-xs pt-3 border-t border-ink-100">
-              <div>
-                <p className="font-medium text-ink-800">پشتیبان‌گیری دستی</p>
-                <p className="text-ink-400 mt-0.5">علاوه بر پشتیبان‌گیری خودکار روزانه</p>
-              </div>
-              <Button variant="secondary" size="sm" icon={<Archive size={13} />} onClick={() => notify("پشتیبان‌گیری کامل آغاز شد — پس از اتمام اعلان دریافت می‌کنید.", "info")}>
-                شروع
-              </Button>
+              <Badge tone="success">فعال</Badge>
             </div>
           </div>
         </div>

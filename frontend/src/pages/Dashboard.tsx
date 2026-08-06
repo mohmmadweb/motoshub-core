@@ -5,6 +5,7 @@ import {
   BarChart3,
   Paperclip,
   Hash,
+  Send,
   CalendarDays,
   MapPin,
   Bell,
@@ -21,7 +22,7 @@ import {
   MoonStar,
 } from "lucide-react";
 import { type Post, type Group, type UserProfile, type Notification as NotificationItem } from "../data/types";
-import { http, getUser } from "../lib/http";
+import { http, apiMessage, getUser } from "../lib/http";
 import { fromNotification, fromNfProject, fromGroup, fromUser, fromPost } from "../lib/adapters";
 
 const me = getUser() as { name?: string; avatar_color?: string } | null;
@@ -30,7 +31,9 @@ import { useContent } from "../context/ContentContext";
 import PostCard from "../components/PostCard";
 import Avatar from "../components/Avatar";
 import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
+import { useToast } from "../components/ui/ToastProvider";
 
 // «شروع سریع سازمان» — چک‌لیست راه‌اندازی برای راهبر؛ قابل بستن (localStorage)
 const quickStartSteps = [
@@ -264,6 +267,55 @@ function PersonalToday() {
 export default function Dashboard() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const { notify } = useToast();
+  const [draft, setDraft] = useState("");
+  const [attachment, setAttachment] = useState<{ name: string; url: string } | null>(null);
+  const [posting, setPosting] = useState(false);
+
+  // Composing used to be inert: the box took text, the four buttons did nothing
+  // and «انتشار» did not exist, so nothing a user wrote here ever left the page.
+  const pickFile = (accept: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    if (accept) input.accept = accept;
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        const up = await http<{ name: string; url: string }>("/uploads", { method: "POST", body: form });
+        setAttachment({ name: up.name, url: up.url });
+      } catch (err) {
+        notify(apiMessage(err, "بارگذاری فایل ناموفق بود."), "warning");
+      }
+    };
+    input.click();
+  };
+
+  const publish = async () => {
+    if (!draft.trim() && !attachment) {
+      notify("متن پست خالی است.", "warning");
+      return;
+    }
+    setPosting(true);
+    try {
+      const tags = Array.from(draft.matchAll(/#([^\s#]+)/g)).map((m) => m[1]);
+      await http("/posts", {
+        method: "POST",
+        body: JSON.stringify({ content: draft.trim(), tags, attachment: attachment ?? {} }),
+      });
+      const rows = await http<Record<string, unknown>[]>("/posts?page_size=20");
+      setPosts(rows.map(fromPost) as Post[]);
+      setDraft("");
+      setAttachment(null);
+      notify("پست شما منتشر شد.");
+    } catch (err) {
+      notify(apiMessage(err, "انتشار پست ناموفق بود."), "warning");
+    } finally {
+      setPosting(false);
+    }
+  };
   const [groups, setGroups] = useState<Group[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const { events } = useContent();
@@ -297,19 +349,31 @@ export default function Dashboard() {
               <input
                 placeholder="چه چیزی در ذهن دارید؟ یک پست، نظرسنجی یا سند به اشتراک بگذارید…"
                 className="flex-1 input-field"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") publish(); }}
               />
+              <Button variant="primary" icon={<Send size={14} />} onClick={publish} disabled={posting}>
+                انتشار
+              </Button>
             </div>
+            {attachment && (
+              <p className="text-[11.5px] text-ink-500 mt-2 flex items-center gap-1.5">
+                <Paperclip size={12} /> {attachment.name}
+                <button onClick={() => setAttachment(null)} className="text-rose-600 hover:underline">حذف</button>
+              </p>
+            )}
             <div className="flex items-center gap-1 mt-3 text-xs text-ink-500">
-              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
+              <button onClick={() => pickFile("image/*,video/*")} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
                 <ImagePlus size={14} /> تصویر/ویدیو
               </button>
-              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
+              <Link to="/dashboard/polls" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
                 <BarChart3 size={14} /> نظرسنجی
-              </button>
-              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
+              </Link>
+              <button onClick={() => pickFile("")} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
                 <Paperclip size={14} /> سند
               </button>
-              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
+              <button onClick={() => setDraft((d) => `${d}#`)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-ink-50">
                 <Hash size={14} /> هشتگ
               </button>
             </div>

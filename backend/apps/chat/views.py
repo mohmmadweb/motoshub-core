@@ -25,10 +25,18 @@ class ChannelViewSet(TenantScopedModelViewSet):
     def messages(self, request, pk=None):
         channel = self.get_object()
         if request.method == "POST":
-            text = (request.data or {}).get("text", "").strip()
+            data = request.data or {}
+            text = data.get("text", "").strip()
             if not text:
                 return Response({"error": {"code": 422, "type": "unprocessable_entity", "message": "متن پیام الزامی است."}}, status=422)
-            msg = Message.objects.create(channel=channel, author=request.user, text=text, tenant=request.tenant)
+            # A reply keeps its parent, which is what makes a thread a thread.
+            parent = None
+            if data.get("reply_to_id"):
+                parent = Message.objects.filter(id=data["reply_to_id"], channel=channel).first()
+            msg = Message.objects.create(
+                channel=channel, author=request.user, text=text,
+                reply_to=parent, tenant=request.tenant,
+            )
             data = MessageSerializer(msg, context={"request": request}).data
             # Broadcast to any live WebSocket subscribers of this channel.
             layer = get_channel_layer()
@@ -45,7 +53,7 @@ from rest_framework.permissions import IsAuthenticated  # noqa: E402
 from rest_framework.views import APIView  # noqa: E402
 
 from apps.accounts.models import User  # noqa: E402
-from .models import DirectMessage, Message, MessageReaction  # noqa: E402
+from .models import DirectMessage, DmThreadSetting, Message, MessageReaction  # noqa: E402
 
 
 class MessageReactView(APIView):
@@ -81,6 +89,25 @@ class DmView(APIView):
     def get(self, request):
         me = request.user
         t = getattr(request, "tenant", None)
+
+        # Opening a thread marks it read — the docstring promised this but the
+        # code never did it, so «read» receipts were never earned and the
+        # sender's ticks came from a timer on their own screen instead.
+        peer_id = request.query_params.get("peer")
+        if peer_id:
+            unread = DirectMessage.objects.filter(tenant=t, sender_id=peer_id, recipient=me, read=False)
+            if unread.exists():
+                unread.update(read=True)
+                layer = get_channel_layer()
+                if layer is not None:
+                    # Tell the sender their messages to us are now read.
+                    async_to_sync(layer.group_send)(
+                        f"dm_{peer_id}", {"type": "dm.read", "message": {"threadId": str(me.id)}}
+                    )
+
+        muted_peers = set(
+            DmThreadSetting.objects.filter(user=me, muted=True).values_list("peer_id", flat=True)
+        )
         qs = DirectMessage.objects.filter(tenant=t).filter(Q(sender=me) | Q(recipient=me)).select_related("sender", "recipient")
         threads = {}
         for m in qs:
@@ -88,6 +115,7 @@ class DmView(APIView):
             th = threads.setdefault(str(peer.id), {
                 "id": str(peer.id), "with": peer.name, "avatarColor": peer.avatar_color,
                 "online": peer.presence == "online", "messages": [], "unread": 0,
+                "muted": peer.id in muted_peers,
             })
             th["messages"].append({
                 "id": str(m.id), "from": "me" if m.sender_id == me.id else "them",
@@ -121,3 +149,30 @@ class DmView(APIView):
                 "id": str(m.id), "from": "them", "text": m.text, "time": m.created_at.strftime("%H:%M"),
             }})
         return Response({"id": str(m.id), "from": "me", "text": m.text, "time": m.created_at.strftime("%H:%M"), "status": "delivered"}, status=201)
+
+
+class DmThreadView(APIView):
+    """DELETE → clear my copy of a conversation. PATCH {muted} → mute it for me."""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, peer_id=None):
+        """Removes the whole exchange with this peer.
+
+        A conversation belongs to both sides, so this deletes the messages
+        outright rather than hiding them on one screen — the previous UI wiped
+        the list locally and the thread reappeared on the next load.
+        """
+        me = request.user
+        t = getattr(request, "tenant", None)
+        n, _ = DirectMessage.objects.filter(tenant=t).filter(
+            Q(sender=me, recipient_id=peer_id) | Q(sender_id=peer_id, recipient=me)
+        ).delete()
+        return Response({"deleted": n})
+
+    def patch(self, request, peer_id=None):
+        muted = bool((request.data or {}).get("muted"))
+        setting, _ = DmThreadSetting.objects.update_or_create(
+            user=request.user, peer_id=peer_id,
+            defaults={"muted": muted, "tenant": getattr(request, "tenant", None)},
+        )
+        return Response({"muted": setting.muted})

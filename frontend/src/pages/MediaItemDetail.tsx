@@ -1,12 +1,12 @@
 import { useParams } from "react-router-dom";
-import { Image, Video, Star, Hash, PlayCircle, Send, MessageCircle } from "lucide-react";
+import { Image, Video, Star, Hash, PlayCircle } from "lucide-react";
 import { useContent } from "../context/ContentContext";
 import { contentImg, bgStyle } from "../data/images";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
 import { VisibilityToggle, VisibilityBadge } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import CommentThread from "../components/CommentThread";
 
 export default function MediaItemDetail() {
   const { id } = useParams();
@@ -86,15 +86,7 @@ export default function MediaItemDetail() {
           )}
         </div>
 
-        <div className="card p-4">
-          <p className="text-xs font-semibold text-ink-600 mb-3 flex items-center gap-1.5">
-            <MessageCircle size={13} /> نظرات
-          </p>
-          <div className="flex items-center gap-2">
-            <input className="input-field flex-1" placeholder="نظر خود را بنویسید…" />
-            <Button variant="primary" icon={<Send size={14} />}>ارسال</Button>
-          </div>
-        </div>
+        <CommentThread kind="media" objectId={item.id} title="نظرات" placeholder="نظر خود را بنویسید…" />
       </div>
     </div>
   );

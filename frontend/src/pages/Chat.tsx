@@ -6,8 +6,6 @@ import {
   Send,
   Check,
   CheckCheck,
-  Phone,
-  Video,
   MoreVertical,
   Hash,
   Lock,
@@ -38,7 +36,6 @@ import {
   BarChart3,
   ChevronDown,
   BellOff,
-  Ban,
   Eraser,
 } from "lucide-react";
 import {
@@ -47,7 +44,7 @@ import {
   type ReactionIcon,
 } from "../data/types";
 import Avatar from "../components/Avatar";
-import { http } from "../lib/http";
+import { http, apiMessage } from "../lib/http";
 import { openChannelSocket, openDmSocket } from "../lib/ws";
 import { fromChannel, fromChannelMessage, fromUser, fromIntegration } from "../lib/adapters";
 import { useApiList } from "../lib/useApiList";
@@ -58,6 +55,7 @@ import EmptyState from "../components/ui/EmptyState";
 import Drawer from "../components/ui/Drawer";
 import Toggle from "../components/ui/Toggle";
 import { useToast } from "../components/ui/ToastProvider";
+import Button from "../components/ui/Button";
 
 const reactionIconMap: Record<ReactionIcon, typeof ThumbsUp> = { ThumbsUp, Heart, Smile, CheckCircle2 };
 
@@ -89,6 +87,8 @@ type DmThreadState = {
   lastMessage: string;
   time: string;
   unread: number;
+  /** ساکت‌شده برای من — تنظیمی شخصی، نه دوطرفه */
+  muted?: boolean;
   messages: DmMsg[];
 };
 
@@ -121,7 +121,11 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState<DmMsg | null>(null);
   const [editing, setEditing] = useState<DmMsg | null>(null);
   const [forwarding, setForwarding] = useState<DmMsg | null>(null);
-  const [peerTyping, setPeerTyping] = useState(false);
+  const [typingPeer, setTypingPeer] = useState<string | null>(null);
+  const [threadDraft, setThreadDraft] = useState("");
+  const dmSock = useRef<WebSocket | null>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSent = useRef(0);
   const [recording, setRecording] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
   const [attachOpen, setAttachOpen] = useState(false);
@@ -162,9 +166,26 @@ export default function Chat() {
   useEffect(() => {
     const sock = openDmSocket();
     if (!sock) return;
+    dmSock.current = sock;
     sock.onmessage = (ev) => {
       try {
         const d = JSON.parse(ev.data);
+
+        // The peer opened our thread: our messages to them really are read.
+        if (d.type === "read") {
+          setDmThreads((prev) => prev.map((t) => (t.id === d.threadId
+            ? { ...t, messages: t.messages.map((m) => (m.from === "me" ? { ...m, status: "read" } : m)) }
+            : t)));
+          return;
+        }
+        // The peer is composing. Transient; expires on its own if they stop.
+        if (d.type === "typing") {
+          setTypingPeer(d.from);
+          if (typingTimer.current) clearTimeout(typingTimer.current);
+          typingTimer.current = setTimeout(() => setTypingPeer(null), 3000);
+          return;
+        }
+
         const incoming: DmMsg = { id: d.id, from: "them", text: d.text, time: d.time, kind: "text" };
         setDmThreads((prev) => {
           const i = prev.findIndex((t) => t.id === d.threadId);
@@ -178,7 +199,11 @@ export default function Chat() {
         });
       } catch { /* ignore */ }
     };
-    return () => sock.close();
+    return () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      dmSock.current = null;
+      sock.close();
+    };
   }, []);
 
   // Load real messages when a channel is selected.
@@ -224,9 +249,11 @@ export default function Chat() {
     setReplyTo(null);
     setEditing(null);
     setConvSearch(null);
-    // ورود به گفتگو = خوانده‌شدن
+    // ورود به گفتگو = خوانده‌شدن. Tell the server too, so the sender's ticks
+    // reflect a thread that was genuinely opened rather than a local guess.
     if (selection.kind === "dm") {
       setDmThreads((prev) => prev.map((t) => (t.id === selection.id ? { ...t, unread: 0 } : t)));
+      http(`/chat/dms?peer=${selection.id}`).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
@@ -243,14 +270,58 @@ export default function Chat() {
     );
   };
 
-  // شبیه‌سازی تحویل/خواندن + «در حال نوشتن» طرف مقابل
-  const simulateDelivery = (threadId: string, msgId: string) => {
-    setTimeout(() => updateDm(threadId, (msgs) => msgs.map((m) => (m.id === msgId ? { ...m, status: "delivered" } : m))), 700);
-    setTimeout(() => setPeerTyping(true), 1400);
-    setTimeout(() => {
-      setPeerTyping(false);
-      updateDm(threadId, (msgs) => msgs.map((m) => (m.from === "me" ? { ...m, status: "read" } : m)));
-    }, 3400);
+  // Delivery is what the server confirmed on POST; «read» arrives over the
+  // socket when the peer actually opens the thread. Nothing is guessed here —
+  // the old version faked both with timers on the sender's own screen.
+  // Clearing removes the exchange on the server. The old handler emptied the
+  // list locally and the whole thread came back on the next load.
+  const clearDmThread = async (peerId: string, peerName: string) => {
+    try {
+      await http(`/chat/dms/${peerId}`, { method: "DELETE" });
+      updateDm(peerId, () => [], "—");
+      notify(`تاریخچه گفتگو با ${peerName} پاک شد.`, "info");
+    } catch (err) {
+      notify(apiMessage(err, "پاک‌کردن تاریخچه ناموفق بود."), "warning");
+    }
+  };
+
+  const toggleDmMute = async (peerId: string, next: boolean) => {
+    try {
+      await http(`/chat/dms/${peerId}`, { method: "PATCH", body: JSON.stringify({ muted: next }) });
+      setDmThreads((prev) => prev.map((t) => (t.id === peerId ? { ...t, muted: next } : t)));
+      notify(next ? "اعلان‌های این گفتگو بی‌صدا شد." : "اعلان‌های این گفتگو دوباره فعال شد.", "info");
+    } catch (err) {
+      notify(apiMessage(err, "تغییر وضعیت اعلان ناموفق بود."), "warning");
+    }
+  };
+
+  // The open thread is simply every loaded message that replies to it.
+  const threadReplies = threadFor ? messages.filter((m) => m.replyToId === threadFor.id) : [];
+
+  const sendThreadReply = async () => {
+    if (!threadFor || !threadDraft.trim()) return;
+    try {
+      const created = await http<Record<string, unknown>>(
+        `/chat/channels/${threadFor.channelId}/messages`,
+        { method: "POST", body: JSON.stringify({ text: threadDraft.trim(), reply_to_id: threadFor.id }) },
+      );
+      const m = fromChannelMessage(created) as any;
+      setMsgAuthors((prev) => ({ ...prev, [m.authorId]: { name: m._authorName, color: m._authorColor } }));
+      const { _authorName, _authorColor, ...msg } = m;
+      setMessages((prev) => [...prev, msg]);
+      setThreadDraft("");
+    } catch (err) {
+      notify(apiMessage(err, "ثبت پاسخ ناموفق بود."), "warning");
+    }
+  };
+
+  const notifyTyping = (peerId: string) => {
+    const sock = dmSock.current;
+    if (!sock || sock.readyState !== WebSocket.OPEN) return;
+    const now = Date.now();
+    if (now - lastTypingSent.current < 1500) return;   // at most one ping per 1.5s
+    lastTypingSent.current = now;
+    sock.send(JSON.stringify({ type: "typing", to: peerId }));
   };
 
   const sendMessage = () => {
@@ -286,7 +357,6 @@ export default function Chat() {
         replyTo: replyTo ? { author: replyTo.from === "me" ? "شما" : activeDm.with, text: replyTo.text } : undefined,
       };
       updateDm(activeDm.id, (msgs) => [...msgs, msg], text);
-      simulateDelivery(activeDm.id, id);
       // Persist to the real DM backend (thread id === peer user id).
       http("/chat/dms", { method: "POST", body: JSON.stringify({ to: activeDm.id, text }) }).catch(() => {});
     }
@@ -304,7 +374,6 @@ export default function Chat() {
       (msgs) => [...msgs, { id, from: "me", text: "", time: nowFa(), status: "sent", kind: "voice", meta: { duration: dur } }],
       "🎤 پیام صوتی"
     );
-    simulateDelivery(activeDm.id, id);
     setRecording(false);
     setRecordSecs(0);
     scrollToBottom();
@@ -324,7 +393,6 @@ export default function Chat() {
     } else {
       updateDm(activeDm.id, (msgs) => [...msgs, { id, from: "me", text: "", time: nowFa(), status: "sent", kind: "file", meta: { fileName: "صورتجلسه-هماهنگی.pdf", size: "۱.۲ مگابایت" } }], "📎 فایل");
     }
-    simulateDelivery(activeDm.id, id);
     scrollToBottom();
   };
 
@@ -511,7 +579,7 @@ export default function Chat() {
                 <Avatar name={activeDm.with} color={activeDm.avatarColor} online={activeDm.online} size={38} />
                 <span className="min-w-0">
                   <span className="block text-sm font-bold text-ink-900 truncate">{activeDm.with}</span>
-                  {peerTyping ? (
+                  {typingPeer === activeDm.id ? (
                     <span className="text-[11px] text-brand-600 font-medium flex items-center gap-1">
                       در حال نوشتن
                       <span className="flex gap-0.5">
@@ -528,19 +596,9 @@ export default function Chat() {
               <HeaderIcon title="جستجو در گفتگو" active={convSearch !== null} onClick={() => setConvSearch((s) => (s === null ? "" : null))}>
                 <Search size={16} />
               </HeaderIcon>
-              <HeaderIcon title="تماس صوتی" onClick={() => notify(`در حال برقراری تماس صوتی با ${activeDm.with}…`, "info")}>
-                <Phone size={16} />
-              </HeaderIcon>
-              <HeaderIcon title="تماس تصویری" onClick={() => notify(`در حال برقراری تماس تصویری با ${activeDm.with}…`, "info")}>
-                <Video size={16} />
-              </HeaderIcon>
               <DmMenu
-                onMute={() => notify("اعلان‌های این گفتگو بی‌صدا شد.", "info")}
-                onClear={() => {
-                  updateDm(activeDm.id, () => [], "—");
-                  notify("تاریخچه گفتگو پاک شد.", "info");
-                }}
-                onBlock={() => notify(`کاربر ${activeDm.with} مسدود شد.`, "warning")}
+                onMute={() => toggleDmMute(activeDm.id, !activeDm.muted)}
+                onClear={() => clearDmThread(activeDm.id, activeDm.with)}
               />
             </div>
           )}
@@ -764,7 +822,7 @@ export default function Chat() {
                 );
               })}
 
-            {activeDm && peerTyping && (
+            {activeDm && typingPeer === activeDm.id && (
               <div className="flex justify-end mt-2">
                 <div className="bg-white border border-ink-100/60 rounded-2xl rounded-br-md px-4 py-2.5 shadow-sm flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-ink-300 animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -877,7 +935,10 @@ export default function Chat() {
 
                   <textarea
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onChange={(e) => {
+                      setDraft(e.target.value);
+                      if (activeDm) notifyTyping(activeDm.id);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -929,19 +990,34 @@ export default function Chat() {
                   <p className="text-xs text-ink-700 mt-0.5">{threadFor.text}</p>
                 </div>
               </div>
-              <div className="border-t border-ink-100 pt-3 text-[11px] text-ink-400">{threadFor.threadReplies ?? 0} پاسخ</div>
-              {users.slice(1, 3).map((u) => (
-                <div key={u.id} className="flex items-start gap-2.5">
-                  <Avatar name={u.name} color={u.avatarColor} size={28} />
-                  <div>
-                    <p className="text-xs font-semibold text-ink-900">{u.name}</p>
-                    <p className="text-xs text-ink-700 mt-0.5">نمونه‌ی متن پاسخ در رشته.</p>
+              <div className="border-t border-ink-100 pt-3 text-[11px] text-ink-400">
+                {threadReplies.length.toLocaleString("fa-IR")} پاسخ
+              </div>
+              {/* Real replies — messages whose reply_to is this one. The panel
+                  previously listed two arbitrary colleagues saying «نمونه‌ی متن
+                  پاسخ در رشته». */}
+              {threadReplies.length === 0 && (
+                <p className="text-[11.5px] text-ink-400">هنوز پاسخی در این رشته ثبت نشده است.</p>
+              )}
+              {threadReplies.map((r) => (
+                <div key={r.id} className="flex items-start gap-2.5">
+                  <Avatar name={msgAuthors[r.authorId]?.name ?? "?"} color={msgAuthors[r.authorId]?.color} size={28} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-ink-900">{msgAuthors[r.authorId]?.name ?? "—"}</p>
+                    <p className="text-xs text-ink-700 mt-0.5 whitespace-pre-wrap">{r.text}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="p-3 border-t border-ink-100">
-              <input className="input-field" placeholder="پاسخ در رشته…" />
+            <div className="p-3 border-t border-ink-100 flex items-center gap-2">
+              <input
+                className="input-field flex-1"
+                placeholder="پاسخ در رشته…"
+                value={threadDraft}
+                onChange={(e) => setThreadDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") sendThreadReply(); }}
+              />
+              <Button variant="primary" icon={<Send size={14} />} onClick={sendThreadReply}>ارسال</Button>
             </div>
           </div>
         )}
@@ -990,25 +1066,20 @@ export default function Chat() {
             <div className="card p-3.5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[13px] text-ink-700 flex items-center gap-2"><BellOff size={14} className="text-ink-400" /> بی‌صدا کردن اعلان‌ها</span>
-                <Toggle on={false} onChange={() => notify("اعلان‌های این گفتگو بی‌صدا شد.", "info")} />
+                <Toggle on={!!activeDm.muted} onChange={() => toggleDmMute(activeDm.id, !activeDm.muted)} />
               </div>
             </div>
             <div>
               <p className="text-xs font-bold text-ink-900 mb-2">رسانه‌های مشترک</p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {["#82aee6", "#93a2b8", "#5e7191", "#b6c6de", "#7c94b8", "#a3b3c9"].map((c, i) => (
-                  <span key={i} className="aspect-square rounded-lg flex items-center justify-center" style={{ backgroundColor: c }} role="img" aria-label={`رسانه مشترک ${i + 1}`}>
-                    <ImageIcon size={17} className="text-white/70" />
-                  </span>
-                ))}
-              </div>
+              {/* Direct messages are text-only, so there is nothing to list —
+                  the previous version drew six coloured squares as if there were. */}
+              <p className="text-[12px] text-ink-400 leading-6">
+                در گفتگوی خصوصی فایلی رد و بدل نشده است.
+              </p>
             </div>
             <div className="space-y-1">
-              <button onClick={() => notify("تاریخچه گفتگو پاک شد.", "info")} className="w-full flex items-center gap-2 text-[13px] text-ink-700 hover:bg-ink-50 rounded-lg px-3 py-2.5 transition-colors">
+              <button onClick={() => clearDmThread(activeDm.id, activeDm.with)} className="w-full flex items-center gap-2 text-[13px] text-ink-700 hover:bg-ink-50 rounded-lg px-3 py-2.5 transition-colors">
                 <Eraser size={15} className="text-ink-400" /> پاک‌کردن تاریخچه
-              </button>
-              <button onClick={() => notify(`کاربر ${activeDm.with} مسدود شد.`, "warning")} className="w-full flex items-center gap-2 text-[13px] text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2.5 transition-colors">
-                <Ban size={15} /> مسدود کردن کاربر
               </button>
             </div>
           </div>
@@ -1101,7 +1172,7 @@ function AttachItem({ icon, label, onClick }: { icon: ReactNode; label: string; 
   );
 }
 
-function DmMenu({ onMute, onClear, onBlock }: { onMute: () => void; onClear: () => void; onBlock: () => void }) {
+function DmMenu({ onMute, onClear }: { onMute: () => void; onClear: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -1117,9 +1188,6 @@ function DmMenu({ onMute, onClear, onBlock }: { onMute: () => void; onClear: () 
             </button>
             <button onClick={() => { onClear(); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-ink-50 text-right text-[12.5px] text-ink-800 transition-colors">
               <Eraser size={14} className="text-ink-400" /> پاک‌کردن تاریخچه
-            </button>
-            <button onClick={() => { onBlock(); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-rose-50 text-right text-[12.5px] text-rose-600 transition-colors">
-              <Ban size={14} /> مسدود کردن
             </button>
           </div>
         </>
@@ -1197,15 +1265,6 @@ function ChannelHeader({
         </button>
         <button onClick={() => onTogglePanel("saved")} title="ذخیره‌شده‌ها" className={`px-2.5 py-1.5 rounded-full transition-colors ${activePanel === "saved" ? "bg-brand-50 text-brand-700" : "hover:bg-ink-100"}`}>
           <Bookmark size={13} />
-        </button>
-        <button title="تماس صوتی گروهی" className="px-2.5 py-1.5 rounded-full hover:bg-ink-100 text-ink-500 transition-colors">
-          <Phone size={14} />
-        </button>
-        <button title="جلسه تصویری" className="px-2.5 py-1.5 rounded-full hover:bg-ink-100 text-ink-500 transition-colors">
-          <Video size={14} />
-        </button>
-        <button title="گزینه‌های بیشتر" className="px-2.5 py-1.5 rounded-full hover:bg-ink-100 text-ink-500 transition-colors">
-          <MoreVertical size={14} />
         </button>
       </div>
     </div>

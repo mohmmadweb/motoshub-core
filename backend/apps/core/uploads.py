@@ -15,7 +15,24 @@ ALLOWED_EXTENSIONS = {
     "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv",
     "mp3", "wav", "ogg", "m4a", "mp4", "webm", "zip",
 }
-MAX_BYTES = 25 * 1024 * 1024  # 25 MB — matches nginx client_max_body_size
+# Ceiling imposed by nginx's client_max_body_size — the tenant limit below can
+# be lower than this but never higher, since nginx rejects the request before
+# Django ever sees it.
+HARD_MAX_BYTES = 25 * 1024 * 1024
+
+
+def _max_bytes(request) -> int:
+    """The tenant's «حداکثر حجم آپلود» from the admin console, capped by nginx."""
+    from apps.console.models import WorkflowSettings
+    tenant = getattr(request, "tenant", None)
+    if tenant is None:
+        return HARD_MAX_BYTES
+    mb = (
+        WorkflowSettings.objects.filter(tenant=tenant)
+        .values_list("upload_max_mb", flat=True)
+        .first()
+    )
+    return min(HARD_MAX_BYTES, (mb or 100) * 1024 * 1024)
 
 
 def _kind_for(ext: str, content_type: str) -> str:
@@ -55,9 +72,11 @@ class UploadView(APIView):
         if not upload:
             return Response({"error": {"code": 422, "type": "unprocessable_entity",
                                        "message": "فایلی ارسال نشده است."}}, status=422)
-        if upload.size > MAX_BYTES:
+        limit = _max_bytes(request)
+        if upload.size > limit:
+            mb = limit // (1024 * 1024)
             return Response({"error": {"code": 413, "type": "payload_too_large",
-                                       "message": "حجم فایل بیش از ۲۵ مگابایت است."}}, status=413)
+                                       "message": f"حجم فایل بیش از {mb} مگابایت است."}}, status=413)
 
         ext = (upload.name.rsplit(".", 1)[-1] if "." in upload.name else "").lower()
         if ext not in ALLOWED_EXTENSIONS:

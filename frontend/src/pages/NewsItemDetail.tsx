@@ -1,9 +1,9 @@
 import { useParams } from "react-router-dom";
-import { Newspaper, Pin, MessageCircle, Send } from "lucide-react";
+import { Newspaper, Pin, MessageCircle } from "lucide-react";
 import { useContent } from "../context/ContentContext";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
+import CommentThread from "../components/CommentThread";
 import { VisibilityToggle, VisibilityBadge } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -50,13 +50,7 @@ export default function NewsItemDetail() {
           </div>
         </div>
 
-        <div className="card p-4">
-          <p className="text-xs font-semibold text-ink-600 mb-3">ارسال نظر</p>
-          <div className="flex items-center gap-2">
-            <input className="input-field flex-1" placeholder="نظر خود را بنویسید…" />
-            <Button variant="primary" icon={<Send size={14} />}>ارسال</Button>
-          </div>
-        </div>
+        <CommentThread kind="news" objectId={item.id} title="نظرات" placeholder="نظر خود را بنویسید…" />
       </div>
     </div>
   );

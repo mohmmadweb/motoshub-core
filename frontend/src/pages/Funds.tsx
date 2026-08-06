@@ -21,10 +21,10 @@ import {
 import { type FundRecord } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromFund, toFund, fromNfProject, toNfProject, fromFundOverview, fromReviewSession } from "../lib/adapters";
-import { useApiList } from "../lib/useApiList";
+import { useApiList, useApiListReloadable } from "../lib/useApiList";
 import { nfStages, nfSubStatuses, screeningCriteriaCatalog } from "../data/constants";
-import { fromFundEntity, fromSeedInvestment } from "../lib/adapters";
-import { http } from "../lib/http";
+import { fromFundEntity, fromSeedInvestment, seedStageApi } from "../lib/adapters";
+import { http, apiMessage } from "../lib/http";
 
 import {type NfProject,
   type NfStage} from "../data/types-fund";
@@ -119,10 +119,39 @@ const seedStageTone: Record<SeedInvestment["stage"], BadgeTone> = {
   خروج: "navy",
 };
 
+const seedStages = ["غربالگری", "ارزیابی", "ارزیابی موشکافانه", "قرارداد", "نظارت و راهبری", "خروج"];
+
 function AllFundsTab() {
   const { notify } = useToast();
   const fundCatalog = useApiList<any>("/funds/network", fromFundEntity as any);
-  const seedInvestments = useApiList<SeedInvestment>("/funds/seed", fromSeedInvestment as any);
+  const [seedInvestments, reloadSeed] = useApiListReloadable<SeedInvestment>("/funds/seed", fromSeedInvestment as any);
+  const [seedOpen, setSeedOpen] = useState(false);
+  const [seedForm, setSeedForm] = useState({ startup: "", field: "", stage: seedStages[0], requested: "", equity: "" });
+
+  const submitSeed = async () => {
+    if (!seedForm.startup.trim()) {
+      notify("نام استارتاپ الزامی است.", "warning");
+      return;
+    }
+    try {
+      await http("/funds/seed", {
+        method: "POST",
+        body: JSON.stringify({
+          startup: seedForm.startup.trim(),
+          field: seedForm.field.trim(),
+          stage: seedStageApi[seedForm.stage] ?? "screening",
+          requested: Number(seedForm.requested) || 0,
+          equity_percent: Number(seedForm.equity) || null,
+        }),
+      });
+      await reloadSeed();
+      notify(`درخواست بذرمایه «${seedForm.startup.trim()}» ثبت شد (غربالگری ← ارزیابی ← موشکافانه ← کمیته سرمایه‌گذاری).`);
+      setSeedOpen(false);
+      setSeedForm({ startup: "", field: "", stage: seedStages[0], requested: "", equity: "" });
+    } catch (err) {
+      notify(apiMessage(err, "ثبت درخواست بذرمایه ناموفق بود."), "warning");
+    }
+  };
   return (
     <div className="space-y-5">
       <div className="card p-4 bg-brand-50 border-brand-200 flex items-start gap-3">
@@ -152,7 +181,7 @@ function AllFundsTab() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-ink-900">بذرمایه صندوق باور — تملک سهام و خروج</h3>
-          <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => notify("فرم درخواست سرمایه‌گذاری بذرمایه برای متقاضی ارسال شد (غربالگری ← ارزیابی ← موشکافانه ← کمیته سرمایه‌گذاری).", "info")}>
+          <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setSeedOpen(true)}>
             ثبت درخواست بذرمایه
           </Button>
         </div>
@@ -184,6 +213,46 @@ function AllFundsTab() {
           موشکافانه (تعیین مبلغ و درصد تملک) ← قرارداد و تضامین ← نظارت با پرداخت قسطی مبتنی بر KPI ← خروج (فروش سهام).
         </p>
       </div>
+
+      <Modal
+        open={seedOpen}
+        onClose={() => setSeedOpen(false)}
+        title="ثبت درخواست بذرمایه"
+        description="مسیر: غربالگری ← ارزیابی ← ارزیابی موشکافانه ← کمیته سرمایه‌گذاری."
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام استارتاپ <span className="text-rose-500">*</span></label>
+            <input value={seedForm.startup} onChange={(e) => setSeedForm((f) => ({ ...f, startup: e.target.value }))} className="input-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">حوزه</label>
+              <input value={seedForm.field} onChange={(e) => setSeedForm((f) => ({ ...f, field: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مرحله</label>
+              <select value={seedForm.stage} onChange={(e) => setSeedForm((f) => ({ ...f, stage: e.target.value }))} className="input-field">
+                {seedStages.map((x) => <option key={x}>{x}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مبلغ درخواستی (ریال)</label>
+              <input value={seedForm.requested} onChange={(e) => setSeedForm((f) => ({ ...f, requested: e.target.value }))} className="input-field" dir="ltr" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">درصد سهام</label>
+              <input value={seedForm.equity} onChange={(e) => setSeedForm((f) => ({ ...f, equity: e.target.value }))} className="input-field" dir="ltr" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitSeed}>ثبت درخواست</Button>
+            <Button variant="secondary" onClick={() => setSeedOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

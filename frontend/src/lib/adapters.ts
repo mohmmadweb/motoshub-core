@@ -170,6 +170,8 @@ export const fromChannel = (c: any) => ({
 export const fromChannelMessage = (m: any) => ({
   id: m.id, channelId: m.channel, authorId: m.author?.id ?? "", text: m.text, time: toTime(m.created_at), pinned: m.pinned,
   reactions: m.reactions ?? [],
+  replyToId: m.reply_to?.id ?? undefined,
+  threadReplies: m.thread_count ?? 0,
   _authorName: m.author?.name ?? "—", _authorColor: m.author?.avatar_color ?? "#1f4f99",
 });
 
@@ -194,7 +196,9 @@ export const fromTechTransfer = (t: any) => ({
 });
 
 const tnMethod: Record<string, string> = { public: "مناقصه عمومی", limited: "مناقصه محدود", auction: "مزایده", no_formality: "ترک تشریفات" };
+export const tnMethodApi: Record<string, string> = Object.fromEntries(Object.entries(tnMethod).map(([k, v]) => [v, k]));
 const tnStage: Record<string, string> = { publish: "انتشار آگهی", receive: "دریافت پاکات", commission: "کمیسیون معاملات", award: "ابلاغ برنده", contract: "عقد قرارداد" };
+export const tnStageApi: Record<string, string> = Object.fromEntries(Object.entries(tnStage).map(([k, v]) => [v, k]));
 export const fromTender = (t: any) => ({
   id: t.id, title: t.title, method: tnMethod[t.method] ?? t.method, stage: tnStage[t.stage] ?? t.stage,
   participants: t.participants, sessionDate: t.session_date || undefined, winner: t.winner || undefined, note: t.note || undefined,
@@ -330,6 +334,7 @@ export const fromRisk = (r: any) => ({
 
 // ── RFP calls + sabbaticals (research sub-tabs) ─────────────────────────────
 const rfpStage: Record<string, string> = { publish: "انتشار فراخوان", docs: "دریافت مستندات", biz: "ارزیابی کسب‌وکاری", tech: "ارزیابی فنی", open: "بازگشایی پاکات", selected: "فناور برتر انتخاب شد" };
+export const rfpStageApi: Record<string, string> = Object.fromEntries(Object.entries(rfpStage).map(([k, v]) => [v, k]));
 export const fromRfpCall = (c: any) => ({
   id: c.id, title: c.title, company: c.company, holding: c.holding,
   stage: rfpStage[c.stage] ?? c.stage, deadline: c.deadline, channels: c.channels ?? [],
@@ -340,6 +345,7 @@ export const fromRfpCall = (c: any) => ({
 });
 
 const sabStage: Record<string, string> = { call: "فراخوان", select: "انتخاب استاد", contract: "قرارداد", running: "در حال اجرا", final: "کتابچه و ارائه نهایی", closed: "خاتمه" };
+export const sabStageApi: Record<string, string> = Object.fromEntries(Object.entries(sabStage).map(([k, v]) => [v, k]));
 const sabRepStatus: Record<string, string> = { pending: "در انتظار", sent: "ارسال به صنعت و داور", needs_fix: "نیازمند اصلاح", paid: "تایید و پرداخت شد" };
 export const fromSabbatical = (s: any) => ({
   id: s.id, professor: s.professor, university: s.university, industry: s.industry, topic: s.topic,
@@ -434,6 +440,7 @@ export const fromFundEntity = (f: any) => ({
   manager: f.manager, activeProjects: f.active_projects, capital: f.capital,
 });
 const seedStage: Record<string, string> = { screening: "غربالگری", evaluation: "ارزیابی", due_diligence: "ارزیابی موشکافانه", contract: "قرارداد", monitoring: "نظارت و راهبری", exit: "خروج" };
+export const seedStageApi: Record<string, string> = Object.fromEntries(Object.entries(seedStage).map(([k, v]) => [v, k]));
 export const fromSeedInvestment = (s: any) => ({
   id: s.id, startup: s.startup, field: s.field, stage: seedStage[s.stage] ?? s.stage,
   requested: s.requested, approved: s.approved || undefined,

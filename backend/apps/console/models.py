@@ -20,6 +20,21 @@ class WorkflowSettings(TimeStampedModel):
     rate_limit_per_minute = models.PositiveSmallIntegerField(default=60)
     edit_window_count = models.PositiveSmallIntegerField(default=1)
 
+    # ── System variables edited from «متغیرهای سیستم» ────────────────────────
+    # Stored per tenant so they can change without a redeploy, which is exactly
+    # what that panel claims. Each one is read at the point it applies.
+    upload_max_mb = models.PositiveSmallIntegerField(default=100)
+    chunk_size_mb = models.PositiveSmallIntegerField(default=10)
+    user_quota_gb = models.PositiveSmallIntegerField(default=5)
+    image_max_px = models.PositiveIntegerField(default=1920)
+    session_hours = models.PositiveSmallIntegerField(default=24)
+    login_attempts = models.PositiveSmallIntegerField(default=5)
+    lock_minutes = models.PositiveSmallIntegerField(default=15)
+    feed_page_size = models.PositiveSmallIntegerField(default=20)
+    notif_batch = models.PositiveIntegerField(default=500)
+    digest_hour = models.PositiveSmallIntegerField(default=8)
+    maintenance_mode = models.BooleanField(default=False, help_text="فقط راهبران وارد شوند")
+
     # Branding.
     accent = models.CharField(max_length=32, default="brand")
     font_scale = models.CharField(max_length=8, default="normal")  # normal|large

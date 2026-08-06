@@ -6,9 +6,9 @@ import { useApiCollection } from "../lib/useApiCollection";
 import { fromContract, toContract } from "../lib/adapters";
 import { type ContractDetail } from "../data/types-details";
 import { type TechTransferContract, type TenderRecord, type ESignDocument } from "../data/types-daneshmand";
-import { useApiList } from "../lib/useApiList";
-import { fromTechTransfer, fromTender, fromESign, fromContractDetail, fromPendingReview } from "../lib/adapters";
-import { http } from "../lib/http";
+import { useApiList, useApiListReloadable } from "../lib/useApiList";
+import { fromTechTransfer, fromTender, fromESign, fromContractDetail, fromPendingReview, tnMethodApi, tnStageApi } from "../lib/adapters";
+import { http, apiMessage } from "../lib/http";
 import Tabs from "../components/ui/Tabs";
 import RowActions from "../components/ui/RowActions";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -47,7 +47,7 @@ const stages: ContractRecord["stage"][] = ["فراخوان", "مذاکره", "د
 export default function Contracts() {
   const [tab, setTab] = useTabParam<"tech" | "transfer" | "esign" | "tender">("tech", ["tech", "transfer", "esign", "tender"]);
   const techTransfer = useApiList<TechTransferContract>("/contracts/tech-transfer", fromTechTransfer as any);
-  const tenderList = useApiList<TenderRecord>("/contracts/tenders", fromTender as any);
+  const [tenderList, reloadTenders] = useApiListReloadable<TenderRecord>("/contracts/tenders", fromTender as any);
   const esignDocs = useApiList<ESignDocument>("/contracts/esign", fromESign as any);
   return (
     <div>
@@ -69,7 +69,7 @@ export default function Contracts() {
       {tab === "tech" && <TechContractsTab />}
       {tab === "transfer" && <TechTransferTab rows={techTransfer} />}
       {tab === "esign" && <ESignTab docs={esignDocs} />}
-      {tab === "tender" && <TenderTab items={tenderList} />}
+      {tab === "tender" && <TenderTab items={tenderList} reload={reloadTenders} />}
     </div>
   );
 }
@@ -85,8 +85,39 @@ const tenderStageTone: Record<TenderRecord["stage"], BadgeTone> = {
   "عقد قرارداد": "navy",
 };
 
-function TenderTab({ items }: { items: TenderRecord[] }) {
+const tenderMethods = ["مناقصه عمومی", "مناقصه محدود", "مزایده", "ترک تشریفات"];
+const tenderStages = ["انتشار آگهی", "دریافت پاکات", "کمیسیون معاملات", "ابلاغ برنده", "عقد قرارداد"];
+
+function TenderTab({ items, reload }: { items: TenderRecord[]; reload: () => Promise<void> }) {
   const { notify } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", method: tenderMethods[0], stage: tenderStages[0], sessionDate: "", note: "" });
+
+  const submit = async () => {
+    if (!form.title.trim()) {
+      notify("عنوان آگهی الزامی است.", "warning");
+      return;
+    }
+    try {
+      await http("/contracts/tenders", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.title.trim(),
+          method: tnMethodApi[form.method] ?? "public",
+          stage: tnStageApi[form.stage] ?? "publish",
+          session_date: form.sessionDate.trim(),
+          note: form.note.trim(),
+        }),
+      });
+      await reload();
+      notify(`آگهی «${form.title.trim()}» ثبت شد.`);
+      setOpen(false);
+      setForm({ title: "", method: tenderMethods[0], stage: tenderStages[0], sessionDate: "", note: "" });
+    } catch (err) {
+      notify(apiMessage(err, "ثبت آگهی ناموفق بود."), "warning");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -94,7 +125,7 @@ function TenderTab({ items }: { items: TenderRecord[] }) {
           تشریفات معاملات موسسه: انتشار آگهی ← دریافت پاکات (الف: تضمین، ب: فنی، ج: قیمت) ← بازگشایی در
           کمیسیون معاملات با صورت‌جلسه ← ابلاغ برنده ← عقد قرارداد. ترک تشریفات فقط با مصوبه هیئت مدیره.
         </p>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => notify("فرم آگهی مناقصه/مزایده جدید باز شد؛ پس از تایید، در روزنامه و سامانه منتشر می‌شود.", "info")}>
+        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
           آگهی جدید
         </Button>
       </div>
@@ -114,6 +145,46 @@ function TenderTab({ items }: { items: TenderRecord[] }) {
           </div>
         ))}
       </div>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="آگهی مناقصه/مزایده جدید"
+        description="پس از تایید، آگهی در روزنامه و سامانه منتشر می‌شود."
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان آگهی <span className="text-rose-500">*</span></label>
+            <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="input-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">روش</label>
+              <select value={form.method} onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))} className="input-field">
+                {tenderMethods.map((m) => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مرحله</label>
+              <select value={form.stage} onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value }))} className="input-field">
+                {tenderStages.map((m) => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">تاریخ کمیسیون</label>
+            <input value={form.sessionDate} onChange={(e) => setForm((f) => ({ ...f, sessionDate: e.target.value }))} className="input-field" placeholder="۱۴۰۵/۰۶/۱۰" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">یادداشت</label>
+            <textarea value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="input-field min-h-20" />
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ثبت آگهی</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

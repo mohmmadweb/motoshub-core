@@ -71,3 +71,18 @@ class MessageReaction(TenantScopedModel):
     class Meta(TenantScopedModel.Meta):
         db_table = "chat_message_reaction"
         constraints = [models.UniqueConstraint(fields=["message", "user", "icon"], name="uniq_message_reaction")]
+
+
+class DmThreadSetting(TenantScopedModel):
+    """One user's preferences for one conversation.
+
+    Muting is per-person, not per-thread: silencing a conversation on my side
+    must not silence it for the other party.
+    """
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="dm_settings")
+    peer = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="dm_settings_about")
+    muted = models.BooleanField(default=False)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "chat_dm_thread_setting"
+        constraints = [models.UniqueConstraint(fields=["user", "peer"], name="uniq_dm_setting")]

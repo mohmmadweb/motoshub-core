@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { FlaskConical, Plus, Users, ListFilter, GraduationCap, Wallet, Clock3, FileCheck2, CheckCircle2, XCircle, Megaphone, Trophy, BookMarked } from "lucide-react";
 import { type ResearchOpportunity } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
-import { useApiList } from "../lib/useApiList";
-import { fromRfpCall, fromSabbatical } from "../lib/adapters";
+import { useApiListReloadable } from "../lib/useApiList";
+import { http, apiMessage } from "../lib/http";
+import { fromRfpCall, fromSabbatical, rfpStageApi, sabStageApi } from "../lib/adapters";
 import { fromResearch, toResearch } from "../lib/adapters";
 import { type ResearchApplicant } from "../data/types-details";
 import {type RfpCall, type Sabbatical} from "../data/types-daneshmand";
@@ -36,8 +37,8 @@ const stages: ResearchOpportunity["stage"][] = ["فراخوان باز", "برر
 
 export default function Research() {
   const [tab, setTab] = useTabParam<"opps" | "rfp" | "sabbatical">("opps", ["opps", "rfp", "sabbatical"]);
-  const rfpCalls = useApiList<RfpCall>("/research/rfp", fromRfpCall as any);
-  const sabbaticals = useApiList<Sabbatical>("/research/sabbaticals", fromSabbatical as any);
+  const [rfpCalls, reloadRfp] = useApiListReloadable<RfpCall>("/research/rfp", fromRfpCall as any);
+  const [sabbaticals, reloadSab] = useApiListReloadable<Sabbatical>("/research/sabbaticals", fromSabbatical as any);
   return (
     <div>
       <PageHeader
@@ -55,8 +56,8 @@ export default function Research() {
         onChange={setTab}
       />
       {tab === "opps" && <OpportunitiesTab />}
-      {tab === "rfp" && <RfpTab calls={rfpCalls} />}
-      {tab === "sabbatical" && <SabbaticalTab items={sabbaticals} />}
+      {tab === "rfp" && <RfpTab calls={rfpCalls} reload={reloadRfp} />}
+      {tab === "sabbatical" && <SabbaticalTab items={sabbaticals} reload={reloadSab} />}
     </div>
   );
 }
@@ -74,8 +75,35 @@ const rfpStageTone: Record<RfpCall["stage"], BadgeTone> = {
   "فناور برتر انتخاب شد": "success",
 };
 
-function RfpTab({ calls }: { calls: RfpCall[] }) {
+const rfpStages = ["انتشار فراخوان", "دریافت مستندات", "ارزیابی کسب‌وکاری", "ارزیابی فنی", "بازگشایی پاکات", "فناور برتر انتخاب شد"];
+
+function RfpTab({ calls, reload }: { calls: RfpCall[]; reload: () => Promise<void> }) {
   const { notify } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", company: "", holding: "", stage: rfpStages[0], deadline: "" });
+
+  const submit = async () => {
+    if (!form.title.trim()) {
+      notify("عنوان RFP الزامی است.", "warning");
+      return;
+    }
+    try {
+      await http("/research/rfp", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.title.trim(), company: form.company.trim(), holding: form.holding.trim(),
+          stage: rfpStageApi[form.stage] ?? "publish", deadline: form.deadline.trim(), channels: [],
+        }),
+      });
+      await reload();
+      notify(`فراخوان «${form.title.trim()}» ثبت شد؛ پس از تصویب در سامانه‌های هدف منتشر می‌شود.`);
+      setOpen(false);
+      setForm({ title: "", company: "", holding: "", stage: rfpStages[0], deadline: "" });
+    } catch (err) {
+      notify(apiMessage(err, "ثبت RFP ناموفق بود."), "warning");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -84,7 +112,7 @@ function RfpTab({ calls }: { calls: RfpCall[] }) {
           ثبت‌نام و ارسال مستندات فناوران ← جلسه ارزیابی توانمندی کسب‌وکاری (ثبت نمره) ← ارزیابی فنی (ثبت نمره) ←
           دریافت پیشنهاد قیمت ← بازگشایی پاکات در کمیسیون معاملات ← انتخاب فناور برتر.
         </p>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => notify("فرم تدوین RFP جدید باز شد؛ پس از تصویب، فراخوان در سامانه‌های هدف منتشر می‌شود.", "info")}>
+        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
           RFP جدید
         </Button>
       </div>
@@ -127,6 +155,41 @@ function RfpTab({ calls }: { calls: RfpCall[] }) {
           </div>
         </div>
       ))}
+
+      <Modal open={open} onClose={() => setOpen(false)} title="تدوین RFP جدید" description="پس از تصویب، فراخوان در سامانه‌های هدف منتشر می‌شود.">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان فراخوان <span className="text-rose-500">*</span></label>
+            <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="input-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">شرکت متقاضی</label>
+              <input value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">هلدینگ</label>
+              <input value={form.holding} onChange={(e) => setForm((f) => ({ ...f, holding: e.target.value }))} className="input-field" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مرحله</label>
+              <select value={form.stage} onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value }))} className="input-field">
+                {rfpStages.map((x) => <option key={x}>{x}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مهلت</label>
+              <input value={form.deadline} onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))} className="input-field" placeholder="۱۴۰۵/۰۶/۱۵" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ثبت فراخوان</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -151,8 +214,36 @@ const sabbReportTone: Record<string, BadgeTone> = {
   "تایید و پرداخت شد": "success",
 };
 
-function SabbaticalTab({ items }: { items: Sabbatical[] }) {
+const sabStages = ["فراخوان", "انتخاب استاد", "قرارداد", "در حال اجرا", "کتابچه و ارائه نهایی", "خاتمه"];
+
+function SabbaticalTab({ items, reload }: { items: Sabbatical[]; reload: () => Promise<void> }) {
   const { notify } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ professor: "", university: "", industry: "", topic: "", stage: sabStages[0] });
+
+  const submit = async () => {
+    if (!form.topic.trim()) {
+      notify("موضوع فرصت مطالعاتی الزامی است.", "warning");
+      return;
+    }
+    try {
+      await http("/research/sabbaticals", {
+        method: "POST",
+        body: JSON.stringify({
+          professor: form.professor.trim(), university: form.university.trim(),
+          industry: form.industry.trim(), topic: form.topic.trim(),
+          stage: sabStageApi[form.stage] ?? "call",
+        }),
+      });
+      await reload();
+      notify(`فراخوان «${form.topic.trim()}» برای انتشار در درگاه صندوق باور ثبت شد.`);
+      setOpen(false);
+      setForm({ professor: "", university: "", industry: "", topic: "", stage: sabStages[0] });
+    } catch (err) {
+      notify(apiMessage(err, "ثبت فراخوان ناموفق بود."), "warning");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -161,7 +252,7 @@ function SabbaticalTab({ items }: { items: Sabbatical[] }) {
           پیشنهادی) — هر گزارش پس از داوری صنعت و داور، تایید و دستور پرداخت آن صادر می‌شود ← کتابچه نهایی و جلسه
           ارائه ← نامه اتمام طرح.
         </p>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => notify("فراخوان جدید فرصت مطالعاتی برای انتشار در درگاه صندوق باور و سامانه نان آماده شد.", "info")}>
+        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
           فراخوان فرصت مطالعاتی
         </Button>
       </div>
@@ -193,6 +284,41 @@ function SabbaticalTab({ items }: { items: Sabbatical[] }) {
           </div>
         </div>
       ))}
+
+      <Modal open={open} onClose={() => setOpen(false)} title="فراخوان فرصت مطالعاتی" description="پس از ثبت، در درگاه صندوق باور و سامانه نان منتشر می‌شود.">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">موضوع <span className="text-rose-500">*</span></label>
+            <input value={form.topic} onChange={(e) => setForm((f) => ({ ...f, topic: e.target.value }))} className="input-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">استاد</label>
+              <input value={form.professor} onChange={(e) => setForm((f) => ({ ...f, professor: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">دانشگاه</label>
+              <input value={form.university} onChange={(e) => setForm((f) => ({ ...f, university: e.target.value }))} className="input-field" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">صنعت</label>
+              <input value={form.industry} onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">مرحله</label>
+              <select value={form.stage} onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value }))} className="input-field">
+                {sabStages.map((x) => <option key={x}>{x}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ثبت فراخوان</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

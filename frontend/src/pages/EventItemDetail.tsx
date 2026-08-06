@@ -1,11 +1,11 @@
 import { useParams } from "react-router-dom";
-import { CalendarDays, MapPin, Users, Hash, Send, Video, ExternalLink } from "lucide-react";
+import { CalendarDays, MapPin, Users, Hash, Video, ExternalLink } from "lucide-react";
 import { useContent } from "../context/ContentContext";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
 import { VisibilityToggle, VisibilityBadge } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import CommentThread from "../components/CommentThread";
 
 export default function EventItemDetail() {
   const { id } = useParams();
@@ -91,13 +91,7 @@ export default function EventItemDetail() {
           )}
         </div>
 
-        <div className="card p-4">
-          <p className="text-xs font-semibold text-ink-600 mb-3">ارسال سوال یا نظر</p>
-          <div className="flex items-center gap-2">
-            <input className="input-field flex-1" placeholder="سوال یا نظر خود را درباره این رویداد بنویسید…" />
-            <Button variant="primary" icon={<Send size={14} />}>ارسال</Button>
-          </div>
-        </div>
+        <CommentThread kind="event" objectId={event.id} title="سوال‌ها و نظرها" placeholder="سوال یا نظر خود را درباره این رویداد بنویسید…" />
       </div>
     </div>
   );

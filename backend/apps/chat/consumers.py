@@ -100,6 +100,29 @@ class DmConsumer(AsyncJsonWebsocketConsumer):
     async def dm_message(self, event):
         await self.send_json(event["message"])
 
+    async def dm_read(self, event):
+        """The peer opened our thread — their side marked our messages read."""
+        await self.send_json({"type": "read", **event["message"]})
+
+    async def dm_typing(self, event):
+        """The peer is composing. Transient: never stored, never replayed."""
+        await self.send_json({"type": "typing", **event["message"]})
+
+    async def receive_json(self, content):
+        """Only a typing ping travels this way; sending still goes over REST.
+
+        Relayed straight to the addressed peer with this socket's authenticated
+        identity — the client cannot claim to be someone else typing.
+        """
+        if (content or {}).get("type") != "typing":
+            return
+        peer = (content or {}).get("to")
+        if not peer:
+            return
+        await self.channel_layer.group_send(
+            f"dm_{peer}", {"type": "dm.typing", "message": {"from": str(self.user.id)}}
+        )
+
     async def _authenticate(self):
         qs = self.scope.get("query_string", b"").decode()
         params = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)

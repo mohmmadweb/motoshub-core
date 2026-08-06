@@ -229,21 +229,8 @@ export type ModuleDef = {
 };
 
 export type AdminPageDef = { id: string; title: string; slug: string; visible: boolean };
-export const adminPages: AdminPageDef[] = [
-  { id: "pg1", title: "درباره ما", slug: "/about", visible: true },
-  { id: "pg2", title: "قوانین و مقررات", slug: "/terms", visible: true },
-  { id: "pg3", title: "تماس با ما", slug: "/contact", visible: true },
-  { id: "pg4", title: "سوالات متداول", slug: "/faq", visible: false },
-];
 
 export type AdminMenuDef = { id: string; title: string; order: number; visible: boolean };
-export const adminMenus: AdminMenuDef[] = [
-  { id: "mn1", title: "داشبورد", order: 1, visible: true },
-  { id: "mn2", title: "گروه‌ها", order: 2, visible: true },
-  { id: "mn3", title: "مدیریت دانش", order: 3, visible: true },
-  { id: "mn4", title: "مدیریت پروژه", order: 4, visible: true },
-  { id: "mn5", title: "طرح‌های اشتغال‌زایی", order: 5, visible: false },
-];
 
 // ---------------------------------------------------------------------------
 // Roles & granular permissions (custom roles)
@@ -267,13 +254,6 @@ export type RoleDef = {
 export type RoleAssignment = Record<string, string>;
 
 export type SearchResult = { id: string; type: "پست" | "گروه" | "سند" | "پروژه" | "کاربر"; title: string; snippet: string };
-export const searchResults: SearchResult[] = [
-  { id: "sr1", type: "سند", title: "چارچوب حقوقی واگذاری هتل‌ها و اموال مازاد بنیاد", snippet: "آرشیو قراردادها · بروزرسانی ۱۴۰۵/۰۲/۰۱" },
-  { id: "sr2", type: "پروژه", title: "طرح آبادانی و پیشرفت قلعه‌گنج — فاز دوم", snippet: "کارفرما: بنیاد علوی · پیشرفت ۷۰٪" },
-  { id: "sr3", type: "گروه", title: "ستاد محرومیت‌زدایی", snippet: "۱۸ عضو · خصوصی" },
-  { id: "sr4", type: "پست", title: "گزارش پیشرفت طرح‌های آبادانی قلعه‌گنج بارگذاری شد", snippet: "۱۲ پسندیدن · ۳ نظر" },
-  { id: "sr5", type: "کاربر", title: "محسن مردعلی", snippet: "قائم‌مقام بنیاد علوی · بنیاد علوی" },
-];
 
 // ---------------------------------------------------------------------------
 // Internal communication workspace (Mattermost-inspired) — channels, presence,
@@ -326,6 +306,8 @@ export type ChannelMessage = {
   saved?: boolean;
   reactions?: Reaction[];
   threadReplies?: number;
+  /** شناسهٔ پیام والد، اگر این پیام پاسخ باشد */
+  replyToId?: string;
 };
 
 export type Integration = {
