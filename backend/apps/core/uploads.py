@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Attachment
+from .thumbnails import build_thumbnail
 
 # Conservative allow-list: no executables, no archives that hide them.
 ALLOWED_EXTENSIONS = {
@@ -53,7 +54,14 @@ class AttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Attachment
-        fields = ["id", "name", "kind", "size", "human_size", "content_type", "url", "created_at"]
+        fields = ["id", "name", "kind", "size", "human_size", "content_type", "url",
+                  "thumbnail_url", "created_at"]
+
+    thumbnail_url = serializers.SerializerMethodField()
+
+    def get_thumbnail_url(self, obj):
+        """Preview for images; empty for everything else."""
+        return obj.thumbnail.url if obj.thumbnail else ""
 
     def get_url(self, obj):
         # Relative on purpose: behind a reverse proxy the Host header carries no
@@ -89,4 +97,7 @@ class UploadView(APIView):
             kind=_kind_for(ext, content_type), size=upload.size, content_type=content_type[:120],
             uploaded_by=request.user,
         )
+        # Build the preview now so galleries do not have to decode full images.
+        # Never fatal: a file Pillow cannot read simply has no thumbnail.
+        build_thumbnail(att)
         return Response(AttachmentSerializer(att, context={"request": request}).data, status=201)

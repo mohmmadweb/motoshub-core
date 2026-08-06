@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { http, apiMessage } from "../lib/http";
 import {
   SlidersHorizontal,
+  RefreshCw,
   HardDrive,
   Database,
   Trash2,
@@ -170,6 +171,8 @@ type StorageUsage = {
   categories: StorageCategory[]; top_consumers: StorageConsumer[]; orphan_records: number;
 };
 
+type BackupFile = { name: string; size: number; human_size: string; created_at: number };
+
 const EMPTY_USAGE: StorageUsage = {
   disk_total_gb: 0, disk_used_gb: 0, disk_free_gb: 0,
   attachments_gb: 0, attachments_files: 0, database_gb: 0,
@@ -179,6 +182,79 @@ const EMPTY_USAGE: StorageUsage = {
 export function StorageSection({ notify }: { notify: Notify }) {
   const [usage, setUsage] = useState<StorageUsage>(EMPTY_USAGE);
   const [cleaning, setCleaning] = useState(false);
+  const [thumbing, setThumbing] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
+  const [backups, setBackups] = useState<BackupFile[]>([]);
+
+  const loadBackups = () =>
+    http<{ backups: BackupFile[] }>("/settings/backups").then((r) => setBackups(r.backups));
+  useEffect(() => { loadBackups().catch(() => setBackups([])); }, []);
+
+  // Rebuilds every image preview. This is what «بازسازی» means after the
+  // thumbnail size changes; the routine case is filling gaps, which the API
+  // exposes as ?missing=1.
+  const rebuildThumbnails = async () => {
+    setThumbing(true);
+    try {
+      const res = await http<{ built: number; failed: number; total: number }>(
+        "/settings/storage/thumbnails", { method: "POST" },
+      );
+      await loadUsage();
+      notify(
+        res.total === 0
+          ? "تصویری برای بازسازی وجود ندارد."
+          : `${res.built.toLocaleString("fa-IR")} بندانگشتی ساخته شد` +
+            (res.failed ? ` · ${res.failed.toLocaleString("fa-IR")} تصویر قابل پردازش نبود.` : "."),
+        res.failed ? "warning" : "success",
+      );
+    } catch (err) {
+      notify(apiMessage(err, "بازسازی بندانگشتی‌ها ناموفق بود."), "warning");
+    } finally {
+      setThumbing(false);
+    }
+  };
+
+  const takeBackup = async () => {
+    setBackingUp(true);
+    try {
+      const res = await http<BackupFile>("/settings/backups", { method: "POST" });
+      await loadBackups();
+      notify(`پشتیبان «${res.name}» گرفته شد (${res.human_size}).`);
+    } catch (err) {
+      notify(apiMessage(err, "پشتیبان‌گیری ناموفق بود."), "warning");
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  // A plain <a href> would reach the endpoint without the bearer token and be
+  // refused, so the file is fetched and handed to the browser as a blob.
+  const downloadBackup = async (name: string) => {
+    try {
+      const res = await fetch(`/api/v1/settings/backups/${name}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("ms-access") ?? ""}` },
+      });
+      if (!res.ok) throw new Error();
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      notify("دانلود پشتیبان ناموفق بود.", "warning");
+    }
+  };
+
+  const removeBackup = async (name: string) => {
+    try {
+      await http(`/settings/backups/${name}`, { method: "DELETE" });
+      await loadBackups();
+      notify("پشتیبان حذف شد.", "info");
+    } catch (err) {
+      notify(apiMessage(err, "حذف پشتیبان ناموفق بود."), "warning");
+    }
+  };
 
   const loadUsage = () => http<StorageUsage>("/settings/storage").then(setUsage);
   useEffect(() => { loadUsage().catch(() => {}); }, []);
@@ -284,18 +360,49 @@ export function StorageSection({ notify }: { notify: Notify }) {
                 {cleaning ? "در حال پاک‌سازی…" : "پاک‌سازی"}
               </Button>
             </div>
-            {/* Backups are taken by a separate scheduled container the API cannot
-                reach, so this panel reports the arrangement instead of offering a
-                «شروع» that could not start anything. */}
-            <div className="flex items-start justify-between gap-2 text-xs pt-3 border-t border-ink-100">
+            <div className="flex items-center justify-between gap-2 text-xs pt-3 border-t border-ink-100">
               <div>
-                <p className="font-medium text-ink-800">پشتیبان‌گیری خودکار پایگاه داده</p>
-                <p className="text-ink-400 mt-0.5 leading-5">
-                  توسط سرویس زمان‌بندی‌شده و مستقل از این پنل انجام می‌شود؛ دوره و مدت نگه‌داری
-                  از پیکربندی استقرار خوانده می‌شود.
+                <p className="font-medium text-ink-800">بازسازی بندانگشتی‌ها</p>
+                <p className="text-ink-400 mt-0.5">
+                  تولید مجدد پیش‌نمایش {(usage.categories.find((c) => c.kind === "photo")?.files ?? 0).toLocaleString("fa-IR")} تصویر
                 </p>
               </div>
-              <Badge tone="success">فعال</Badge>
+              <Button variant="secondary" size="sm" icon={<RefreshCw size={13} />} onClick={rebuildThumbnails} disabled={thumbing}>
+                {thumbing ? "در حال بازسازی…" : "بازسازی"}
+              </Button>
+            </div>
+
+            <div className="pt-3 border-t border-ink-100">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <div>
+                  <p className="font-medium text-ink-800">پشتیبان‌گیری دستی</p>
+                  <p className="text-ink-400 mt-0.5">
+                    علاوه بر پشتیبان‌گیری خودکار روزانه که سرویس مستقلی انجام می‌دهد
+                  </p>
+                </div>
+                <Button variant="secondary" size="sm" icon={<Archive size={13} />} onClick={takeBackup} disabled={backingUp}>
+                  {backingUp ? "در حال تهیه…" : "تهیه پشتیبان"}
+                </Button>
+              </div>
+
+              {backups.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {backups.slice(0, 6).map((b) => (
+                    <div key={b.name} className="flex items-center justify-between gap-2 bg-ink-50 rounded-lg px-2.5 py-2">
+                      <span className="text-[11px] text-ink-700 font-mono truncate" dir="ltr">{b.name}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] text-ink-400">{b.human_size}</span>
+                        <button onClick={() => downloadBackup(b.name)} className="text-[11px] text-brand-600 hover:underline">
+                          دانلود
+                        </button>
+                        <button onClick={() => removeBackup(b.name)} className="text-ink-300 hover:text-rose-600" title="حذف پشتیبان">
+                          <Trash2 size={12} />
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

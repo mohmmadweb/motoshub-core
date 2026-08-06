@@ -52,7 +52,9 @@ class DirectMessage(TenantScopedModel):
     """One-to-one direct message. A "thread" is all messages between two users."""
     sender = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="dm_sent")
     recipient = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="dm_received")
-    text = models.TextField()
+    text = models.TextField(blank=True)
+    # {url, name, kind, size} from /uploads — what «رسانه‌های مشترک» lists.
+    attachment = models.JSONField(default=dict, blank=True)
     read = models.BooleanField(default=False)
 
     class Meta(TenantScopedModel.Meta):
@@ -86,3 +88,58 @@ class DmThreadSetting(TenantScopedModel):
     class Meta(TenantScopedModel.Meta):
         db_table = "chat_dm_thread_setting"
         constraints = [models.UniqueConstraint(fields=["user", "peer"], name="uniq_dm_setting")]
+
+
+class UserBlock(TenantScopedModel):
+    """One user has blocked another.
+
+    Directed on purpose: blocking is my decision about my own inbox, so it is
+    not mirrored back onto the other person's account.
+    """
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="blocks_made")
+    blocked = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="blocks_received")
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "chat_user_block"
+        constraints = [models.UniqueConstraint(fields=["user", "blocked"], name="uniq_user_block")]
+
+    @classmethod
+    def between(cls, a, b) -> bool:
+        """True if either side has blocked the other — a block stops the
+        conversation in both directions, otherwise the blocker would still
+        receive messages they asked not to."""
+        return cls.objects.filter(
+            models.Q(user=a, blocked=b) | models.Q(user=b, blocked=a)
+        ).exists()
+
+
+class Call(TenantScopedModel):
+    """A voice or video call between two users.
+
+    Media never touches the server — the browsers connect directly over WebRTC
+    and this row is the call's history: who rang whom, when, and how it ended.
+    """
+    KIND = [("audio", "صوتی"), ("video", "تصویری")]
+    STATUS = [
+        ("ringing", "در حال زنگ"),
+        ("accepted", "برقرار"),
+        ("ended", "پایان‌یافته"),
+        ("declined", "رد شد"),
+        ("missed", "بی‌پاسخ"),
+    ]
+    caller = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="calls_made")
+    callee = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="calls_received")
+    kind = models.CharField(max_length=6, choices=KIND, default="audio")
+    status = models.CharField(max_length=9, choices=STATUS, default="ringing")
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        db_table = "chat_call"
+        ordering = ["-created_at"]
+
+    @property
+    def duration_seconds(self) -> int:
+        if not self.started_at or not self.ended_at:
+            return 0
+        return int((self.ended_at - self.started_at).total_seconds())

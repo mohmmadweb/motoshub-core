@@ -2,6 +2,7 @@
 import json
 
 import jwt
+from django.core.exceptions import ValidationError
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
@@ -108,20 +109,63 @@ class DmConsumer(AsyncJsonWebsocketConsumer):
         """The peer is composing. Transient: never stored, never replayed."""
         await self.send_json({"type": "typing", **event["message"]})
 
-    async def receive_json(self, content):
-        """Only a typing ping travels this way; sending still goes over REST.
+    async def call_invite(self, event):
+        """Someone is ringing this user."""
+        await self.send_json({"type": "call:invite", **event["message"]})
 
-        Relayed straight to the addressed peer with this socket's authenticated
-        identity — the client cannot claim to be someone else typing.
+    async def call_state(self, event):
+        """The other side accepted, declined or hung up."""
+        await self.send_json({"type": "call:state", **event["message"]})
+
+    async def call_signal(self, event):
+        """A WebRTC offer/answer/ICE candidate addressed to this user."""
+        await self.send_json({"type": "call:signal", **event["message"]})
+
+    async def receive_json(self, content):
+        """Typing pings and WebRTC signalling; messages still go over REST.
+
+        Every relay stamps this socket's authenticated identity as the sender,
+        so a client cannot impersonate someone else — neither to fake a typing
+        indicator nor to inject signalling into a call it is not part of.
         """
-        if (content or {}).get("type") != "typing":
-            return
-        peer = (content or {}).get("to")
+        content = content or {}
+        kind = content.get("type")
+        peer = content.get("to")
         if not peer:
             return
-        await self.channel_layer.group_send(
-            f"dm_{peer}", {"type": "dm.typing", "message": {"from": str(self.user.id)}}
-        )
+
+        if kind == "typing":
+            await self.channel_layer.group_send(
+                f"dm_{peer}", {"type": "dm.typing", "message": {"from": str(self.user.id)}}
+            )
+            return
+
+        if kind == "call:signal":
+            # The SDP/ICE payload is opaque to the server; it is forwarded as-is
+            # so the two browsers can negotiate a direct connection. Media never
+            # passes through here.
+            call_id = content.get("callId")
+            if not call_id or not await self._in_call(call_id):
+                return
+            await self.channel_layer.group_send(f"dm_{peer}", {"type": "call.signal", "message": {
+                "callId": str(call_id),
+                "from": str(self.user.id),
+                "signal": content.get("signal"),
+            }})
+
+    @database_sync_to_async
+    def _in_call(self, call_id) -> bool:
+        """Only the two participants may relay signalling for a call."""
+        from django.db.models import Q
+
+        from .models import Call
+
+        try:
+            return Call.objects.filter(
+                Q(caller=self.user) | Q(callee=self.user), id=call_id
+            ).exists()
+        except (ValueError, ValidationError):
+            return False
 
     async def _authenticate(self):
         qs = self.scope.get("query_string", b"").decode()

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback} from "react";
 import type { ReactNode } from "react";
 import {
   Search,
@@ -33,10 +33,12 @@ import {
   Play,
   Image as ImageIcon,
   FileText,
-  BarChart3,
   ChevronDown,
   BellOff,
   Eraser,
+  Ban,
+  Phone,
+  Video,
 } from "lucide-react";
 import {
   type Channel,
@@ -46,6 +48,8 @@ import {
 import Avatar from "../components/Avatar";
 import { http, apiMessage } from "../lib/http";
 import { openChannelSocket, openDmSocket } from "../lib/ws";
+import { useCall } from "../lib/useCall";
+import { callLimitation, type CallKind } from "../lib/webrtc";
 import { fromChannel, fromChannelMessage, fromUser, fromIntegration } from "../lib/adapters";
 import { useApiList } from "../lib/useApiList";
 import { me } from "../lib/me";
@@ -56,6 +60,7 @@ import Drawer from "../components/ui/Drawer";
 import Toggle from "../components/ui/Toggle";
 import { useToast } from "../components/ui/ToastProvider";
 import Button from "../components/ui/Button";
+import CallPanel from "../components/CallPanel";
 
 const reactionIconMap: Record<ReactionIcon, typeof ThumbsUp> = { ThumbsUp, Heart, Smile, CheckCircle2 };
 
@@ -89,6 +94,8 @@ type DmThreadState = {
   unread: number;
   /** ساکت‌شده برای من — تنظیمی شخصی، نه دوطرفه */
   muted?: boolean;
+  /** من این کاربر را مسدود کرده‌ام */
+  blocked?: boolean;
   messages: DmMsg[];
 };
 
@@ -123,6 +130,28 @@ export default function Chat() {
   const [forwarding, setForwarding] = useState<DmMsg | null>(null);
   const [typingPeer, setTypingPeer] = useState<string | null>(null);
   const [threadDraft, setThreadDraft] = useState("");
+  const [sharedMedia, setSharedMedia] = useState<{ id: string; url: string; name: string; kind: string; thumbnail_url?: string }[]>([]);
+
+  // One socket per user (the server groups by user id), so the call hook is
+  // handed this page's socket rather than opening a second one.
+  const sendOnSocket = useCallback((payload: Record<string, unknown>) => {
+    const sock = dmSock.current;
+    if (sock && sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify(payload));
+  }, []);
+  const call = useCall(sendOnSocket);
+  // The socket is opened once; keeping the handler in a ref lets that effect
+  // stay dependency-free instead of tearing the connection down every render.
+  const onCallEvent = useRef(call.handleSocketEvent);
+  onCallEvent.current = call.handleSocketEvent;
+
+  // Surface call failures once, with the network caveat attached — a call that
+  // cannot traverse the network should say so rather than fail silently.
+  useEffect(() => {
+    if (!call.error) return;
+    notify(`${call.error} ${callLimitation}`, "warning");
+    call.clearError();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [call.error]);
   const dmSock = useRef<WebSocket | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSent = useRef(0);
@@ -171,6 +200,10 @@ export default function Chat() {
       try {
         const d = JSON.parse(ev.data);
 
+        if (typeof d.type === "string" && d.type.startsWith("call:")) {
+          onCallEvent.current(d);
+          return;
+        }
         // The peer opened our thread: our messages to them really are read.
         if (d.type === "read") {
           setDmThreads((prev) => prev.map((t) => (t.id === d.threadId
@@ -298,6 +331,35 @@ export default function Chat() {
   // The open thread is simply every loaded message that replies to it.
   const threadReplies = threadFor ? messages.filter((m) => m.replyToId === threadFor.id) : [];
 
+  // «رسانه‌های مشترک» — the files actually exchanged in this conversation.
+  useEffect(() => {
+    if (selection.kind !== "dm") { setSharedMedia([]); return; }
+    let alive = true;
+    http<typeof sharedMedia>(`/chat/dms/${selection.id}/media`)
+      .then((rows) => { if (alive) setSharedMedia(rows); })
+      .catch(() => setSharedMedia([]));
+    return () => { alive = false; };
+  }, [selection]);
+
+  const startCall = (callKind: CallKind) => {
+    if (!activeDm) return;
+    if (activeDm.blocked) {
+      notify("این کاربر مسدود است؛ ابتدا مسدودیت را بردارید.", "warning");
+      return;
+    }
+    call.start(activeDm.id, activeDm.with, callKind, activeDm.avatarColor);
+  };
+
+  const toggleBlock = async (peerId: string, peerName: string, next: boolean) => {
+    try {
+      await http(`/chat/blocks/${peerId}`, { method: next ? "PUT" : "DELETE" });
+      setDmThreads((prev) => prev.map((t) => (t.id === peerId ? { ...t, blocked: next } : t)));
+      notify(next ? `کاربر ${peerName} مسدود شد.` : `مسدودیت ${peerName} برداشته شد.`, next ? "warning" : "info");
+    } catch (err) {
+      notify(apiMessage(err, "تغییر وضعیت مسدودی ناموفق بود."), "warning");
+    }
+  };
+
   const sendThreadReply = async () => {
     if (!threadFor || !threadDraft.trim()) return;
     try {
@@ -379,21 +441,50 @@ export default function Chat() {
     scrollToBottom();
   };
 
-  const sendAttachment = (kind: "photo" | "file" | "poll") => {
+  // Attaching used to invent a filename («صورتجلسه-هماهنگی.pdf») and show it as
+  // if a file had been sent. It now picks a real file, uploads it, and the
+  // message carries the stored attachment — which is what «رسانه‌های مشترک»
+  // then lists.
+  const sendAttachment = (kind: "photo" | "file") => {
     setAttachOpen(false);
     if (!activeDm) {
-      notify("پیوست در کانال‌ها نیز به همین شکل ارسال می‌شود.", "info");
+      notify("برای ارسال پیوست، ابتدا یک گفتگو را باز کنید.", "info");
       return;
     }
-    const id = `dm-${Date.now()}`;
-    if (kind === "poll") {
-      updateDm(activeDm.id, (msgs) => [...msgs, { id, from: "me", text: "📊 نظرسنجی: زمان جلسه هفتگی؟ (شنبه ۱۰ / یکشنبه ۱۴)", time: nowFa(), status: "sent", kind: "text" }], "📊 نظرسنجی");
-    } else if (kind === "photo") {
-      updateDm(activeDm.id, (msgs) => [...msgs, { id, from: "me", text: "", time: nowFa(), status: "sent", kind: "photo", meta: { fileName: "گزارش-بازدید.jpg" } }], "🖼 تصویر");
-    } else {
-      updateDm(activeDm.id, (msgs) => [...msgs, { id, from: "me", text: "", time: nowFa(), status: "sent", kind: "file", meta: { fileName: "صورتجلسه-هماهنگی.pdf", size: "۱.۲ مگابایت" } }], "📎 فایل");
-    }
-    scrollToBottom();
+    const peerId = activeDm.id;
+    const input = document.createElement("input");
+    input.type = "file";
+    if (kind === "photo") input.accept = "image/*";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const up = await http<{ url: string; name: string; kind: string; size: number; thumbnail_url?: string }>(
+          "/uploads", { method: "POST", body: form },
+        );
+        const sent = await http<{ id: string; time: string }>("/chat/dms", {
+          method: "POST",
+          body: JSON.stringify({ to: peerId, text: "", attachment: up }),
+        });
+        updateDm(
+          peerId,
+          (msgs) => [...msgs, {
+            id: sent.id, from: "me", text: "", time: sent.time, status: "sent",
+            kind: up.kind === "photo" ? "photo" : "file",
+            meta: { fileName: up.name, size: undefined },
+            attachment: up,
+          }],
+          up.kind === "photo" ? "🖼 تصویر" : "📎 فایل",
+        );
+        setSharedMedia((prev) => [{ id: sent.id, ...up }, ...prev]);
+        scrollToBottom();
+      } catch (err) {
+        notify(apiMessage(err, "ارسال پیوست ناموفق بود."), "warning");
+      }
+    };
+    input.click();
   };
 
   const toggleDmReaction = (msgId: string, emoji: string) => {
@@ -596,9 +687,24 @@ export default function Chat() {
               <HeaderIcon title="جستجو در گفتگو" active={convSearch !== null} onClick={() => setConvSearch((s) => (s === null ? "" : null))}>
                 <Search size={16} />
               </HeaderIcon>
+              <HeaderIcon
+                title={activeDm.blocked ? "کاربر مسدود است" : "تماس صوتی"}
+                onClick={() => startCall("audio")}
+              >
+                <Phone size={16} />
+              </HeaderIcon>
+              <HeaderIcon
+                title={activeDm.blocked ? "کاربر مسدود است" : "تماس تصویری"}
+                onClick={() => startCall("video")}
+              >
+                <Video size={16} />
+              </HeaderIcon>
               <DmMenu
+                muted={!!activeDm.muted}
+                blocked={!!activeDm.blocked}
                 onMute={() => toggleDmMute(activeDm.id, !activeDm.muted)}
                 onClear={() => clearDmThread(activeDm.id, activeDm.with)}
+                onBlock={() => toggleBlock(activeDm.id, activeDm.with, !activeDm.blocked)}
               />
             </div>
           )}
@@ -908,7 +1014,6 @@ export default function Chat() {
                       <div className="absolute bottom-12 right-0 bg-white rounded-xl shadow-xl border border-ink-100 py-1.5 w-44 z-20">
                         <AttachItem icon={<ImageIcon size={15} className="text-violet-500" />} label="تصویر یا ویدیو" onClick={() => sendAttachment("photo")} />
                         <AttachItem icon={<FileText size={15} className="text-brand-600" />} label="فایل" onClick={() => sendAttachment("file")} />
-                        <AttachItem icon={<BarChart3 size={15} className="text-emerald-600" />} label="نظرسنجی" onClick={() => sendAttachment("poll")} />
                       </div>
                     )}
                   </div>
@@ -1023,6 +1128,24 @@ export default function Chat() {
         )}
       </div>
 
+      <CallPanel
+        state={call.state}
+        kind={call.kind}
+        peerName={call.peer?.name ?? "—"}
+        peerColor={call.peer?.color}
+        incoming={call.incoming}
+        localStream={call.localStream}
+        remoteStream={call.remoteStream}
+        seconds={call.seconds}
+        micOn={call.micOn}
+        camOn={call.camOn}
+        onAccept={call.accept}
+        onDecline={call.decline}
+        onHangUp={call.hangUp}
+        onToggleMic={call.toggleMic}
+        onToggleCam={call.toggleCam}
+      />
+
       {/* ------------------------------ هدایت پیام ------------------------------ */}
       {forwarding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setForwarding(null)}>
@@ -1070,12 +1193,32 @@ export default function Chat() {
               </div>
             </div>
             <div>
-              <p className="text-xs font-bold text-ink-900 mb-2">رسانه‌های مشترک</p>
-              {/* Direct messages are text-only, so there is nothing to list —
-                  the previous version drew six coloured squares as if there were. */}
-              <p className="text-[12px] text-ink-400 leading-6">
-                در گفتگوی خصوصی فایلی رد و بدل نشده است.
+              <p className="text-xs font-bold text-ink-900 mb-2">
+                رسانه‌های مشترک
+                {sharedMedia.length > 0 && <span className="text-ink-400"> ({sharedMedia.length.toLocaleString("fa-IR")})</span>}
               </p>
+              {sharedMedia.length === 0 ? (
+                <p className="text-[12px] text-ink-400 leading-6">در این گفتگو فایلی رد و بدل نشده است.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {sharedMedia.slice(0, 9).map((m) => (
+                    <a
+                      key={m.id}
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={m.name}
+                      className="aspect-square rounded-lg overflow-hidden bg-ink-100 flex items-center justify-center hover:opacity-90 transition-opacity"
+                    >
+                      {m.thumbnail_url || m.kind === "photo" ? (
+                        <img src={m.thumbnail_url || m.url} alt={m.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Paperclip size={16} className="text-ink-400" />
+                      )}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <button onClick={() => clearDmThread(activeDm.id, activeDm.with)} className="w-full flex items-center gap-2 text-[13px] text-ink-700 hover:bg-ink-50 rounded-lg px-3 py-2.5 transition-colors">
@@ -1172,7 +1315,10 @@ function AttachItem({ icon, label, onClick }: { icon: ReactNode; label: string; 
   );
 }
 
-function DmMenu({ onMute, onClear }: { onMute: () => void; onClear: () => void }) {
+function DmMenu({ muted, blocked, onMute, onClear, onBlock }: {
+  muted: boolean; blocked: boolean;
+  onMute: () => void; onClear: () => void; onBlock: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -1184,10 +1330,13 @@ function DmMenu({ onMute, onClear }: { onMute: () => void; onClear: () => void }
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-11 bg-white rounded-xl shadow-xl border border-ink-100 py-1.5 w-48 z-20">
             <button onClick={() => { onMute(); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-ink-50 text-right text-[12.5px] text-ink-800 transition-colors">
-              <BellOff size={14} className="text-ink-400" /> بی‌صدا کردن
+              <BellOff size={14} className="text-ink-400" /> {muted ? "فعال‌کردن اعلان‌ها" : "بی‌صدا کردن"}
             </button>
             <button onClick={() => { onClear(); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-ink-50 text-right text-[12.5px] text-ink-800 transition-colors">
               <Eraser size={14} className="text-ink-400" /> پاک‌کردن تاریخچه
+            </button>
+            <button onClick={() => { onBlock(); setOpen(false); }} className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-right text-[12.5px] transition-colors ${blocked ? "hover:bg-ink-50 text-ink-800" : "hover:bg-rose-50 text-rose-600"}`}>
+              <Ban size={14} /> {blocked ? "رفع مسدودی" : "مسدود کردن"}
             </button>
           </div>
         </>

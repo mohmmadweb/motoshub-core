@@ -1,7 +1,8 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .storage import StorageUsageView
+from .backups import BackupDownloadView, BackupView
+from .storage import StorageUsageView, ThumbnailRebuildView
 from .views import (
     AssistantView,
     ReportDimensionsView,
@@ -30,4 +31,7 @@ urlpatterns = router.urls + [
     path("assistant/ask", AssistantView.as_view(), name="assistant-ask"),
     path("search", SearchView.as_view(), name="search"),
     path("settings/storage", StorageUsageView.as_view(), name="storage-usage"),
+    path("settings/storage/thumbnails", ThumbnailRebuildView.as_view(), name="thumbnail-rebuild"),
+    path("settings/backups", BackupView.as_view(), name="backups"),
+    path("settings/backups/<str:name>", BackupDownloadView.as_view(), name="backup-file"),
 ]

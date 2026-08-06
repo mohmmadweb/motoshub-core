@@ -56,6 +56,9 @@ class Attachment(TenantScopedModel):
     content_type = models.CharField(max_length=120, blank=True)
     uploaded_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True,
                                     related_name="attachments")
+    # Generated preview for images; empty when the file is not an image or the
+    # thumbnail has not been built yet.
+    thumbnail = models.ImageField(upload_to="thumbs/%Y/%m/", blank=True, null=True)
 
     class Meta(TenantScopedModel.Meta):
         db_table = "core_attachment"
@@ -71,3 +74,9 @@ class Attachment(TenantScopedModel):
                 return f"{n:.0f}{unit}" if unit == "B" else f"{n:.1f}{unit}"
             n /= 1024
         return f"{n:.1f}GB"
+
+
+def thumbnail_path(attachment) -> str:
+    """Where an attachment's thumbnail lives, derived from the original."""
+    base, _, _ = attachment.file.name.rpartition(".")
+    return f"{base or attachment.file.name}.thumb.jpg"

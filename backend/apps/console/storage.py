@@ -114,3 +114,23 @@ class StorageUsageView(APIView):
         ]
         Attachment.objects.filter(id__in=stale).delete()
         return Response({"removed": len(stale)})
+
+
+class ThumbnailRebuildView(APIView):
+    """POST → (re)generate thumbnails for this tenant's images.
+
+    `?missing=1` only fills the gaps, which is the cheap routine case; without
+    it every image is rebuilt, which is what «بازسازی» means after the preview
+    size changes.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        tenant = getattr(request, "tenant", None)
+        if not getattr(user, "is_superuser", False) and "settings.storage" not in user.get_permission_ids(tenant):
+            return Response({"error": {"code": 403, "type": "forbidden", "message": "دسترسی لازم را ندارید."}}, status=403)
+        from apps.core.thumbnails import rebuild_all
+
+        only_missing = request.query_params.get("missing") in ("1", "true", "True")
+        return Response(rebuild_all(tenant, only_missing=only_missing))

@@ -42,6 +42,7 @@ services:
       ALLOWED_HOSTS: "*"
     volumes:
       - media:/app/media          # uploads survive restarts; nginx serves them
+      - manualbackups:/app/backups  # dumps taken from the admin console
     ports:
       - "8000:8000"
     depends_on:
@@ -101,5 +102,6 @@ services:
 
 volumes:
   pgdata:
-  pgbackups:
+  pgbackups:      # scheduled dumps (backup service)
+  manualbackups:  # dumps taken from the console
   media:

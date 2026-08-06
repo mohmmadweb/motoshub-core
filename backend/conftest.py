@@ -44,6 +44,14 @@ def member(tenant):
 
 
 @pytest.fixture
+def platform_admin(tenant):
+    """راهبر پلتفرم — the only preset role holding settings.storage/settings.system."""
+    u = User.objects.create_user("root", password="x", name="راهبر پلتفرم", tenant=tenant)
+    RoleAssignment.objects.create(user=u, role=Role.objects.get(key="platform-admin"), tenant=tenant)
+    return u
+
+
+@pytest.fixture
 def auth():
     from apps.accounts.tokens import issue_access
 
