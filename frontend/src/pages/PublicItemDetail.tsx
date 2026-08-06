@@ -28,6 +28,7 @@ import SiteHeader from "../components/SiteHeader";
 import PublicFooter from "../components/PublicFooter";
 import Badge from "../components/ui/Badge";
 import Avatar from "../components/Avatar";
+import { useToast } from "../components/ui/ToastProvider";
 import { http } from "../lib/http";
 import { fromComment, fromPost } from "../lib/adapters";
 import { contentImg, bgStyle } from "../data/images";
@@ -385,18 +386,24 @@ function MediaDetail({ item }: { item: MediaItem }) {
 }
 
 function KnowledgeDetail({ item }: { item: KnowledgeDoc }) {
+  const { notify } = useToast();
   const { knowledgeDocs } = useContent();
   const related = knowledgeDocs.filter((d) => d.id !== item.id && d.visibility === "عمومی" && (d.category === item.category || d.type === item.type)).slice(0, 3);
 
+  // Serves the stored file. When a record has none, the user is told so —
+  // the previous version handed over a .txt stub labelled «خروجی نمایشی
+  // پروتوتایپ», which looks like a successful download of the wrong thing.
   const download = () => {
-    const content = `${item.title}\nدسته‌بندی: ${item.category}\nمالک: ${item.owner}\nآخرین بروزرسانی: ${item.updatedAt}\n\n(خروجی نمایشی پروتوتایپ)`;
-    const blob = new Blob(["﻿" + content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    if (!item.fileUrl) {
+      notify("فایلی برای این سند بارگذاری نشده است.", "warning");
+      return;
+    }
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `${item.title}.txt`;
+    a.href = item.fileUrl;
+    a.download = item.title;
+    a.target = "_blank";
+    a.rel = "noopener";
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (

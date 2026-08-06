@@ -49,6 +49,7 @@ export const toMedia = (v: any) => ({ kind: v.kind, title: v.title, album: v.alb
 export const fromKnowledge = (k: any) => ({
   id: k.id, title: k.title, category: k.category, type: docType[k.doc_type] ?? "گزارش",
   updatedAt: toJalali(k.updated_at ?? k.created_at), owner: k.owner?.name ?? "—", size: k.size ?? "—", visibility: visToFa(k.visibility),
+  fileUrl: k.file || undefined,
 });
 export const toKnowledge = (v: any) => ({ title: v.title, category: v.category, doc_type: docTypeApi[v.type] ?? "report", size: v.size, visibility: visToApi(v.visibility) });
 

@@ -217,14 +217,18 @@ function KnowledgeBankTab() {
   };
 
   const handleDownload = (doc: KnowledgeDoc) => {
-    const content = `${doc.title}\nدسته‌بندی: ${doc.category}\nمالک: ${doc.owner}\nآخرین بروزرسانی: ${doc.updatedAt}\n\n(این یک خروجی نمایشی از پروتوتایپ سامانه است و جای‌گزین فایل اصلی نیست.)`;
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    // Serves the stored file; a record without one says so rather than handing
+    // over a .txt stub that claims to stand in for the real document.
+    if (!doc.fileUrl) {
+      notify("فایلی برای این سند بارگذاری نشده است.", "warning");
+      return;
+    }
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `${doc.title}.txt`;
+    a.href = doc.fileUrl;
+    a.download = doc.title;
+    a.target = "_blank";
+    a.rel = "noopener";
     a.click();
-    URL.revokeObjectURL(url);
     notify(`دانلود سند «${doc.title}» آغاز شد.`, "info");
   };
 

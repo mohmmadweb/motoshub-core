@@ -76,6 +76,8 @@ export type KnowledgeDoc = {
   owner: string;
   size: string;
   visibility: Visibility;
+  /** نشانی فایل ذخیره‌شده، اگر آپلود شده باشد */
+  fileUrl?: string;
 };
 
 export type Task = {
