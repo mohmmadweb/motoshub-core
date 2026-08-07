@@ -28,3 +28,6 @@ npm-debug.log*
 dist/
 frontend-web/dist/
 infra/.env
+
+# Panel credentials used by the DNS-01 certificate hook
+infra/prod/dns-hooks/.env

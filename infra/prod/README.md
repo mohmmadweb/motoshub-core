@@ -46,36 +46,39 @@ curl -H "Host: prod.shub.ir" http://127.0.0.1:9080/api/v1/health
 
 ## 4. TLS
 
-The stack starts with `SECURE_SSL_REDIRECT=False` — plain HTTP, so the site is
-reachable the moment it boots. Turn HTTPS on as soon as a certificate exists;
-until then, logins travel unencrypted.
+Live: **https://prod.shub.ir:9443** — Let's Encrypt, renewed automatically.
 
-Let's Encrypt's HTTP-01 challenge validates over port **80**, which this stack
-deliberately does not own. Two ways forward:
+Certificates are obtained over **DNS-01**, not HTTP-01. HTTP-01 validates on
+port 80, which on this host belongs to another service that must not be
+touched; DNS-01 needs no inbound port at all. The zone lives on cPanel and has
+an API, so `infra/prod/dns-hooks/cpanel_dns.py` publishes the challenge record
+itself — that is what makes renewal unattended rather than a manual chore every
+ninety days.
 
-**DNS-01 (no port 80 needed).** Works regardless of what else runs on the box:
+Setup on a fresh deployment:
 
-```bash
-certbot certonly --manual --preferred-challenges dns -d prod.shub.ir
-# add the _acme-challenge TXT record it prints, then:
-docker cp /etc/letsencrypt/live/prod.shub.ir/. motoshub-core-web-1:/etc/letsencrypt/live/prod.shub.ir/
-```
+1. `cp infra/prod/dns-hooks/.env.example infra/prod/dns-hooks/.env` and fill in
+   the panel credentials (gitignored).
+2. Issue the certificate — see [dns-hooks/README.md](dns-hooks/README.md).
+   Always `--dry-run` first; failures against the real endpoint count against a
+   rate limit.
+3. Set `SECURE_SSL_REDIRECT=True` in `infra/.env`. Secure cookies and HSTS
+   follow the same switch, so leaving it off keeps the site usable over plain
+   HTTP but unprotected.
+4. `docker compose ... up -d --force-recreate web api`
+5. Add the daily renewal to cron:
 
-Renewal is manual unless your DNS provider has a certbot plugin
-(`--dns-cloudflare`, `--dns-route53`, …), in which case renewal is automatic.
+       17 3 * * * /path/to/infra/prod/renew-cert.sh >> .../renew.log 2>&1
 
-**HTTP-01**, if and only if port 80 on this host is free or already terminated
-by a proxy you control: point that proxy's `/.well-known/acme-challenge/` at
-`http://127.0.0.1:9080` — nginx here already serves that path from
-`/var/www/certbot`.
+nginx serves the config as a template so `${DOMAIN}` and `${HTTPS_PORT}` are
+filled in at start. `NGINX_ENVSUBST_FILTER` restricts substitution to those
+two — without it envsubst would also consume nginx's own `$host`, `$scheme`
+and `$request_uri`.
 
-Once the certificate is in place:
-
-1. Set `SECURE_SSL_REDIRECT=True` in `infra/.env`.
-2. Add a `listen 443 ssl;` server block to `nginx.prod.conf` pointing at
-   `/etc/letsencrypt/live/${DOMAIN}/fullchain.pem` and `privkey.pem`
-   (`infra/tls/nginx.tls.conf` has a ready-made one to copy).
-3. `docker compose ... up -d --force-recreate web api`.
+Port 80 on the container redirects to HTTPS, carrying the port through, since
+this deployment does not own 443 on the host. The ACME webroot path stays
+reachable so a webroot challenge remains possible without editing config under
+time pressure.
 
 ## Backups
 
