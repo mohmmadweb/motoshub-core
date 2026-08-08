@@ -64,7 +64,6 @@ import { useSettings, settingsMeta, defaultSettings, type WorkflowSettings } fro
 import { useConfirm } from "../components/ui/ConfirmProvider";
 import {type RoleAssignment,
   type ModuleDef,
-  type Tenant,
   type RoleDef,
   type AdminPageDef,
   type Integration,
@@ -81,7 +80,7 @@ import { useToast } from "../components/ui/ToastProvider";
 type SectionId = "tenants" | "holdings" | "modules" | "branding" | "roles" | "pages" | "users" | "integrations" | "security" | "network" | "workflow" | "monitor" | "system" | "storage";
 
 const sections: { id: SectionId; label: string; icon: typeof Settings }[] = [
-  { id: "tenants", label: "سازمان‌های مشتری", icon: Building2 },
+  { id: "tenants", label: "هویت سیستم و ورود یکپارچه", icon: KeyRound },
   { id: "holdings", label: "هلدینگ‌ها و شرکت‌ها", icon: Network },
   { id: "branding", label: "برندسازی سازمان", icon: Palette },
   { id: "roles", label: "نقش‌ها و دسترسی", icon: KeyRound },
@@ -103,16 +102,9 @@ export default function Admin() {
   const { canAccessAdmin: isAdmin } = useTenancy();
   const [section, setSection] = useState<SectionId>("tenants");
   const realTenant = useTenant();
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [activeTenant, setActiveTenant] = useState("");
-  useEffect(() => {
-    if (!realTenant.id) return;
-    setTenants([{ id: realTenant.id, name: realTenant.name, domain: realTenant.domain,
-                  logoColor: realTenant.logoColor, plan: realTenant.plan,
-                  users: realTenant.users, modules: realTenant.modules } as Tenant]);
-    setActiveTenant((cur) => cur || realTenant.id);
-  }, [realTenant]);
-  const tenant = tenants.find((t) => t.id === activeTenant) ?? tenants[0] ?? ({ id: "", name: "سازمان", domain: "", logoColor: "#1f4f99", plan: "—", users: 0, modules: [] } as unknown as Tenant);
+  // One installation, one customer — the identity itself is edited in the
+  // «هویت سیستم» section rather than picked from a list.
+  const tenant = realTenant;
   const [enabledModules, setEnabledModules] = useState<string[]>(["social", "knowledge", "projects", "reports"]);
   const [crossTenant, setCrossTenant] = useState(false);
   const [roles, setRoles] = useApiCollection<RoleDef>("/roles", fromRole as any, toRole as any);
@@ -153,11 +145,6 @@ export default function Admin() {
     setEnabledModules((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const addTenant = (t: Tenant) => {
-    setTenants((prev) => [...prev, t]);
-    setActiveTenant(t.id);
-  };
-
   return (
     <div>
       <PageHeader
@@ -184,7 +171,7 @@ export default function Admin() {
 
         <div className="space-y-5">
           {section === "tenants" && (
-            <TenantsSection tenants={tenants} activeTenant={activeTenant} setActiveTenant={setActiveTenant} onAdd={addTenant} notify={notify} />
+            <SystemIdentitySection notify={notify} />
           )}
 
           {section === "holdings" && <HoldingsSection notify={notify} />}
@@ -561,104 +548,167 @@ function HoldingsSection({ notify }: { notify: Notify }) {
   );
 }
 
-function TenantsSection({
-  tenants,
-  activeTenant,
-  setActiveTenant,
-  onAdd,
-  notify,
-}: {
-  tenants: Tenant[];
-  activeTenant: string;
-  setActiveTenant: (id: string) => void;
-  onAdd: (t: Tenant) => void;
-  notify: Notify;
-}) {
-  const planTone = { پایه: "neutral", "حرفه‌ای": "warning", سازمانی: "brand" } as const;
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [domain, setDomain] = useState("");
-  const [plan, setPlan] = useState<Tenant["plan"]>("پایه");
+type Identity = {
+  name: string; short_name: string; domain: string; logo_color: string;
+  sso_provider: string; sso_url: string; sso_auto_create: boolean; sso_allow_local: boolean;
+};
 
-  const submit = () => {
-    if (!name.trim() || !domain.trim()) {
-      notify("نام سازمان و دامنه الزامی است.", "warning");
+const SSO_PROVIDERS: { id: string; label: string }[] = [
+  { id: "none", label: "بدون SSO" },
+  { id: "ldap", label: "LDAP / Active Directory" },
+  { id: "saml", label: "SAML 2.0" },
+  { id: "oidc", label: "OpenID Connect" },
+  { id: "otp", label: "ورود با موبایل (OTP)" },
+];
+const ssoLabel = (id: string) => SSO_PROVIDERS.find((p) => p.id === id)?.label ?? "بدون SSO";
+
+function SystemIdentitySection({ notify }: { notify: Notify }) {
+  const { holdings, companies, reload } = useTenancy();
+  const [saved, setSaved] = useState<Identity | null>(null);
+  const [draft, setDraft] = useState<Identity | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = () =>
+    http<Identity>("/tenant").then((t) => { setSaved(t); setDraft(t); });
+  useEffect(() => { load().catch(() => {}); }, []);
+
+  const dirty = !!draft && !!saved && JSON.stringify(draft) !== JSON.stringify(saved);
+
+  const save = async () => {
+    if (!draft) return;
+    if (!draft.name.trim() || !draft.domain.trim()) {
+      notify("نام سیستم و دامنه الزامی است.", "warning");
       return;
     }
-    const newTenant: Tenant = {
-      id: `tn-${Date.now()}`,
-      name: name.trim(),
-      domain: domain.trim(),
-      plan,
-      users: 1,
-      logoColor: tenantPalette[tenants.length % tenantPalette.length],
-      modules: ["شبکه اجتماعی"],
-    };
-    onAdd(newTenant);
-    notify(`سازمان «${newTenant.name}» با موفقیت روی پلتفرم ایجاد شد.`);
-    setOpen(false);
-    setName("");
-    setDomain("");
-    setPlan("پایه");
+    setBusy(true);
+    try {
+      await http("/tenant", { method: "PATCH", body: JSON.stringify({
+        ...draft, name: draft.name.trim(), domain: draft.domain.trim(),
+      }) });
+      await load();
+      await reload();          // branding and scope both read from the tenant
+      notify("هویت سیستم و پیکربندی ورود یکپارچه ذخیره شد.");
+    } catch (err) {
+      notify(apiMessage(err, "ذخیره تنظیمات ناموفق بود."), "warning");
+    } finally {
+      setBusy(false);
+    }
   };
+
+  // A real reachability check. The prototype reported success unconditionally
+  // and said «(نمایشی)»; a test that always passes would let a typo in the URL
+  // read as a working directory.
+  const testSso = async () => {
+    if (!draft) return;
+    if (draft.sso_provider === "none") {
+      notify("ابتدا یک روش ورود یکپارچه انتخاب کنید.", "warning");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await http<{ ok: boolean; message: string }>("/settings/sso-test", {
+        method: "POST",
+        body: JSON.stringify({ provider: draft.sso_provider, url: draft.sso_url }),
+      });
+      notify(res.message, res.ok ? "success" : "warning");
+    } catch (err) {
+      notify(apiMessage(err, "آزمون اتصال ناموفق بود."), "warning");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!draft) return <div className="card p-6 text-center text-xs text-ink-400">در حال بارگذاری…</div>;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-ink-900">سازمان‌های مستقل روی این پلتفرم</h3>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
-          افزودن سازمان جدید
-        </Button>
-      </div>
-      <div className="card divide-y divide-ink-100">
-        {tenants.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTenant(t.id)}
-            className={`w-full flex items-center justify-between gap-3 p-3.5 text-right ${activeTenant === t.id ? "bg-brand-50" : "hover:bg-ink-50"}`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg" style={{ backgroundColor: t.logoColor }} />
-              <div>
-                <p className="text-sm font-medium text-ink-900">{t.name}</p>
-                <p className="text-xs text-ink-400">{t.domain}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-ink-400">{t.users.toLocaleString("fa-IR")} کاربر</span>
-              <Badge tone={planTone[t.plan]}>{t.plan}</Badge>
-            </div>
-          </button>
-        ))}
+      <div className="card p-4 mb-4 bg-brand-50 border-brand-200 flex items-start gap-3">
+        <KeyRound size={18} className="text-brand-700 shrink-0 mt-0.5" />
+        <p className="text-xs text-brand-800 leading-6">
+          این نصب از محصول متعلق به <b>یک مشتری</b> است. هویت، دامنه و روش ورود در همین صفحه تعیین می‌شود؛
+          تفکیک واقعی داده‌ها یک سطح پایین‌تر — در <b>هلدینگ‌ها و شرکت‌ها</b> — انجام می‌شود.
+        </p>
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="افزودن سازمان مشتری جدید" description="هر سازمان جدید، نمونه‌ی کاملاً مستقلی از سامانه با اعضا و دامنه‌ی اختصاصی خودش دریافت می‌کند.">
-        <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <StatCard label="هلدینگ‌ها" value={holdings.length.toLocaleString("fa-IR")} tone="brand" icon={<Network size={16} />} />
+        <StatCard label="شرکت‌ها" value={companies.length.toLocaleString("fa-IR")} icon={<Building2 size={16} />} />
+        <StatCard label="روش ورود" value={ssoLabel(saved?.sso_provider ?? "none")} tone={(saved?.sso_provider ?? "none") === "none" ? "warning" : "success"} />
+        <StatCard label="دامنه" value={saved?.domain ?? "—"} />
+      </div>
+
+      <div className="card p-4 mb-4">
+        <h3 className="text-sm font-bold text-ink-900 mb-3">هویت سیستم</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام سازمان</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثلاً: بنیاد علوی" className="input-field" />
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام سازمان مشتری <span className="text-rose-500">*</span></label>
+            <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} aria-label="نام سازمان مشتری" className="input-field" />
           </div>
           <div>
-            <label className="text-xs font-medium text-ink-600 block mb-1.5">دامنه‌ی اختصاصی</label>
-            <input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="alavi.bonyad.net" className="input-field" />
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نام کوتاه (در رابط کاربری)</label>
+            <input value={draft.short_name} onChange={(e) => setDraft({ ...draft, short_name: e.target.value })} aria-label="نام کوتاه" className="input-field" />
           </div>
           <div>
-            <label className="text-xs font-medium text-ink-600 block mb-1.5">طرح اشتراک</label>
-            <select value={plan} onChange={(e) => setPlan(e.target.value as Tenant["plan"])} className="input-field">
-              <option value="پایه">پایه</option>
-              <option value="حرفه‌ای">حرفه‌ای</option>
-              <option value="سازمانی">سازمانی</option>
-            </select>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">دامنه <span className="text-rose-500">*</span></label>
+            <input value={draft.domain} onChange={(e) => setDraft({ ...draft, domain: e.target.value })} aria-label="دامنه" className="input-field" dir="ltr" />
           </div>
-          <div className="flex items-center gap-2 pt-2">
-            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ایجاد سازمان</Button>
-            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">رنگ برند</label>
+            <input type="color" value={draft.logo_color} onChange={(e) => setDraft({ ...draft, logo_color: e.target.value })} aria-label="رنگ برند" className="input-field h-[38px] p-1" />
           </div>
         </div>
-      </Modal>
+      </div>
+
+      <div className="card p-4 mb-4">
+        <h3 className="text-sm font-bold text-ink-900 mb-1">ورود یکپارچه (SSO)</h3>
+        <p className="text-[11.5px] text-ink-400 mb-3 leading-5">
+          منبع هویت سازمان (Active Directory، SAML یا OIDC) این‌جا وصل می‌شود. این بخش به ازای هر مشتری متفاوت است.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">روش ورود</label>
+            <select value={draft.sso_provider} onChange={(e) => setDraft({ ...draft, sso_provider: e.target.value })} className="input-field" aria-label="روش ورود">
+              {SSO_PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">نشانی سرویس هویت</label>
+            <input value={draft.sso_url} onChange={(e) => setDraft({ ...draft, sso_url: e.target.value })} className="input-field" dir="ltr" placeholder="ldaps://ad.example.ir:636" aria-label="نشانی سرویس هویت" />
+          </div>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          <label className="flex items-center justify-between gap-2 text-xs">
+            <span>
+              <b className="text-ink-800">ایجاد خودکار حساب کاربران</b>
+              <span className="block text-ink-400 mt-0.5">کاربرِ تاییدشده در منبع هویت، بدون دخالت راهبر ساخته می‌شود.</span>
+            </span>
+            <Toggle on={draft.sso_auto_create} onChange={() => setDraft({ ...draft, sso_auto_create: !draft.sso_auto_create })} label="ایجاد خودکار حساب کاربران" />
+          </label>
+          <label className="flex items-center justify-between gap-2 text-xs pt-2 border-t border-ink-100">
+            <span>
+              <b className="text-ink-800">اجازه‌ی ورود محلی در کنار SSO</b>
+              <span className="block text-ink-400 mt-0.5">
+                برای پیمانکاران و مهمان‌هایی که در منبع هویت سازمان نیستند. خاموش‌کردن آن با پیکربندی نادرست،
+                راه ورود راهبران را هم می‌بندد.
+              </span>
+            </span>
+            <Toggle on={draft.sso_allow_local} onChange={() => setDraft({ ...draft, sso_allow_local: !draft.sso_allow_local })} label="اجازه‌ی ورود محلی" />
+          </label>
+        </div>
+
+        <div className="flex items-center gap-2 mt-4">
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty || busy}>
+            {busy ? "در حال ذخیره…" : dirty ? "ذخیره تغییرات" : "تغییری برای ذخیره وجود ندارد"}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={testSso} disabled={busy}>تست اتصال</Button>
+          {dirty && <Button variant="secondary" size="sm" onClick={() => setDraft(saved)}>بازگردانی</Button>}
+        </div>
+      </div>
     </div>
   );
 }
+
 
 function ModulesSection({ enabledModules, toggleModule }: { enabledModules: string[]; toggleModule: (id: string) => void }) {
   const categories = Array.from(new Set(moduleCatalog.map((m) => m.category)));
@@ -1043,7 +1093,7 @@ function PagesSection({
   );
 }
 
-function UsersSection({ tenant, roles, notify }: { tenant: Tenant; roles: RoleDef[]; notify: Notify }) {
+function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users: number }; roles: RoleDef[]; notify: Notify }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const orgUsers = useApiList<{ id: string; name: string; role: string; org: string; avatarColor: string }>(
     "/users", fromUser as any);

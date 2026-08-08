@@ -28,6 +28,29 @@ class Tenant(TimeStampedModel):
     enabled_modules = models.JSONField(default=list, blank=True)
     cross_tenant = models.BooleanField(default=False, help_text="تعامل بین‌سازمانی")
 
+    # ── System identity and single sign-on ──────────────────────────────────
+    # Where this installation's users come from. «بدون SSO» keeps local
+    # accounts as the only source; anything else defers identity to the
+    # organisation's own directory.
+    SSO_PROVIDERS = [
+        ("none", "بدون SSO"),
+        ("ldap", "LDAP / Active Directory"),
+        ("saml", "SAML 2.0"),
+        ("oidc", "OpenID Connect"),
+        ("otp", "ورود با موبایل (OTP)"),
+    ]
+    short_name = models.CharField(max_length=80, blank=True, help_text="نام کوتاه در رابط کاربری")
+    sso_provider = models.CharField(max_length=8, choices=SSO_PROVIDERS, default="none")
+    sso_url = models.CharField(max_length=300, blank=True, help_text="نشانی سرویس هویت")
+    sso_auto_create = models.BooleanField(
+        default=True, help_text="ایجاد خودکار حساب برای کاربرِ تاییدشده در منبع هویت"
+    )
+    # Kept on by default deliberately: turning it off with a misconfigured
+    # directory would lock every administrator out of their own installation.
+    sso_allow_local = models.BooleanField(
+        default=True, help_text="اجازه‌ی ورود محلی در کنار SSO"
+    )
+
     class Meta(TimeStampedModel.Meta):
         db_table = "tenancy_tenant"
 

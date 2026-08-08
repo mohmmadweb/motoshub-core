@@ -139,3 +139,61 @@ class MyScopeView(APIView):
                 for c in companies
             ],
         })
+
+
+class SsoTestView(APIView):
+    """POST → actually try to reach the configured identity service.
+
+    The prototype's button reported success unconditionally and labelled itself
+    «نمایشی». A connectivity check that always passes is worse than none: an
+    administrator would take a typo in the URL for a working directory.
+
+    What this proves is reachability, not that authentication would succeed —
+    the response says so rather than implying more than it tested.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import socket
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        tenant = getattr(request, "tenant", None)
+        if not request.user.is_superuser and "settings.security" not in request.user.get_permission_ids(tenant):
+            return Response({"error": {"code": 403, "type": "forbidden", "message": "دسترسی لازم را ندارید."}}, status=403)
+
+        data = request.data or {}
+        provider = data.get("provider") or (tenant.sso_provider if tenant else "none")
+        url = (data.get("url") or (tenant.sso_url if tenant else "")).strip()
+
+        if provider == "none":
+            return Response({"error": {"code": 422, "type": "unprocessable_entity",
+                                       "message": "ابتدا یک روش ورود یکپارچه انتخاب کنید."}}, status=422)
+        if not url:
+            return Response({"error": {"code": 422, "type": "unprocessable_entity",
+                                       "message": "نشانی سرویس هویت وارد نشده است."}}, status=422)
+
+        parsed = urllib.parse.urlparse(url if "://" in url else f"//{url}", scheme="https")
+        host, port = parsed.hostname, parsed.port
+
+        try:
+            if provider == "ldap":
+                # LDAP speaks its own protocol; reachability is the honest limit
+                # of what can be checked without binding real credentials.
+                with socket.create_connection((host, port or 389), timeout=8):
+                    return Response({"ok": True, "checked": "tcp",
+                                     "message": f"اتصال TCP به {host}:{port or 389} برقرار شد. (صحت اعتبارنامه بررسی نشد)"})
+            # SAML/OIDC/OTP endpoints answer over HTTP; fetching the document
+            # confirms the address resolves and the service responds.
+            req = urllib.request.Request(url, headers={"User-Agent": "motoshub-sso-check"})
+            with urllib.request.urlopen(req, timeout=8) as res:      # noqa: S310 - operator-supplied URL
+                return Response({"ok": True, "checked": "http", "status": res.status,
+                                 "message": f"سرویس هویت پاسخ داد (HTTP {res.status}). (فرآیند ورود آزمایش نشد)"})
+        except urllib.error.HTTPError as exc:
+            return Response({"ok": False, "checked": "http", "status": exc.code,
+                             "message": f"سرویس پاسخ داد اما با خطای HTTP {exc.code}."}, status=200)
+        except (socket.timeout, TimeoutError):
+            return Response({"ok": False, "message": "سرویس هویت در مهلت مقرر پاسخ نداد."}, status=200)
+        except Exception as exc:                                     # noqa: BLE001
+            return Response({"ok": False, "message": f"اتصال برقرار نشد: {type(exc).__name__}"}, status=200)
