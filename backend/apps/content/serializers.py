@@ -28,7 +28,7 @@ class BlogPostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BlogPost
-        fields = ["id", "title", "author", "excerpt", "body", "rating", "tags", "visibility", "created_at", "updated_at", "image"]
+        fields = ["id", "title", "author", "excerpt", "body", "rating", "tags", "visibility", "created_at", "updated_at", "image", "scope", "holding", "company"]
         read_only_fields = ["id", "author", "created_at", "updated_at"]
 
 
@@ -40,7 +40,7 @@ class EventSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "starts_at", "location", "description", "attendees",
             "capacity", "category", "hashtags", "mode", "join_link", "map_url",
-            "author", "visibility", "created_at", "updated_at", "image"]
+            "author", "visibility", "created_at", "updated_at", "image", "scope", "holding", "company"]
         read_only_fields = ["id", "author", "created_at", "updated_at"]
 
 
@@ -49,7 +49,7 @@ class MediaItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MediaItem
-        fields = ["id", "kind", "title", "album", "file", "color", "rating", "duration", "tags", "author", "visibility", "created_at", "updated_at", "image"]
+        fields = ["id", "kind", "title", "album", "file", "color", "rating", "duration", "tags", "author", "visibility", "created_at", "updated_at", "image", "scope", "holding", "company"]
         read_only_fields = ["id", "author", "created_at", "updated_at"]
 
 
@@ -58,7 +58,7 @@ class KnowledgeDocSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = KnowledgeDoc
-        fields = ["id", "title", "category", "doc_type", "file", "size", "owner", "visibility", "created_at", "updated_at"]
+        fields = ["id", "title", "category", "doc_type", "file", "size", "owner", "visibility", "created_at", "updated_at", "scope", "holding", "company"]
         read_only_fields = ["id", "owner", "created_at", "updated_at"]
 
 

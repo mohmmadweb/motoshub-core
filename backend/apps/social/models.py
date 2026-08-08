@@ -7,10 +7,10 @@ members, its owner, or a `groups` moderator — never by guessing the id
 """
 from django.db import models
 
-from apps.core.models import TenantScopedModel, Visibility
+from apps.core.models import TenantScopedModel, Visibility, ScopedContentModel
 
 
-class Group(TenantScopedModel):
+class Group(TenantScopedModel, ScopedContentModel):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     privacy = models.CharField(max_length=8, choices=Visibility.choices, default=Visibility.PUBLIC)
@@ -55,7 +55,7 @@ class GroupMembership(TenantScopedModel):
         ]
 
 
-class ForumTopic(TenantScopedModel):
+class ForumTopic(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     body = models.TextField(blank=True)
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="forum_topics")

@@ -7,7 +7,7 @@ the unauthenticated showcase). News additionally carries the `ContentScope` axis
 """
 from django.db import models
 
-from apps.core.models import ContentScope, TenantScopedModel, Visibility
+from apps.core.models import ContentScope, TenantScopedModel, Visibility, ScopedContentModel
 
 
 class NewsTopic(models.TextChoices):
@@ -45,7 +45,7 @@ class News(TenantScopedModel):
         return self.title
 
 
-class BlogPost(TenantScopedModel):
+class BlogPost(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="blog_posts")
     excerpt = models.CharField(max_length=500, blank=True)
@@ -76,7 +76,7 @@ class EventCategory(models.TextChoices):
     TRAINING = "training", "آموزش"
 
 
-class Event(TenantScopedModel):
+class Event(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     starts_at = models.DateTimeField()
     location = models.CharField(max_length=300, blank=True)
@@ -106,7 +106,7 @@ class MediaKind(models.TextChoices):
     VIDEO = "video", "ویدیو"
 
 
-class MediaItem(TenantScopedModel):
+class MediaItem(TenantScopedModel, ScopedContentModel):
     kind = models.CharField(max_length=6, choices=MediaKind.choices, default=MediaKind.PHOTO)
     title = models.CharField(max_length=300)
     album = models.CharField(max_length=200, blank=True)
@@ -134,7 +134,7 @@ class KnowledgeType(models.TextChoices):
     REPORT = "report", "گزارش"
 
 
-class KnowledgeDoc(TenantScopedModel):
+class KnowledgeDoc(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     category = models.CharField(max_length=200, blank=True)
     doc_type = models.CharField(max_length=10, choices=KnowledgeType.choices, default=KnowledgeType.REPORT)

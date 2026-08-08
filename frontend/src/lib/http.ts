@@ -34,11 +34,29 @@ async function refreshOnce(): Promise<boolean> {
 }
 
 /** Returns the full envelope ({data, links, meta}) or throws {status, error}. */
+/**
+ * The organisational domain the user is currently looking at.
+ *
+ * Sent on every request so the server narrows its queries the same way the
+ * interface narrows the display. It can only narrow: the API rebuilds the
+ * caller's real reach from their memberships and ignores a selection they are
+ * not entitled to, so setting this cannot widen what comes back.
+ */
+let scopeHolding: string | undefined;
+let scopeCompany: string | undefined;
+
+export function setScopeHeaders(holdingId?: string, companyId?: string) {
+  scopeHolding = holdingId;
+  scopeCompany = companyId;
+}
+
 export async function httpRaw<T = unknown>(path: string, opts: RequestInit = {}, retry = true): Promise<Envelope<T>> {
   const token = getToken();
   const isForm = opts.body instanceof FormData;
   const headers: Record<string, string> = { ...(isForm ? {} : { "Content-Type": "application/json" }), ...(opts.headers as Record<string, string>) };
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (scopeHolding) headers["X-Scope-Holding"] = scopeHolding;
+  if (scopeCompany) headers["X-Scope-Company"] = scopeCompany;
   const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
   if (res.status === 401 && retry && (await refreshOnce())) return httpRaw<T>(path, opts, false);
   const body = res.status === 204 ? { data: null } : await res.json().catch(() => ({}));

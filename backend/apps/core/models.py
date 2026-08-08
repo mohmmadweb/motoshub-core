@@ -45,6 +45,23 @@ class ContentScope(models.TextChoices):
     COMPANY = "company", "شرکت"
 
 
+class ScopedContentModel(models.Model):
+    """Content that belongs to a domain within the organisation.
+
+    «سراسری» reaches everyone, «هلدینگ» reaches one holding's companies, and
+    «شرکت» reaches a single subsidiary. The columns are only the declaration —
+    enforcement is in TenantScopedModelViewSet, which filters every queryset by
+    the caller's resolved scope so a subsidiary's content cannot be fetched by
+    someone outside it.
+    """
+    scope = models.CharField(max_length=8, choices=ContentScope.choices, default=ContentScope.GLOBAL)
+    holding = models.ForeignKey("tenancy.Holding", on_delete=models.SET_NULL, null=True, blank=True)
+    company = models.ForeignKey("tenancy.Company", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+
 class Attachment(TenantScopedModel):
     """A stored file. One model serves chat attachments, knowledge docs and media,
     so upload/serve/permission logic lives in exactly one place."""

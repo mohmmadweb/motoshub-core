@@ -1,7 +1,7 @@
 """Projects: a project with a health signal, budget, and a Kanban task board."""
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import TenantScopedModel, ScopedContentModel
 
 
 class Health(models.TextChoices):
@@ -10,7 +10,7 @@ class Health(models.TextChoices):
     RED = "red", "قرمز"
 
 
-class Project(TenantScopedModel):
+class Project(TenantScopedModel, ScopedContentModel):
     name = models.CharField(max_length=300)
     client = models.CharField(max_length=200, blank=True)
     department = models.CharField(max_length=120, blank=True, help_text="معاونت/دپارتمان مالک پروژه")

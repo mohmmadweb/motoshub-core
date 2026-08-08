@@ -18,7 +18,7 @@ class PollSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Poll
-        fields = ["id", "question", "ends_at", "group", "options", "my_vote", "option_labels", "created_at"]
+        fields = ["id", "question", "ends_at", "group", "options", "my_vote", "option_labels", "created_at", "scope", "holding", "company"]
         read_only_fields = ["id", "options", "my_vote", "created_at"]
 
     def get_my_vote(self, obj):
@@ -40,7 +40,7 @@ class QuizSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quiz
         fields = ["id", "title", "questions", "minutes", "deadline", "status",
-                  "passing", "my_score", "participants", "created_at"]
+                  "passing", "my_score", "participants", "created_at", "scope", "holding", "company"]
         read_only_fields = ["id", "my_score", "participants", "created_at"]
 
     def get_my_score(self, obj):

@@ -39,7 +39,7 @@ import { me } from "../lib/me";
 import { useApiList } from "../lib/useApiList";
 import { fromUser, fromIntegration, toIntegration, fromGuestAccount, toGuestAccount } from "../lib/adapters";
 import { useTenant } from "../lib/useTenant";
-import { canAccessAdmin } from "../lib/perms";
+import { useTenancy } from "../context/TenancyContext";
 
 // The RBAC catalog is served by the backend (apps/rbac/catalog.py is the source of
 // truth); mapped here into the shape this screen renders.
@@ -100,7 +100,7 @@ const sections: { id: SectionId; label: string; icon: typeof Settings }[] = [
 const tenantPalette = ["#1f4f99", "#2a66bd", "#0d9488", "#7c3aed", "#b45309", "#0f172a"];
 
 export default function Admin() {
-  const isAdmin = canAccessAdmin();
+  const { canAccessAdmin: isAdmin } = useTenancy();
   const [section, setSection] = useState<SectionId>("tenants");
   const realTenant = useTenant();
   const [tenants, setTenants] = useState<Tenant[]>([]);

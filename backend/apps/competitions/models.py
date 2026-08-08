@@ -1,10 +1,10 @@
 """Competitions (iiscompetition) + challenges (iischallenge)."""
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import TenantScopedModel, ScopedContentModel
 
 
-class Competition(TenantScopedModel):
+class Competition(TenantScopedModel, ScopedContentModel):
     STATUS = [("open", "ثبت‌نام باز"), ("judging", "در حال داوری"), ("results", "اعلام نتایج")]
     title = models.CharField(max_length=400)
     category = models.CharField(max_length=120, blank=True)
@@ -45,7 +45,7 @@ class EntryVote(TenantScopedModel):
         constraints = [models.UniqueConstraint(fields=["entry", "user"], name="uniq_entry_vote")]
 
 
-class Challenge(TenantScopedModel):
+class Challenge(TenantScopedModel, ScopedContentModel):
     KIND = [("individual", "فردی"), ("collective", "همگانی")]
     STATUS = [("active", "فعال"), ("ended", "پایان‌یافته")]
     title = models.CharField(max_length=400)

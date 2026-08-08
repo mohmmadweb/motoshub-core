@@ -8,20 +8,41 @@ const docType: Record<string, string> = { contract: "قرارداد", training: 
 const docTypeApi: Record<string, string> = { "قرارداد": "contract", "آموزشی": "training", "صورت‌جلسه": "minutes", "گزارش": "report" };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// ── Organisational scope, shared by every content adapter ───────────────────
+// Stored as an enum; the UI speaks Persian. Carried on both directions so a
+// list can show who owns an item and a form can set it.
+const scopeFa: Record<string, string> = { global: "سراسری", holding: "هلدینگ", company: "شرکت" };
+const scopeApi: Record<string, string> = Object.fromEntries(Object.entries(scopeFa).map(([k, v]) => [v, k]));
+
+export const fromScope = (x: any) => ({
+  scope: (scopeFa[x.scope] ?? "سراسری") as "سراسری" | "هلدینگ" | "شرکت",
+  holdingId: x.holding ?? undefined,
+  companyId: x.company ?? undefined,
+});
+export const toScope = (v: any) => ({
+  scope: scopeApi[v.scope] ?? "global",
+  holding: v.holdingId ?? null,
+  company: v.companyId ?? null,
+});
+
+
 const nwTopic: Record<string, string> = { economic: "اقتصادی", social: "اجتماعی", cultural: "فرهنگی", civil: "عمرانی", org: "سازمانی" };
 export const nwTopicApi: Record<string, string> = Object.fromEntries(Object.entries(nwTopic).map(([k, v]) => [v, k]));
 export const fromNews = (n: any) => ({
   id: n.id, title: n.title, summary: n.summary, date: toJalali(n.created_at),
   comments: n.comment_count ?? 0, views: n.views ?? 0, pinned: n.pinned, visibility: visToFa(n.visibility), image: n.image ?? "",
   topic: nwTopic[n.topic] as any,
+  ...fromScope(n),
 });
-export const toNews = (v: any) => ({ title: v.title, summary: v.summary, pinned: v.pinned, visibility: visToApi(v.visibility), ...(v.topic ? { topic: nwTopicApi[v.topic] ?? "" } : {}) });
+export const toNews = (v: any) => ({ title: v.title, summary: v.summary, pinned: v.pinned, visibility: visToApi(v.visibility), ...(v.topic ? { topic: nwTopicApi[v.topic] ?? "" } : {}), ...toScope(v) });
 
 export const fromBlog = (b: any) => ({
   id: b.id, title: b.title, author: b.author?.name ?? "—", excerpt: b.excerpt,
   date: toJalali(b.created_at), rating: Number(b.rating ?? 0), tags: b.tags ?? [], visibility: visToFa(b.visibility), image: b.image ?? "",
+  ...fromScope(b),
 });
-export const toBlog = (v: any) => ({ title: v.title, excerpt: v.excerpt, tags: v.tags ?? [], visibility: visToApi(v.visibility) });
+export const toBlog = (v: any) => ({ title: v.title, excerpt: v.excerpt, tags: v.tags ?? [], visibility: visToApi(v.visibility), ...toScope(v) });
 
 const evCat: Record<string, string> = { meeting: "جلسه", workshop: "کارگاه", webinar: "وبینار", conference: "همایش", training: "آموزش" };
 export const evCatApi: Record<string, string> = Object.fromEntries(Object.entries(evCat).map(([k, v]) => [v, k]));
@@ -30,41 +51,45 @@ export const fromEvent = (e: any) => ({
   location: e.location, attendees: e.attendees ?? 0, hashtags: e.hashtags ?? [], description: e.description,
   visibility: visToFa(e.visibility), mode: e.mode === "online" ? "آنلاین" : "حضوری", joinLink: e.join_link, mapUrl: e.map_url, image: e.image ?? "",
   category: evCat[e.category] as any, capacity: e.capacity || undefined,
+  ...fromScope(e),
 });
 export const toEvent = (v: any) => ({
   title: v.title, location: v.location, description: v.description, visibility: visToApi(v.visibility),
   mode: v.mode === "آنلاین" ? "online" : "in_person",
   ...(v.category ? { category: evCatApi[v.category] ?? "" } : {}),
   ...(v.capacity != null ? { capacity: v.capacity } : {}),
-  ...(v.starts_at || v.date ? { starts_at: v.starts_at || v.date } : {}),
-});
+  ...(v.starts_at || v.date ? { starts_at: v.starts_at || v.date } : {}), ...toScope(v) });
 
 export const fromMedia = (m: any) => ({
   id: m.id, kind: m.kind, title: m.title, album: m.album, uploadedBy: m.author?.name ?? "—",
   date: toJalali(m.created_at), rating: Number(m.rating ?? 0), tags: m.tags ?? [], color: m.color ?? "#1f4f99", visibility: visToFa(m.visibility), image: m.image ?? "",
   duration: m.duration || undefined,
+  ...fromScope(m),
 });
-export const toMedia = (v: any) => ({ kind: v.kind, title: v.title, album: v.album, color: v.color, visibility: visToApi(v.visibility) });
+export const toMedia = (v: any) => ({ kind: v.kind, title: v.title, album: v.album, color: v.color, visibility: visToApi(v.visibility), ...toScope(v) });
 
 export const fromKnowledge = (k: any) => ({
   id: k.id, title: k.title, category: k.category, type: docType[k.doc_type] ?? "گزارش",
   updatedAt: toJalali(k.updated_at ?? k.created_at), owner: k.owner?.name ?? "—", size: k.size ?? "—", visibility: visToFa(k.visibility),
   fileUrl: k.file || undefined,
+  ...fromScope(k),
 });
-export const toKnowledge = (v: any) => ({ title: v.title, category: v.category, doc_type: docTypeApi[v.type] ?? "report", size: v.size, visibility: visToApi(v.visibility) });
+export const toKnowledge = (v: any) => ({ title: v.title, category: v.category, doc_type: docTypeApi[v.type] ?? "report", size: v.size, visibility: visToApi(v.visibility), ...toScope(v) });
 
 export const fromForum = (t: any) => ({
   id: t.id, title: t.title, body: t.body ?? "", author: t.author?.name ?? "—", replies: t.reply_count ?? 0, views: t.views ?? 0,
   lastActivity: relativeFa(t.updated_at ?? t.created_at), category: t.category, solved: t.solved, visibility: visToFa(t.visibility),
+  ...fromScope(t),
 });
-export const toForum = (v: any) => ({ title: v.title, body: v.body ?? "", category: v.category, visibility: visToApi(v.visibility) });
+export const toForum = (v: any) => ({ title: v.title, body: v.body ?? "", category: v.category, visibility: visToApi(v.visibility), ...toScope(v) });
 
 export const fromGroup = (g: any) => ({
   id: g.id, name: g.name, description: g.description, members: g.member_count ?? 0,
   privacy: g.privacy === "public" ? "عمومی" : "خصوصی", color: g.color ?? "#1f4f99", unread: g.unread ?? 0, category: g.category ?? "",
   createdAt: toJalali(g.created_at), lastActivityAt: toJalali(g.updated_at ?? g.created_at), lastActivityRel: relativeFa(g.updated_at ?? g.created_at),
+  ...fromScope(g),
 });
-export const toGroup = (v: any) => ({ name: v.name, description: v.description, category: v.category, color: v.color, privacy: v.privacy === "عمومی" ? "public" : "private" });
+export const toGroup = (v: any) => ({ name: v.name, description: v.description, category: v.category, color: v.color, privacy: v.privacy === "عمومی" ? "public" : "private", ...toScope(v) });
 
 // ── Process modules ─────────────────────────────────────────────────────────
 const health: Record<string, string> = { green: "سبز", yellow: "زرد", red: "قرمز" };
@@ -78,8 +103,9 @@ export const fromProject = (p: any) => ({
   manager: p.manager?.name ?? "—", department: p.department ?? "",
   openRisks: p.open_risks ?? 0, nextMilestone: p.next_milestone ?? null,
   deadline: toJalali(p.deadline), tasks: [] as any[],
+  ...fromScope(p),
 });
-export const toProject = (v: any) => ({ name: v.name, client: v.client, health: healthApi[v.health] ?? "green", progress: v.progress, budget_used: v.budgetUsed });
+export const toProject = (v: any) => ({ name: v.name, client: v.client, health: healthApi[v.health] ?? "green", progress: v.progress, budget_used: v.budgetUsed, ...toScope(v) });
 
 const rStage: Record<string, string> = { open: "فراخوان باز", review: "بررسی درخواست‌ها", judging: "داوری", running: "در حال اجرا", closed: "پایان‌یافته" };
 const rStageApi: Record<string, string> = { "فراخوان باز": "open", "بررسی درخواست‌ها": "review", "داوری": "judging", "در حال اجرا": "running", "پایان‌یافته": "closed" };
@@ -123,6 +149,7 @@ export const fromPoll = (p: any) => ({
   id: p.id, question: p.question, by: p.author?.name ?? "—", ends: toJalali(p.ends_at),
   options: (p.options ?? []).map((o: any) => ({ id: o.id, label: o.label, votes: o.votes ?? 0 })),
   myVote: p.my_vote ?? undefined,
+  ...fromScope(p),
 });
 export const toPoll = (v: any) => ({ question: v.question, option_labels: (v.options ?? []).map((o: any) => o.label) });
 
@@ -269,6 +296,7 @@ export const fromCompetition = (c: any) => ({
   id: c.id, title: c.title, category: c.category, deadline: c.deadline,
   participants: c.participants, status: cpStatus[c.status] ?? c.status, prize: c.prize,
   entries: (c.entries ?? []).map((e: any) => ({ id: e.id, by: e.by, title: e.title, votes: e.votes, color: e.color, myVote: e.my_vote })),
+  ...fromScope(c),
 });
 
 const chKind: Record<string, string> = { individual: "فردی", collective: "همگانی" };
@@ -277,6 +305,7 @@ const chStat: Record<string, string> = { active: "فعال", ended: "پایان�
 export const fromChallenge = (c: any) => ({
   id: c.id, title: c.title, kind: chKind[c.kind] ?? c.kind, category: c.category,
   joined: c.joined, progress: c.progress ?? undefined, status: chStat[c.status] ?? c.status, isJoined: c.is_joined,
+  ...fromScope(c),
 });
 
 // ── Awards (innovation award: tracks + entries) ─────────────────────────────
@@ -299,6 +328,7 @@ export const fromQuiz = (q: any) => ({
   id: q.id, title: q.title, questions: q.questions ?? 0, minutes: q.minutes ?? 0,
   deadline: q.deadline ?? "", status: qzStatus[q.status] ?? q.status,
   passing: q.passing ?? 60, myScore: q.my_score ?? undefined,
+  ...fromScope(q),
 });
 
 // ── Project tasks (Kanban board) ────────────────────────────────────────────

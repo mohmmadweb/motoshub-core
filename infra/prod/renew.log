@@ -1,0 +1,22 @@
+── 2026-08-08 03:17:02 renewal check ──
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Processing /etc/letsencrypt/renewal/prod.shub.ir.conf
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Certificate not yet due for renewal
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+The following certificates are not due for renewal yet:
+  /etc/letsencrypt/live/prod.shub.ir/fullchain.pem expires on 2026-11-05 (skipped)
+No renewals were attempted.
+No hooks were run.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+usage: 
+  certbot [SUBCOMMAND] [options] [-d DOMAIN] [-d DOMAIN] ...
+
+Certbot can obtain and install HTTPS/TLS/SSL certificates.  By default,
+it will attempt to use a webserver both for obtaining and installing the
+certificate. 
+certbot: error: Unable to open config file: test -f /etc/letsencrypt/RENEWED && rm -f /etc/letsencrypt/RENEWED. Error: No such file or directory
+nothing to renew

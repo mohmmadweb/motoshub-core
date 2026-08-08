@@ -15,6 +15,7 @@ import {
   FlaskConical,
   BarChart3,
   Settings,
+  KeyRound,
   HelpCircle,
   GraduationCap,
   Bot,
@@ -26,28 +27,28 @@ import {
   Award,
 } from "lucide-react";
 import { useTenant } from "../lib/useTenant";
-import { canAccessAdmin } from "../lib/perms";
+import { useTenancy } from "../context/TenancyContext";
 
-type Item = { to: string; label: string; icon: typeof Users; end?: boolean; adminOnly?: boolean };
+type Item = { to: string; label: string; icon: typeof Users; end?: boolean; adminOnly?: boolean; viewPerm?: string };
 
 export const navSections: { title: string; items: Item[] }[] = [
   {
     title: "نمای کلی",
     items: [
       { to: "/dashboard", label: "داشبورد فعالیت‌ها", icon: LayoutDashboard, end: true },
-      { to: "/dashboard/news", label: "اخبار سازمان", icon: Newspaper },
-      { to: "/dashboard/assistant", label: "دستیار هوشمند", icon: Bot },
+      { to: "/dashboard/news", label: "اخبار سازمان", icon: Newspaper, viewPerm: "news.list" },
+      { to: "/dashboard/assistant", label: "دستیار هوشمند", icon: Bot, viewPerm: "assistant.chat" },
     ],
   },
   {
     title: "شبکه اجتماعی",
     items: [
-      { to: "/dashboard/groups", label: "گروه‌های تعاملی", icon: Users },
-      { to: "/dashboard/forum", label: "انجمن", icon: MessagesSquare },
-      { to: "/dashboard/events", label: "رویدادها و جلسات", icon: CalendarDays },
-      { to: "/dashboard/blog", label: "بلاگ", icon: NotebookPen },
-      { to: "/dashboard/media", label: "تصاویر و ویدیو", icon: Image },
-      { to: "/dashboard/chat", label: "گفتگو", icon: MessageCircle },
+      { to: "/dashboard/groups", label: "گروه‌های تعاملی", icon: Users, viewPerm: "groups.list" },
+      { to: "/dashboard/forum", label: "انجمن", icon: MessagesSquare, viewPerm: "forum.list" },
+      { to: "/dashboard/events", label: "رویدادها و جلسات", icon: CalendarDays, viewPerm: "events.list" },
+      { to: "/dashboard/blog", label: "بلاگ", icon: NotebookPen, viewPerm: "blog.list" },
+      { to: "/dashboard/media", label: "تصاویر و ویدیو", icon: Image, viewPerm: "media.list" },
+      { to: "/dashboard/chat", label: "گفتگو", icon: MessageCircle, viewPerm: "chat.view" },
       { to: "/dashboard/friends", label: "دوستان و دنبال‌کردن", icon: UserPlus },
       { to: "/dashboard/polls", label: "نظرسنجی و آزمون", icon: ListChecks },
       { to: "/dashboard/competitions", label: "مسابقات و چالش‌ها", icon: Trophy },
@@ -56,14 +57,14 @@ export const navSections: { title: string; items: Item[] }[] = [
   {
     title: "دانش و پروژه",
     items: [
-      { to: "/dashboard/knowledge", label: "مدیریت دانش", icon: BookOpen },
-      { to: "/dashboard/projects", label: "مدیریت پروژه", icon: KanbanSquare },
-      { to: "/dashboard/contracts", label: "قراردادهای فناورانه", icon: FileSignature },
-      { to: "/dashboard/funds", label: "صندوق نوآوری و شتاب‌دهی", icon: PiggyBank },
-      { to: "/dashboard/research", label: "فرصت‌های پژوهشی", icon: FlaskConical },
+      { to: "/dashboard/knowledge", label: "مدیریت دانش", icon: BookOpen, viewPerm: "knowledge.list" },
+      { to: "/dashboard/projects", label: "مدیریت پروژه", icon: KanbanSquare, viewPerm: "projects.list" },
+      { to: "/dashboard/contracts", label: "قراردادهای فناورانه", icon: FileSignature, viewPerm: "contracts.list" },
+      { to: "/dashboard/funds", label: "صندوق نوآوری و شتاب‌دهی", icon: PiggyBank, viewPerm: "funds.list" },
+      { to: "/dashboard/research", label: "فرصت‌های پژوهشی", icon: FlaskConical, viewPerm: "research.list" },
       { to: "/dashboard/award", label: "جایزه نوآوری و فناوری", icon: Award },
-      { to: "/dashboard/training", label: "آموزش و توانمندسازی", icon: GraduationCap },
-      { to: "/dashboard/reports", label: "گزارش‌گیری پیشرفته", icon: BarChart3 },
+      { to: "/dashboard/training", label: "آموزش و توانمندسازی", icon: GraduationCap, viewPerm: "training.list" },
+      { to: "/dashboard/reports", label: "گزارش‌گیری پیشرفته", icon: BarChart3, viewPerm: "reports.view" },
     ],
   },
   {
@@ -72,6 +73,7 @@ export const navSections: { title: string; items: Item[] }[] = [
       { to: "/dashboard/admin", label: "پنل راهبری", icon: Settings, adminOnly: true },
       { to: "/dashboard/appearance", label: "ظاهر و برندسازی", icon: Palette },
       { to: "/dashboard/tickets", label: "تیکت پشتیبانی", icon: LifeBuoy },
+      { to: "/dashboard/access", label: "نقش و دسترسی من", icon: KeyRound },
       { to: "/dashboard/help", label: "راهنما", icon: HelpCircle },
     ],
   },
@@ -81,12 +83,17 @@ const sections = navSections;
 
 export default function Sidebar() {
   const currentTenant = useTenant();
-  // ناوبری نقش‌محور: آیتم‌های مدیریتی فقط برای نقش‌های دارای اختیار.
-  // The console enforces the same permissions server-side; this only stops
-  // offering a destination the member would be refused at.
-  const isAdmin = canAccessAdmin();
+  // ناوبری نقش‌محور: منو دقیقاً همان مقصدهایی را نشان می‌دهد که RequirePerm
+  // اجازه می‌دهد. Hiding is a courtesy — the route guard and the API both
+  // enforce the same permissions independently.
+  const { canAccessAdmin, hasPermission } = useTenancy();
   const visibleSections = sections
-    .map((s) => ({ ...s, items: s.items.filter((i) => !i.adminOnly || isAdmin) }))
+    .map((s) => ({
+      ...s,
+      items: s.items.filter(
+        (i) => (!i.adminOnly || canAccessAdmin) && (!i.viewPerm || hasPermission(i.viewPerm)),
+      ),
+    }))
     .filter((s) => s.items.length > 0);
   return (
     <aside className="hidden lg:flex flex-col w-[260px] shrink-0 border-l border-ink-200 bg-navy-900 h-screen sticky top-0">

@@ -1,3 +1,8 @@
+// Organisational scope carried by every content record. Defined here and
+// re-exported from the tenancy context so pages import it from one place.
+export type ContentScopeName = "سراسری" | "هلدینگ" | "شرکت";
+export type Scoped = { scope?: ContentScopeName; holdingId?: string; companyId?: string };
+
 /**
  * Shared UI types (previously colocated with sample data).
  *
@@ -37,7 +42,7 @@ export type Group = {
   createdAt: string; // تاریخ ساخت (شمسی)
   lastActivityAt: string; // آخرین فعالیت (شمسی)
   lastActivityRel: string; // نمایش نسبی
-};
+} & Scoped;
 
 export type Post = {
   id: string;
@@ -65,7 +70,7 @@ export type ForumTopic = {
   category: string;
   solved?: boolean;
   visibility: Visibility;
-};
+} & Scoped;
 
 export type KnowledgeDoc = {
   id: string;
@@ -78,7 +83,7 @@ export type KnowledgeDoc = {
   visibility: Visibility;
   /** نشانی فایل ذخیره‌شده، اگر آپلود شده باشد */
   fileUrl?: string;
-};
+} & Scoped;
 
 export type Task = {
   id: string;
@@ -138,7 +143,7 @@ export type EventItem = {
   category?: EventCategory;
   /** ظرفیت کل ثبت‌نام (در کنار attendees = ثبت‌نام‌شده) */
   capacity?: number;
-};
+} & Scoped;
 
 export type EventCategory = "جلسه" | "کارگاه" | "وبینار" | "همایش" | "آموزش";
 export const eventCategories: EventCategory[] = ["جلسه", "کارگاه", "وبینار", "همایش", "آموزش"];
@@ -152,7 +157,7 @@ export type BlogPost = {
   rating: number;
   tags: string[];
   visibility: Visibility;
-};
+} & Scoped;
 
 export type MediaItem = {
   id: string;
@@ -167,7 +172,7 @@ export type MediaItem = {
   visibility: Visibility;
   /** مدت ویدیو */
   duration?: string;
-};
+} & Scoped;
 
 export type NewsTopic = "اقتصادی" | "اجتماعی" | "فرهنگی" | "عمرانی" | "سازمانی";
 export const newsTopics: NewsTopic[] = ["اقتصادی", "اجتماعی", "فرهنگی", "عمرانی", "سازمانی"];
@@ -183,7 +188,7 @@ export type NewsItem = {
   visibility: Visibility;
   /** برچسب موضوعی خبر */
   topic?: NewsTopic;
-};
+} & Scoped;
 
 export type SessionItem = {
   id: string;

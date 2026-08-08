@@ -5,6 +5,7 @@ import Avatar from "./Avatar";
 import { type PresenceStatus } from "../data/types";
 import { http, getUser } from "../lib/http";
 import { useTenant } from "../lib/useTenant";
+import ScopeSwitcher from "./ScopeSwitcher";
 import { navSections } from "./Sidebar";
 import { useTheme } from "../context/ThemeContext";
 
@@ -90,6 +91,7 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
       )}
 
       <div className="flex-1 max-w-md flex items-center gap-2">
+        <ScopeSwitcher />
         <form
           className="flex-1 relative"
           onSubmit={(e) => {

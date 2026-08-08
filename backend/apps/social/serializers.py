@@ -31,8 +31,7 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "privacy", "color", "category",
             "owner", "member_count", "is_member", "unread", "invite_code", "slow_mode_seconds", "topics_enabled",
-            "created_at", "updated_at",
-        ]
+            "created_at", "updated_at", "scope", "holding", "company"]
         read_only_fields = ["id", "owner", "member_count", "is_member", "unread", "invite_code", "created_at", "updated_at"]
 
     def get_is_member(self, obj) -> bool:
@@ -57,8 +56,7 @@ class ForumTopicSerializer(serializers.ModelSerializer):
         model = ForumTopic
         fields = [
             "id", "title", "body", "author", "group", "category", "views",
-            "solved", "visibility", "reply_count", "created_at", "updated_at",
-        ]
+            "solved", "visibility", "reply_count", "created_at", "updated_at", "scope", "holding", "company"]
         read_only_fields = ["id", "author", "views", "reply_count", "created_at", "updated_at"]
 
 

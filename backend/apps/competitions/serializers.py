@@ -28,7 +28,7 @@ class CompetitionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Competition
-        fields = ["id", "title", "category", "deadline", "participants", "status", "prize", "entries", "created_at"]
+        fields = ["id", "title", "category", "deadline", "participants", "status", "prize", "entries", "created_at", "scope", "holding", "company"]
         read_only_fields = ["id", "entries", "created_at"]
 
 
@@ -38,7 +38,7 @@ class ChallengeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Challenge
-        fields = ["id", "title", "kind", "category", "progress", "status", "joined", "is_joined", "created_at"]
+        fields = ["id", "title", "kind", "category", "progress", "status", "joined", "is_joined", "created_at", "scope", "holding", "company"]
         read_only_fields = ["id", "joined", "is_joined", "created_at"]
 
     def get_joined(self, obj):

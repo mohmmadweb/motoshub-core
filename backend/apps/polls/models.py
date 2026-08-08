@@ -1,9 +1,9 @@
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import TenantScopedModel, ScopedContentModel
 
 
-class Poll(TenantScopedModel):
+class Poll(TenantScopedModel, ScopedContentModel):
     question = models.CharField(max_length=300)
     author = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="polls")
     ends_at = models.DateTimeField(null=True, blank=True)
@@ -42,7 +42,7 @@ class PollVote(TenantScopedModel):
         constraints = [models.UniqueConstraint(fields=["poll", "user"], name="uniq_vote_per_poll")]
 
 
-class Quiz(TenantScopedModel):
+class Quiz(TenantScopedModel, ScopedContentModel):
     """آزمون و داوری (iispors) — a timed assessment with a pass mark.
 
     Sits beside Poll because both are «سنجش» in the product: the Polls page is

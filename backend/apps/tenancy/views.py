@@ -92,3 +92,50 @@ class CompanyViewSet(_TenantScoped):
     required_perms = HoldingViewSet.required_perms
     filterset_fields = ["holding"]
     search_fields = ["name"]
+
+
+class MyScopeView(APIView):
+    """GET → everything the caller needs to render their own reach.
+
+    One request answers three questions the interface keeps asking: what level
+    am I at, which domains may I switch between, and what may I publish. The
+    same values are enforced server-side, so this is describing a decision
+    already made rather than making one.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.rbac.models import RoleAssignment
+
+        from .scope import scope_for
+
+        tenant = getattr(request, "tenant", None)
+        holdings = list(Holding.objects.filter(tenant=tenant).order_by("name"))
+        companies = list(Company.objects.filter(tenant=tenant).order_by("name"))
+        session = scope_for(request.user, tenant)
+
+        assignment = (
+            RoleAssignment.objects.filter(user=request.user)
+            .select_related("role").order_by("-role__scope").first()
+        )
+        role = assignment.role if assignment else None
+
+        return Response({
+            **session.as_dict(holdings, companies),
+            "role": {
+                "id": str(role.id) if role else "",
+                "title": role.title if role else "عضو عادی",
+                "scope": role.scope if role else "tenant",
+                "permissions": sorted(request.user.get_permission_ids(tenant)),
+            },
+            "holdings": [
+                {"id": str(h.id), "name": h.name, "color": h.color,
+                 "companies": [{"id": str(c.id), "name": c.name}
+                               for c in companies if c.holding_id == h.id]}
+                for h in holdings
+            ],
+            "companies": [
+                {"id": str(c.id), "name": c.name, "holdingId": str(c.holding_id)}
+                for c in companies
+            ],
+        })

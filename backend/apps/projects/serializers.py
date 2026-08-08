@@ -34,7 +34,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = ["id", "name", "client", "department", "health", "progress", "budget_total",
                   "budget_used", "deadline", "manager", "task_count", "open_risks", "next_milestone",
-                  "created_at", "updated_at"]
+                  "created_at", "updated_at", "scope", "holding", "company"]
         read_only_fields = ["id", "manager", "task_count", "open_risks", "next_milestone", "created_at", "updated_at"]
 
 

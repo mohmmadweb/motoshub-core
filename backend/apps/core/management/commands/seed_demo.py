@@ -41,7 +41,7 @@ from apps.rbac.models import Role, RoleAssignment
 from apps.support.models import Ticket, TicketMessage
 from apps.training.models import TrainingCourse
 from apps.social.models import Follow, ForumReply, ForumTopic, Friendship, Group, GroupMembership, Post, PostLike
-from apps.tenancy.models import Company, Holding, Tenant
+from apps.tenancy.models import Company, CompanyMembership, Holding, Tenant
 
 PASSWORD = "demo1234"
 
@@ -54,13 +54,32 @@ class Command(BaseCommand):
             domain="bonyad.shub.ir",
             defaults={"name": "بنیاد مستضعفان انقلاب اسلامی", "logo_color": "#1f4f99", "plan": "enterprise"},
         )
+        # A second holding and a few subsidiaries, so the scope switcher and the
+        # scoped feeds have something real to distinguish. With one company the
+        # whole tenancy model is invisible.
         holding, _ = Holding.objects.get_or_create(
             tenant=tenant, name="هلدینگ صنایع غذایی سینا", defaults={"color": "#b45309"}
         )
+        holding2, _ = Holding.objects.get_or_create(
+            tenant=tenant, name="هلدینگ ساختمان و مسکن", defaults={"color": "#0d9488"}
+        )
         company, _ = Company.objects.get_or_create(tenant=tenant, holding=holding, name="بهنوش ایران")
+        company2, _ = Company.objects.get_or_create(tenant=tenant, holding=holding, name="کشت و صنعت دشت ناز")
+        company3, _ = Company.objects.get_or_create(tenant=tenant, holding=holding2, name="سیمان لار سبزوار")
 
         admin = self._user("admin", "مدیر سیستم", tenant, company, "org-admin")
         member = self._user("member", "کاربر نمونه", tenant, company, "member")
+        # A platform administrator: the only preset role holding settings.system
+        # and settings.storage, which the console's system and storage sections
+        # require. Without one, those panels are unreachable on a fresh install.
+        self._user("root", "راهبر پلتفرم", tenant, None, "platform-admin")
+        # Someone who belongs to two subsidiaries — the case the switcher exists
+        # for, and the one a single-company seed can never exercise.
+        multi = self._user("multi", "کارشناس مشترک", tenant, company2, "member")
+        for c in (company2, company3):
+            CompanyMembership.objects.get_or_create(user=multi, company=c)
+        CompanyMembership.objects.get_or_create(user=admin, company=company)
+        CompanyMembership.objects.get_or_create(user=member, company=company)
 
         if not News.objects.filter(tenant=tenant).exists():
             News.objects.create(
@@ -199,6 +218,22 @@ class Command(BaseCommand):
             poll = Poll.objects.create(tenant=tenant, author=admin, question="کدام قابلیت را زودتر می‌خواهید؟")
             for lbl in ["پیام‌رسان", "گزارش‌های پیشرفته", "اپ موبایل"]:
                 PollOption.objects.create(tenant=tenant, poll=poll, label=lbl)
+
+        # News at each scope, so switching domains visibly changes the feed
+        # rather than leaving the operator guessing whether it worked.
+        if News.objects.filter(tenant=tenant).count() < 4:
+            for title, sc, h, c in [
+                ("بخشنامهٔ جدید هلدینگ صنایع غذایی", ContentScope.HOLDING, holding, None),
+                ("خط تولید تازهٔ بهنوش ایران", ContentScope.COMPANY, holding, company),
+                ("پروژهٔ عمرانی هلدینگ ساختمان و مسکن", ContentScope.HOLDING, holding2, None),
+                ("گزارش فصلی سیمان لار سبزوار", ContentScope.COMPANY, holding2, company3),
+            ]:
+                News.objects.get_or_create(
+                    tenant=tenant, title=title,
+                    defaults={"author": admin, "summary": "نمونهٔ محتوای دامنه‌دار.",
+                              "visibility": Visibility.PRIVATE, "scope": sc,
+                              "holding": h, "company": c},
+                )
 
         if not Quiz.objects.filter(tenant=tenant).exists():
             qz = Quiz.objects.create(tenant=tenant, author=admin, title="آزمون آشنایی با فرآیندهای صندوق نوآور",
