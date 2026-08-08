@@ -189,3 +189,30 @@ def test_a_group_moderator_is_group_level(member, tenant):
     from apps.tenancy.scope import GROUP
 
     assert scope_for(member, tenant).level == GROUP
+
+
+@pytest.mark.django_db
+def test_the_directory_only_lists_people_in_your_reach(admin, member, tenant, auth, org, django_user_model):
+    """A company administrator has no business enumerating another
+    subsidiary's staff."""
+    outsider = django_user_model.objects.create_user(
+        username="beta-person", password="x", name="کارمند ب", tenant=tenant, company=org["b1"],
+    )
+    _member_of(admin, org["a1"], tenant)
+    RoleAssignment.objects.filter(user=admin).delete()
+    RoleAssignment.objects.create(
+        user=admin, role=Role.objects.get(key="org-admin"), tenant=tenant, company=org["a1"],
+    )
+
+    names = {u["name"] for u in Client().get("/api/v1/users", **auth(admin, tenant)).json()["data"]}
+    assert "کارمند ب" not in names
+    assert outsider.name not in names
+
+
+@pytest.mark.django_db
+def test_a_platform_admin_sees_the_whole_directory(platform_admin, member, tenant, auth, org, django_user_model):
+    django_user_model.objects.create_user(
+        username="beta-person", password="x", name="کارمند ب", tenant=tenant, company=org["b1"],
+    )
+    names = {u["name"] for u in Client().get("/api/v1/users", **auth(platform_admin, tenant)).json()["data"]}
+    assert "کارمند ب" in names

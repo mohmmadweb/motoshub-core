@@ -754,6 +754,12 @@ function ModulesSection({ enabledModules, toggleModule }: { enabledModules: stri
 function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles: (fn: (prev: RoleDef[]) => RoleDef[]) => void; notify: Notify }) {
   const [editing, setEditing] = useState<RoleDef | "new" | null>(null);
   const confirm = useConfirm();
+  const { hasPermission } = useTenancy();
+
+  // A preset role is read-only, and a custom role can only be edited by someone
+  // who already holds everything it grants. The API refuses either way; showing
+  // the reason here means the refusal is not a surprise.
+  const editableBy = (r: RoleDef) => !r.system && r.permissions.every(hasPermission);
 
   if (editing !== null) {
     return (
@@ -763,7 +769,7 @@ function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles:
         onSave={(saved) => {
           if (editing === "new") {
             setRoles((prev) => [...prev, saved]);
-            notify(`نقش سفارشی «${saved.title}» با ${saved.permissions.length.toLocaleString("fa-IR")} دسترسی ایجاد شد. اکنون می‌توانید آن را از بخش «کاربران» به اعضا تخصیص دهید.`);
+            notify(`نقش سفارشی «${saved.title}» با ${saved.permissions.length.toLocaleString("fa-IR")} دسترسی ایجاد شد. اکنون می‌توانید آن را از بخش «کاربران» به اعضای زیرمجموعه‌ی خود تخصیص دهید.`);
           } else {
             setRoles((prev) => prev.map((r) => (r.id === saved.id ? saved : r)));
             notify(`دسترسی‌های نقش «${saved.title}» به‌روزرسانی شد.`);
@@ -796,7 +802,10 @@ function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles:
         <KeyRound size={18} className="text-brand-700 shrink-0 mt-0.5" />
         <p className="text-xs text-brand-800 leading-6">
           علاوه بر نقش‌های پایه‌ی سامانه، می‌توانید نقش کاملاً سفارشی تعریف کنید و تک‌تک دسترسی‌های هر ماژول را
-          برای آن تیک بزنید. سپس از بخش «کاربران و واردسازی» این نقش را به هر کاربر تخصیص دهید.
+          تیک بزنید، سپس از بخش «کاربران» آن را تخصیص دهید.
+          <br />
+          <b>قاعده‌ی واگذاری:</b> شما فقط برای زیرمجموعه‌ی خود نقش تعریف/ویرایش می‌کنید و تنها می‌توانید
+          دسترسی‌هایی را بدهید که خودتان دارید. نقش‌های پایه‌ی سامانه فقط قابل مشاهده‌اند.
         </p>
       </div>
       <div className="card divide-y divide-ink-100">
@@ -812,10 +821,20 @@ function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles:
             <div className="flex items-center gap-3 shrink-0">
               <span className="text-xs text-ink-400 hidden sm:block">{r.permissions.length.toLocaleString("fa-IR")} دسترسی</span>
               <span className="text-xs text-ink-400 hidden sm:block">{r.members.toLocaleString("fa-IR")} نفر</span>
-              <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={() => setEditing(r)}>
-                ویرایش دسترسی‌ها
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil size={13} />}
+                onClick={() => setEditing(r)}
+                title={
+                  r.system ? "این نقشِ پایه‌ی سامانه است و فقط برای مشاهده در دسترس شماست."
+                  : editableBy(r) ? undefined
+                  : "این نقش دسترسی‌هایی دارد که خودتان ندارید (خارج از اختیار شما)."
+                }
+              >
+                {editableBy(r) ? "ویرایش دسترسی‌ها" : "مشاهده‌ی دسترسی‌ها"}
               </Button>
-              {!r.system && (
+              {!r.system && editableBy(r) && (
                 <button onClick={() => removeRole(r)} className="text-rose-500 hover:text-rose-700 p-1" title="حذف نقش">
                   <Trash2 size={15} />
                 </button>
@@ -843,7 +862,20 @@ function RoleEditor({ role, onSave, onCancel }: { role: RoleDef | null; onSave: 
       return next;
     });
 
-  const { catalog: permissionCatalog, allIds: allPermissionIds } = usePermissionCatalog();
+  const { catalog: fullCatalog, allIds: allPermissionIds } = usePermissionCatalog();
+  const { hasPermission } = useTenancy();
+
+  // Only what the author already holds can be delegated. Offering the rest and
+  // letting the API refuse on save would waste the operator's time and read as
+  // a bug rather than a rule. Permissions the role already carries stay visible
+  // so an inherited role can be inspected rather than silently truncated.
+  const grantable = (id: string) => hasPermission(id) || (role?.permissions ?? []).includes(id);
+  const permissionCatalog = fullCatalog
+    .map((g) => ({ ...g, actions: g.actions.filter((a) => grantable(a.id)) }))
+    .filter((g) => g.actions.length > 0);
+  const grantableIds = permissionCatalog.flatMap((g) => g.actions).map((a) => a.id);
+  const withheld = allPermissionIds.length - grantableIds.length;
+
   const toggleGroup = (group: PermGroup) => {
     const ids = group.actions.map((a) => a.id);
     const allOn = ids.every((id) => selected.has(id));
@@ -911,9 +943,14 @@ function RoleEditor({ role, onSave, onCancel }: { role: RoleDef | null; onSave: 
           <h4 className="text-xs font-bold text-ink-900">دسترسی‌ها</h4>
           <div className="flex items-center gap-3 text-xs">
             <span className="text-ink-400">
-              {selected.size.toLocaleString("fa-IR")} از {allPermissionIds.length.toLocaleString("fa-IR")} دسترسی انتخاب شده
+              {selected.size.toLocaleString("fa-IR")} از {grantableIds.length.toLocaleString("fa-IR")} دسترسی انتخاب شده
+              {withheld > 0 && (
+                <span title="این دسترسی‌ها را خودتان ندارید، پس نمی‌توانید واگذارشان کنید.">
+                  {" "}· {withheld.toLocaleString("fa-IR")} مورد خارج از اختیار شما
+                </span>
+              )}
             </span>
-            <button onClick={() => setSelected(new Set(allPermissionIds))} className="text-brand-600 font-medium hover:text-brand-700">
+            <button onClick={() => setSelected(new Set(grantableIds))} className="text-brand-600 font-medium hover:text-brand-700">
               انتخاب همه
             </button>
             <button onClick={() => setSelected(new Set())} className="text-ink-500 font-medium hover:text-ink-700">
@@ -1095,7 +1132,7 @@ function PagesSection({
 
 function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users: number }; roles: RoleDef[]; notify: Notify }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const orgUsers = useApiList<{ id: string; name: string; role: string; org: string; avatarColor: string }>(
+  const orgUsers = useApiList<{ id: string; name: string; role: string; org: string; company?: string; avatarColor: string }>(
     "/users", fromUser as any);
   // Role assignments come from each user's role_ids on /users.
   const [assignments, setAssignments] = useState<RoleAssignment>({});
@@ -1114,12 +1151,41 @@ function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users
     }
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Reads the file the operator actually chose and reports what is in it.
+  // The old version divided the byte count by eighty and announced that many
+  // users had been imported — a number invented from the file's size, for an
+  // import that never ran.
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const estimatedRows = Math.max(3, Math.round(file.size / 80));
-    notify(`فایل «${file.name}» پردازش شد — ${estimatedRows.toLocaleString("fa-IR")} کاربر برای سازمان «${tenant.name}» وارد شدند.`);
     e.target.value = "";
+    try {
+      const text = await file.text();
+      const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(1);
+      if (rows.length === 0) {
+        notify("فایل خالی است یا فقط سرستون دارد.", "warning");
+        return;
+      }
+      const created: string[] = [];
+      const failed: string[] = [];
+      for (const row of rows) {
+        const [name, phone, title] = row.split(",").map((c) => c.trim());
+        if (!name) continue;
+        try {
+          await http("/users", { method: "POST", body: JSON.stringify({ name, phone, title }) });
+          created.push(name);
+        } catch {
+          failed.push(name);
+        }
+      }
+      notify(
+        `فایل «${file.name}»: ${created.length.toLocaleString("fa-IR")} کاربر ساخته شد` +
+          (failed.length ? ` · ${failed.length.toLocaleString("fa-IR")} مورد ناموفق.` : "."),
+        failed.length ? "warning" : "success",
+      );
+    } catch (err) {
+      notify(apiMessage(err, "خواندن فایل ناموفق بود."), "warning");
+    }
   };
 
   const downloadSample = () => {
@@ -1151,6 +1217,10 @@ function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users
         </div>
         <p className="text-xs text-ink-400 mb-3">
           هر کاربر دقیقاً به اندازه‌ی دسترسی‌های تیک‌خورده‌ی نقشِ تخصیص‌یافته، به بخش‌های سامانه دسترسی خواهد داشت.
+          <br />
+          <b>دامنه‌ی سازمانی کاربران:</b> کاربر عضویتش را انتخاب نمی‌کند — دامنه‌ی دیدش خودکار از روی عضویت
+          محاسبه می‌شود؛ فقط اگر عضو بیش از یک شرکت باشد، سوییچر بالای صفحه برایش ظاهر می‌شود.
+          شما فقط کاربران زیرمجموعه‌ی خودتان را می‌بینید.
         </p>
         <div className="divide-y divide-ink-100 border border-ink-100 rounded-lg">
           {orgUsers.map((u) => {
@@ -1163,7 +1233,10 @@ function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-900 truncate">{u.name}</p>
-                    <p className="text-[11px] text-ink-400 truncate">{u.role} · {u.org}</p>
+                    <p className="text-[11px] text-ink-400 truncate">
+                      {u.role} · {u.org}
+                      {u.company && <> · <span className="text-ink-500">دامنه‌ی دسترسی: {u.company}</span></>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

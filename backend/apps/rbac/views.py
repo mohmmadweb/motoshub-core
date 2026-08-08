@@ -24,12 +24,37 @@ class RoleViewSet(ModelViewSet):
         # System (global) roles + this tenant's custom roles.
         return Role.objects.filter(Q(tenant__isnull=True) | Q(tenant=tenant))
 
+    def _excess(self, request) -> list[str]:
+        """Permissions being granted that the caller does not hold themselves.
+
+        Without this check, anyone with roles.create could mint a role carrying
+        every permission in the catalog — including settings.system — and
+        assign it to themselves. Delegation must never be able to manufacture
+        authority its author lacks.
+        """
+        wanted = set((request.data or {}).get("permissions") or [])
+        if not wanted or request.user.is_superuser:
+            return []
+        mine = request.user.get_permission_ids(getattr(request, "tenant", None))
+        return sorted(wanted - set(mine))
+
+    def create(self, request, *args, **kwargs):
+        excess = self._excess(request)
+        if excess:
+            return Response({"error": {"code": 403, "type": "forbidden", "message":
+                f"نمی‌توانید دسترسی‌هایی را بدهید که خودتان ندارید: {'، '.join(excess[:5])}"}}, status=403)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         serializer.save(tenant=getattr(self.request, "tenant", None), is_system=False)
 
     def update(self, request, *args, **kwargs):
         if self.get_object().is_system:
             return Response({"error": {"code": 403, "type": "forbidden", "message": "نقش سیستمی قابل ویرایش نیست."}}, status=403)
+        excess = self._excess(request)
+        if excess:
+            return Response({"error": {"code": 403, "type": "forbidden", "message":
+                f"نمی‌توانید دسترسی‌هایی را بدهید که خودتان ندارید: {'، '.join(excess[:5])}"}}, status=403)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -57,6 +82,21 @@ class AssignmentViewSet(ModelViewSet):
     def get_queryset(self):
         tenant = getattr(self.request, "tenant", None)
         return RoleAssignment.objects.filter(tenant=tenant)
+
+    def create(self, request, *args, **kwargs):
+        """Assigning a role must not hand out more than the assigner holds.
+
+        The same escalation as building an over-powered role, reached from the
+        other direction: granting someone an existing role that outranks you.
+        """
+        role = Role.objects.filter(id=(request.data or {}).get("role")).first()
+        if role and not request.user.is_superuser:
+            mine = set(request.user.get_permission_ids(getattr(request, "tenant", None)))
+            excess = sorted(set(role.permissions or []) - mine)
+            if excess:
+                return Response({"error": {"code": 403, "type": "forbidden", "message":
+                    f"این نقش دسترسی‌هایی دارد که خودتان ندارید: {'، '.join(excess[:5])}"}}, status=403)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         serializer.save(tenant=getattr(self.request, "tenant", None))

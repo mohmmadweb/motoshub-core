@@ -7,12 +7,13 @@ class UserSerializer(serializers.ModelSerializer):
     permissions = serializers.SerializerMethodField()
     tenant_id = serializers.UUIDField(read_only=True)
     company_id = serializers.UUIDField(read_only=True)
+    company_name = serializers.CharField(source="company.name", read_only=True, default="")
 
     class Meta:
         model = User
         fields = [
             "id", "username", "name", "title", "org", "email", "avatar_color",
-            "skills", "presence", "tenant_id", "company_id", "permissions",
+            "skills", "presence", "tenant_id", "company_id", "company_name", "permissions",
         ]
         read_only_fields = fields
 
@@ -34,11 +35,15 @@ class RefreshSerializer(serializers.Serializer):
 class UserAdminSerializer(serializers.ModelSerializer):
     role_ids = serializers.SerializerMethodField()
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    # The company a person belongs to is their access domain, so the console
+    # shows it beside the role rather than leaving it implicit.
+    company_name = serializers.CharField(source="company.name", read_only=True, default="")
 
     class Meta:
         model = User
         fields = ["id", "username", "name", "title", "org", "email", "avatar_color",
-                  "skills", "is_active", "presence", "role_ids", "password", "date_joined"]
+                  "skills", "is_active", "presence", "role_ids", "company_name",
+                  "password", "date_joined"]
         read_only_fields = ["id", "role_ids", "date_joined"]
 
     def get_role_ids(self, obj):

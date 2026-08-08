@@ -209,6 +209,7 @@ export const fromUser = (u: any) => ({
   name: u.name,
   role: u.title ?? "",
   org: u.org ?? "",
+  company: u.company_name ?? "",
   avatarColor: u.avatar_color ?? "#1f4f99",
   skills: Array.isArray(u.skills) ? u.skills : [],
   online: u.presence === "online",

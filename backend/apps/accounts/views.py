@@ -101,8 +101,31 @@ class UserViewSet(ModelViewSet):
     filterset_fields = ["is_active"]
 
     def get_queryset(self):
+        """The people this administrator is responsible for.
+
+        «شما فقط کاربران زیرمجموعه‌ی خودتان را می‌بینید» — a company admin has no
+        business enumerating another subsidiary's staff, so the directory is
+        narrowed the same way content is.
+        """
         tenant = getattr(self.request, "tenant", None)
-        return User.objects.filter(tenant=tenant).prefetch_related("role_assignments") if tenant else User.objects.none()
+        if tenant is None:
+            return User.objects.none()
+        qs = User.objects.filter(tenant=tenant).select_related("company").prefetch_related("role_assignments")
+
+        from apps.tenancy.scope import SYSTEM, scope_for
+
+        session = scope_for(self.request.user, tenant)
+        if session.level == SYSTEM:
+            return qs
+        # Everyone inside the reach the user actually has: their own companies,
+        # plus anyone in a holding they run.
+        from django.db.models import Q
+
+        return qs.filter(
+            Q(company_id__in=session.company_ids)
+            | Q(company__holding_id__in=session.holding_ids)
+            | Q(company__isnull=True, id=self.request.user.id)
+        ).distinct()
 
     def perform_create(self, serializer):
         serializer.save(tenant=getattr(self.request, "tenant", None))
