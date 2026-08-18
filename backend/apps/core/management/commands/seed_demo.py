@@ -33,7 +33,7 @@ from apps.awards.models import AwardEntry, AwardTrack
 from apps.console.models import GuestAccount, Integration
 from apps.chat.models import Channel, DirectMessage, Message
 from apps.notifications.models import Notification
-from apps.polls.models import Poll, PollOption, Quiz, QuizAttempt
+from apps.polls.models import Poll, PollOption, PollVote, Quiz, QuizAttempt
 from apps.projects.models import (Milestone, PlaybookTemplate, Project, ProjectExpense,
                                   ProjectMember, ProjectMinute, Risk, Task)
 from apps.research.models import ResearchOpportunity
@@ -209,15 +209,57 @@ class Command(BaseCommand):
             TrainingCourse.objects.create(tenant=tenant, title="آشنایی با سامانهٔ موتوشاب", instructor="واحد آموزش", hours=8, capacity=40, status="open")
             TrainingCourse.objects.create(tenant=tenant, title="امنیت اطلاعات سازمانی", instructor="کارشناس امنیت", hours=12, capacity=25, status="running", satisfaction=4.6)
 
+        # سه تیکت با رشتهٔ گفتگو — همان پرونده‌های نمونهٔ پروتوتایپ، تا صفحهٔ
+        # پشتیبانی با یک تیکتِ تنها خالی به نظر نرسد.
         if not Ticket.objects.filter(tenant=tenant).exists():
-            tk = Ticket.objects.create(tenant=tenant, author=member, number="TK-10001", subject="عدم دسترسی به بخش گزارش‌ها", category="فنی", priority="urgent", status="answered")
-            TicketMessage.objects.create(tenant=tenant, ticket=tk, author=member, body="هنگام ورود به گزارش‌ها خطا می‌گیرم.")
-            TicketMessage.objects.create(tenant=tenant, ticket=tk, author=admin, from_support=True, body="دسترسی شما اصلاح شد؛ لطفاً دوباره تلاش کنید.")
+            for number, subject, cat, prio, status, thread in [
+                ("TK-1405-0214", "خطای بارگذاری فایل بزرگ‌تر از ۵۰ مگابایت در بانک دانش",
+                 "فنی و سامانه", "urgent", "in_review", [
+                     (False, "هنگام بارگذاری گزارش ۸۰ مگابایتی خطای ۴۱۳ می‌گیرم."),
+                     (True, "سلام، در حال بررسی محدودیت آپلود سرور شما هستیم؛ تا امروز عصر نتیجه را اعلام می‌کنیم."),
+                 ]),
+                ("TK-1405-0198", "درخواست دسترسی «امتیازدهی داوری» برای دو کارشناس جدید",
+                 "دسترسی و نقش‌ها", "medium", "answered", [
+                     (False, "لطفاً نقش «کارشناس داوری صندوق» به خانم‌ها احمدی و رضوی تخصیص یابد."),
+                     (True, "انجام شد؛ هر دو کاربر اکنون نقش موردنظر را دارند. لطفاً تایید بفرمایید."),
+                 ]),
+                ("TK-1405-0175", "مغایرت مبلغ پرداختی مرحله ۱ پروژه NF-1404-1004",
+                 "مالی و پرداخت", "medium", "closed", [
+                     (False, "مبلغ واریزی با دستور پرداخت ۱۰ میلیون ریال اختلاف دارد."),
+                     (True, "اختلاف مربوط به کسر حسن انجام کار است؛ ریز محاسبه پیوست شد."),
+                     (False, "ممنون، تایید می‌کنم."),
+                 ]),
+            ]:
+                tk = Ticket.objects.create(tenant=tenant, author=member, number=number, subject=subject,
+                                           category=cat, priority=prio, status=status)
+                for from_support, body in thread:
+                    TicketMessage.objects.create(tenant=tenant, ticket=tk,
+                                                 author=admin if from_support else member,
+                                                 from_support=from_support, body=body)
 
+        # دو نظرسنجی با آرای اولیه — نمودار نتایج بدون رأی، چیزی نشان نمی‌دهد.
         if not Poll.objects.filter(tenant=tenant).exists():
-            poll = Poll.objects.create(tenant=tenant, author=admin, question="کدام قابلیت را زودتر می‌خواهید؟")
-            for lbl in ["پیام‌رسان", "گزارش‌های پیشرفته", "اپ موبایل"]:
-                PollOption.objects.create(tenant=tenant, poll=poll, label=lbl)
+            for question, options in [
+                ("زمان برگزاری جلسات هفتگی هماهنگی هلدینگ‌ها کدام باشد؟",
+                 [("شنبه‌ها ۱۰ صبح", 34), ("یکشنبه‌ها ۱۴", 21), ("سه‌شنبه‌ها ۹ صبح", 12)]),
+                ("کدام حوزه برای فراخوان بعدی صندوق نوآور در اولویت باشد؟",
+                 [("هوش مصنوعی صنعتی", 58), ("امنیت غذایی", 41),
+                  ("انرژی و بهینه‌سازی مصرف", 37), ("سلامت دیجیتال", 25)]),
+            ]:
+                poll = Poll.objects.create(tenant=tenant, author=admin, question=question)
+                opts = [PollOption.objects.create(tenant=tenant, poll=poll, label=lbl) for lbl, _ in options]
+                # رأی‌ها سطر واقعی‌اند (هر کاربر یک رأی)، پس عددِ ساختگی ثبت نمی‌شود؛
+                # کاربرانِ موجود به نسبتِ وزنِ گزینه‌ها بین گزینه‌ها پخش می‌شوند.
+                voters = list(User.objects.filter(tenant=tenant))
+                weights = [w for _, w in options]
+                total_w = sum(weights) or 1
+                i = 0
+                for opt, w in zip(opts, weights):
+                    take = round(len(voters) * w / total_w)
+                    for u in voters[i:i + take]:
+                        PollVote.objects.get_or_create(tenant=tenant, poll=poll, user=u,
+                                                       defaults={"option": opt})
+                    i += take
 
         # News at each scope, so switching domains visibly changes the feed
         # rather than leaving the operator guessing whether it worked.

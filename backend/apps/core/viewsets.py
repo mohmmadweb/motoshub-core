@@ -31,8 +31,8 @@ class TenantScopedModelViewSet(ModelViewSet):
 
         # Organisational scope, enforced here rather than only in the UI: a
         # subsidiary's content must not reach another subsidiary even when the
-        # request is crafted by hand. Models without the scope columns (chat,
-        # tickets, …) are unaffected.
+        # request is crafted by hand. Models without the scope columns are
+        # unaffected.
         if not self._model_is_scoped():
             return qs
 

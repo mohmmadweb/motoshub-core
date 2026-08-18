@@ -53,7 +53,8 @@ class ContractSerializer(serializers.ModelSerializer):
         model = Contract
         fields = ["id", "title", "vendor", "stage", "contract_type", "method", "value",
                   "guarantee", "deadline", "owner", "payments", "approvals",
-                  "obligations", "history", "created_at", "updated_at"]
+                  "obligations", "history", "created_at", "updated_at",
+                  "scope", "holding", "company"]
         read_only_fields = ["id", "owner", "payments", "approvals", "obligations", "history",
                             "created_at", "updated_at"]
 
@@ -63,7 +64,8 @@ class ContractListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contract
-        fields = ["id", "title", "vendor", "stage", "contract_type", "value", "deadline", "owner", "created_at"]
+        fields = ["id", "title", "vendor", "stage", "contract_type", "value", "deadline", "owner", "created_at",
+                  "scope", "holding", "company"]
         read_only_fields = fields
 
 

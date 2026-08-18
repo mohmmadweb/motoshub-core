@@ -17,7 +17,8 @@ class ResearchOpportunitySerializer(serializers.ModelSerializer):
     class Meta:
         model = ResearchOpportunity
         fields = ["id", "title", "field", "stage", "budget", "supervisor", "deadline",
-                  "applicant_count", "applications", "created_at", "updated_at"]
+                  "applicant_count", "applications", "created_at", "updated_at",
+                  "scope", "holding", "company"]
         read_only_fields = ["id", "applicant_count", "applications", "created_at", "updated_at"]
 
 

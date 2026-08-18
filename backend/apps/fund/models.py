@@ -7,11 +7,11 @@ reports (+ approval chain), payments, and out-of-contract requests.
 """
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import ScopedContentModel, TenantScopedModel
 from .catalog import NF_STAGES
 
 
-class NfProject(TenantScopedModel):
+class NfProject(TenantScopedModel, ScopedContentModel):
     code = models.CharField(max_length=32, help_text="کد طرح، مثل NF-1405-0001")
     title_fa = models.CharField(max_length=300)
     title_en = models.CharField(max_length=300, blank=True)
@@ -139,7 +139,7 @@ class FundStage(models.TextChoices):
     MONITORING = "monitoring", "در حال پایش"
 
 
-class Fund(TenantScopedModel):
+class Fund(TenantScopedModel, ScopedContentModel):
     """Simple employment/micro-grant fund pipeline (prototype FundRecord)."""
     title = models.CharField(max_length=300)
     applicant = models.CharField(max_length=200, blank=True)

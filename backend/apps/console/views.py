@@ -314,6 +314,10 @@ class SearchView(APIView):
         from apps.research.models import ResearchOpportunity
         add(ResearchOpportunity.objects.filter(tenant=t, title__icontains=q), "rfp",
             lambda o: o.title, lambda o: o.field or "فراخوان", lambda o: "/dashboard/research")
+        from apps.content.models import PublicationIssue
+        add(PublicationIssue.objects.filter(tenant=t, title__icontains=q), "publication",
+            lambda o: f"{o.get_magazine_display()} — شماره {o.issue_no}",
+            lambda o: o.title, lambda o: "/dashboard/blog?tab=pubs")
         return Response({"results": hits})
 
 

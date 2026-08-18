@@ -1,7 +1,7 @@
 """Contracts: record with a stage machine, payment schedule, and approval chain."""
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import ScopedContentModel, TenantScopedModel
 
 
 class Stage(models.TextChoices):
@@ -25,7 +25,7 @@ class Method(models.TextChoices):
     NO_TENDER = "no_tender", "ترک تشریفات"
 
 
-class Contract(TenantScopedModel):
+class Contract(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     vendor = models.CharField(max_length=200, blank=True)
     stage = models.CharField(max_length=12, choices=Stage.choices, default=Stage.NEGOTIATION)

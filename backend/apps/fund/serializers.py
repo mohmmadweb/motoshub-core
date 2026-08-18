@@ -40,7 +40,8 @@ class NfProjectListSerializer(serializers.ModelSerializer):
     class Meta:
         model = NfProject
         fields = ["id", "code", "title_fa", "field", "rahbar", "budget", "stage",
-                  "sub_status", "green_path", "progress", "created_at"]
+                  "sub_status", "green_path", "progress", "created_at",
+                  "scope", "holding", "company"]
         read_only_fields = fields
 
 
@@ -60,7 +61,8 @@ class NfProjectSerializer(serializers.ModelSerializer):
                   "team_name", "team_type", "team_city", "team_manager", "team_members",
                   "fund_manager_name", "finance", "gantt", "timeline",
                   "guarantees", "reports", "payments", "requests",
-                  "created_at", "updated_at"]
+                  "created_at", "updated_at",
+                  "scope", "holding", "company"]
         read_only_fields = ["id", "fund_manager", "guarantees", "reports", "payments",
                             "requests", "created_at", "updated_at"]
 
@@ -91,7 +93,8 @@ class FundSerializer(serializers.ModelSerializer):
     class Meta:
         model = Fund
         fields = ["id", "title", "applicant", "stage", "amount", "roi", "requested", "approved",
-                  "score", "committee", "region", "field", "notes", "tranches", "kpis", "created_at"]
+                  "score", "committee", "region", "field", "notes", "tranches", "kpis", "created_at",
+                  "scope", "holding", "company"]
         read_only_fields = ["id", "tranches", "kpis", "created_at"]
 
 

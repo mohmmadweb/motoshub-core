@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import ScopedContentModel, TenantScopedModel
 
 
 class ChannelType(models.TextChoices):
@@ -8,7 +8,7 @@ class ChannelType(models.TextChoices):
     PRIVATE = "private", "خصوصی"
 
 
-class Channel(TenantScopedModel):
+class Channel(TenantScopedModel, ScopedContentModel):
     name = models.CharField(max_length=200)
     topic = models.CharField(max_length=300, blank=True)
     channel_type = models.CharField(max_length=8, choices=ChannelType.choices, default=ChannelType.PUBLIC)

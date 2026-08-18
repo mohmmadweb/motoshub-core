@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import ScopedContentModel, TenantScopedModel
 
 
 class ResearchStage(models.TextChoices):
@@ -11,7 +11,7 @@ class ResearchStage(models.TextChoices):
     CLOSED = "closed", "پایان‌یافته"
 
 
-class ResearchOpportunity(TenantScopedModel):
+class ResearchOpportunity(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     field = models.CharField(max_length=200, blank=True)
     stage = models.CharField(max_length=8, choices=ResearchStage.choices, default=ResearchStage.OPEN)

@@ -54,5 +54,6 @@ class ChannelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Channel
-        fields = ["id", "name", "topic", "channel_type", "category", "owner", "created_at"]
+        fields = ["id", "name", "topic", "channel_type", "category", "owner", "created_at",
+                  "scope", "holding", "company"]
         read_only_fields = ["id", "owner", "created_at"]

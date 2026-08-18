@@ -10,7 +10,8 @@ class TrainingCourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainingCourse
         fields = ["id", "title", "instructor", "starts_at", "hours", "capacity",
-                  "status", "satisfaction", "enrolled", "is_enrolled", "created_at"]
+                  "status", "satisfaction", "enrolled", "is_enrolled", "created_at",
+                  "scope", "holding", "company"]
         read_only_fields = ["id", "enrolled", "is_enrolled", "created_at"]
 
     def get_is_enrolled(self, obj) -> bool:

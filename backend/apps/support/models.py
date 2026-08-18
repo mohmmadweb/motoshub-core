@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import ScopedContentModel, TenantScopedModel
 
 
 class Priority(models.TextChoices):
@@ -16,7 +16,7 @@ class TicketStatus(models.TextChoices):
     CLOSED = "closed", "بسته"
 
 
-class Ticket(TenantScopedModel):
+class Ticket(TenantScopedModel, ScopedContentModel):
     number = models.CharField(max_length=32, blank=True)
     subject = models.CharField(max_length=300)
     category = models.CharField(max_length=120, blank=True)

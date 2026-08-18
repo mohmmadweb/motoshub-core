@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.core.models import TenantScopedModel
+from apps.core.models import ScopedContentModel, TenantScopedModel
 
 
 class CourseStatus(models.TextChoices):
@@ -9,7 +9,7 @@ class CourseStatus(models.TextChoices):
     DONE = "done", "برگزار شده"
 
 
-class TrainingCourse(TenantScopedModel):
+class TrainingCourse(TenantScopedModel, ScopedContentModel):
     title = models.CharField(max_length=300)
     instructor = models.CharField(max_length=200, blank=True)
     starts_at = models.DateTimeField(null=True, blank=True)
