@@ -132,6 +132,25 @@ export function TenancyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { reload(); }, [reload]);
 
+  // نشست ممکن است پس از سوارشدنِ این Provider ساخته شود (ورود) یا در تبِ دیگری
+  // عوض شود. در هر دو حالت دامنه باید دوباره خوانده شود، وگرنه کاربر با نقشِ
+  // خالی می‌ماند و همه‌چیز «دسترسی ندارید» نشان می‌دهد.
+  useEffect(() => {
+    let had = isAuthed();
+    const check = () => {
+      const now = isAuthed();
+      if (now !== had) { had = now; reload(); }
+    };
+    const id = window.setInterval(check, 1000);
+    window.addEventListener("storage", check);
+    window.addEventListener("focus", check);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("storage", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [reload]);
+
   // Every request carries the chosen domain so the server narrows its own
   // queries the same way this context narrows the display.
   useEffect(() => {

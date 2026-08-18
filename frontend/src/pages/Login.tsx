@@ -3,6 +3,7 @@ import { login as apiLogin } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { Building2, Lock, Smartphone, ShieldCheck, ChevronDown, Network } from "lucide-react";
 import { http } from "../lib/http";
+import { useTenancy } from "../context/TenancyContext";
 import Button from "../components/ui/Button";
 
 // فضای کاری = سازمان مشتری (tenant) یا یکی از شرکت‌های زیرمجموعه‌ی آن —
@@ -22,6 +23,9 @@ function usePublicWorkspaces(): Workspace[] {
 
 export default function Login() {
   const navigate = useNavigate();
+  // نقش و دامنه‌ی کاربر تازه‌واردشده باید همین‌جا خوانده شود؛ TenancyProvider
+  // فقط یک‌بار هنگام سوارشدن اجرا می‌شود و آن لحظه هنوز کسی وارد نشده است.
+  const { reload: reloadScope } = useTenancy();
   const workspaces = usePublicWorkspaces();
   const [tenantId, setTenantId] = useState("");
   const [orgPickerOpen, setOrgPickerOpen] = useState(false);
@@ -52,7 +56,7 @@ export default function Login() {
       return;
     }
     setError(null); setLoading(true);
-    try { await apiLogin(username.trim(), password); navigate("/dashboard"); }
+    try { await apiLogin(username.trim(), password); await reloadScope(); navigate("/dashboard"); }
     catch { setError("نام کاربری یا گذرواژه نادرست است."); }
     finally { setLoading(false); }
   };
