@@ -71,30 +71,35 @@ export const navSections: { title: string; items: Item[] }[] = [
     title: "مدیریت",
     items: [
       { to: "/dashboard/admin", label: "پنل راهبری", icon: Settings, adminOnly: true },
+      { to: "/dashboard/access", label: "نقش و دسترسی من", icon: KeyRound },
       { to: "/dashboard/appearance", label: "ظاهر و برندسازی", icon: Palette },
       { to: "/dashboard/tickets", label: "تیکت پشتیبانی", icon: LifeBuoy },
-      { to: "/dashboard/access", label: "نقش و دسترسی من", icon: KeyRound },
       { to: "/dashboard/help", label: "راهنما", icon: HelpCircle },
     ],
   },
 ];
 
-const sections = navSections;
-
-export default function Sidebar() {
-  const currentTenant = useTenant();
-  // ناوبری نقش‌محور: منو دقیقاً همان مقصدهایی را نشان می‌دهد که RequirePerm
-  // اجازه می‌دهد. Hiding is a courtesy — the route guard and the API both
-  // enforce the same permissions independently.
-  const { canAccessAdmin, hasPermission } = useTenancy();
-  const visibleSections = sections
+/**
+ * فیلترِ مشترکِ منو بر اساس دسترسی — هم Sidebar و هم Topbar از همین استفاده می‌کنند.
+ *
+ * Hiding is a courtesy: the route guard and the API enforce the same
+ * permissions independently.
+ */
+export function filterNavSections(ctx: { canAccessAdmin: boolean; hasPermission: (id: string) => boolean }) {
+  return navSections
     .map((s) => ({
       ...s,
       items: s.items.filter(
-        (i) => (!i.adminOnly || canAccessAdmin) && (!i.viewPerm || hasPermission(i.viewPerm)),
+        (i) => (!i.adminOnly || ctx.canAccessAdmin) && (!i.viewPerm || ctx.hasPermission(i.viewPerm)),
       ),
     }))
     .filter((s) => s.items.length > 0);
+}
+
+export default function Sidebar() {
+  const currentTenant = useTenant();
+  const { canAccessAdmin, hasPermission, session, activeScopeLabel } = useTenancy();
+  const visibleSections = filterNavSections({ canAccessAdmin, hasPermission });
   return (
     <aside className="hidden lg:flex flex-col w-[260px] shrink-0 border-l border-ink-200 bg-navy-900 h-screen sticky top-0">
       <div className="flex items-center gap-2.5 px-4 h-16 border-b border-white/10">
@@ -102,8 +107,10 @@ export default function Sidebar() {
           <img src="/bonyad-logo.png" alt="بنیاد مستضعفان انقلاب اسلامی" className="h-7 w-auto" />
         </span>
         <div className="min-w-0">
-          <p className="font-bold text-sm leading-4 text-white truncate">بنیاد مستضعفان</p>
-          <p className="text-[11px] text-navy-300 leading-4 truncate">{currentTenant.name}</p>
+          <p className="font-bold text-[12.5px] leading-[1.35] text-white line-clamp-2">{currentTenant.name}</p>
+          <p className="text-[10.5px] text-navy-300 leading-4 truncate mt-0.5">
+            {session.level === "سیستم" ? "فضای کاری سازمانی" : activeScopeLabel}
+          </p>
         </div>
       </div>
 
@@ -135,7 +142,11 @@ export default function Sidebar() {
       <div className="m-3 rounded-lg bg-white/5 p-3 text-[11px] text-navy-200">
         <div className="flex items-center justify-between mb-1">
           <span className="font-semibold text-white">پلن {currentTenant.plan}</span>
-          <span>{currentTenant.users.toLocaleString("fa-IR")} کاربر</span>
+          <span>
+            {session.memberCompanyIds.length > 0
+              ? `${session.memberCompanyIds.length.toLocaleString("fa-IR")} عضویت`
+              : `${currentTenant.users.toLocaleString("fa-IR")} کاربر`}
+          </span>
         </div>
         <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full bg-brand-400" style={{ width: "62%" }} />

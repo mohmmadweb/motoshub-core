@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTabParam } from "../lib/useTabParam";
+import { me } from "../lib/me";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import {
   PiggyBank,
   Plus,
@@ -84,6 +88,9 @@ const paymentTone: Record<string, BadgeTone> = {
 
 export default function Funds() {
   const [tab, setTab] = useTabParam<"nf" | "allFunds" | "employment">("nf", ["nf", "allFunds", "employment"]);
+  const { filterScoped } = useTenancy();
+  const nfCount = filterScoped(useApiList<NfProject>("/funds/projects", fromNfProject as any)).length;
+  const employmentCount = filterScoped(useApiList<FundRecord>("/funds/records", fromFund as any)).length;
   return (
     <div>
       <PageHeader
@@ -93,9 +100,9 @@ export default function Funds() {
       />
       <Tabs
         tabs={[
-          { id: "nf", label: "صندوق نوآور — روند کامل" },
+          { id: "nf", label: "صندوق نوآور — روند کامل", count: nfCount },
           { id: "allFunds", label: "شبکه صندوق‌ها و بذرمایه باور" },
-          { id: "employment", label: "طرح‌های اشتغال‌زایی" },
+          { id: "employment", label: "طرح‌های اشتغال‌زایی", count: employmentCount },
         ]}
         active={tab}
         onChange={setTab}
@@ -276,6 +283,9 @@ function nfRules(s: WorkflowSettings) {
 
 function InnovationFundTab() {
   const [projects, setProjects] = useApiCollection<NfProject>("/funds/projects", fromNfProject as any, toNfProject);
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
+  const scopedProjects = filterScoped(projects);
   const [selected, setSelected] = useState<NfProject | null>(null);
   const [stageFilter, setStageFilter] = useState<"همه" | NfStage>("همه");
   const [open, setOpen] = useState(false);
@@ -307,9 +317,9 @@ function InnovationFundTab() {
       },
     });
 
-  const pendingReports = projects.flatMap((p) => p.reports).filter((r) => r.status === "در حال بررسی").length;
+  const pendingReports = scopedProjects.flatMap((p) => p.reports).filter((r) => r.status === "در حال بررسی").length;
   const pendingPayments = projects.flatMap((p) => p.payments).filter((p) => p.status !== "اسناد به تیم مجری ارسال شد" && p.status !== "اسناد تحویل صندوق شد").length;
-  const lateReviews = projects.flatMap((p) => p.reports).flatMap((r) => r.chain).filter((c) => c.late).length;
+  const lateReviews = scopedProjects.flatMap((p) => p.reports).flatMap((r) => r.chain).filter((c) => c.late).length;
 
   const submitProposal = () => {
     const errs = { title: !title.trim(), team: !teamName.trim() };
@@ -341,6 +351,8 @@ function InnovationFundTab() {
       payments: [],
       timeline: [{ date: "امروز", time: "هم‌اکنون", step: "دریافت پروپوزال", text: "دریافت طرح، تخصیص کد یکتا و ایجاد شناسنامه پروژه" }],
       requests: [],
+      ...itemScope,
+      authorId: me().id,
     };
     setProjects((prev) => [newProject, ...prev]);
     notify(`پروپوزال با کد یکتا «${newProject.id}» ثبت شد و شناسنامه پروژه ایجاد گردید. پس از تایید شکلی، ارزیابی اولیه هوشمند اجرا می‌شود.`);
@@ -351,8 +363,9 @@ function InnovationFundTab() {
   };
 
   const filtered = useMemo(
-    () => (stageFilter === "همه" ? projects : projects.filter((p) => p.stage === stageFilter)),
-    [projects, stageFilter]
+    () => (stageFilter === "همه" ? scopedProjects : scopedProjects.filter((p) => p.stage === stageFilter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projects, stageFilter, filterScoped]
   );
 
   const columns: Column<NfProject>[] = [
@@ -376,15 +389,16 @@ function InnovationFundTab() {
     {
       key: "actions",
       label: "",
-      render: (p) => <RowActions onEdit={() => setSelected(p)} onDelete={() => deleteProject(p)} />,
+      render: (p) => <RowActions onEdit={(hasPermission("funds.score") || hasPermission("funds.refer") || canManageItem(p, "funds.submit")) ? () => setSelected(p) : undefined} onDelete={canManageItem(p, "funds.submit") ? () => deleteProject(p) : undefined} />,
     },
+    { key: "scopeOwner", label: "دامنه", render: (p) => <ScopeBadge item={p} /> },
   ];
 
   return (
     <div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <StatCard label="پروژه‌های صندوق نوآور" value={projects.length.toLocaleString("fa-IR")} tone="brand" icon={<Target size={16} />} />
-        <StatCard label="در نظارت و راهبری" value={projects.filter((p) => p.stage === "نظارت و راهبری").length.toLocaleString("fa-IR")} tone="success" icon={<Gauge size={16} />} />
+        <StatCard label="پروژه‌های صندوق نوآور" value={scopedProjects.length.toLocaleString("fa-IR")} tone="brand" icon={<Target size={16} />} />
+        <StatCard label="در نظارت و راهبری" value={scopedProjects.filter((p) => p.stage === "نظارت و راهبری").length.toLocaleString("fa-IR")} tone="success" icon={<Gauge size={16} />} />
         <StatCard label="گزارش در انتظار بررسی" value={pendingReports.toLocaleString("fa-IR")} tone="warning" icon={<FileClock size={16} />} />
         <StatCard label="پرداخت در جریان" value={pendingPayments.toLocaleString("fa-IR")} tone="warning" icon={<Wallet size={16} />} />
       </div>
@@ -401,13 +415,15 @@ function InnovationFundTab() {
           <h3 className="text-sm font-bold text-ink-900 flex items-center gap-1.5">
             <Workflow size={15} className="text-brand-600" /> گام‌های اصلی روند صندوق
           </h3>
-          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
-            ثبت پروپوزال جدید
-          </Button>
+          {hasPermission("funds.submit") && (
+            <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
+              ثبت پروپوزال جدید
+            </Button>
+          )}
         </div>
         <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1">
           {nfStages.map((s, i) => {
-            const count = projects.filter((p) => p.stage === s).length;
+            const count = scopedProjects.filter((p) => p.stage === s).length;
             return (
               <button
                 key={s}
@@ -511,6 +527,7 @@ function InnovationFundTab() {
               <input value={projectManager} onChange={(e) => setProjectManager(e.target.value)} placeholder="نماینده تیم" className="input-field" />
             </div>
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" icon={<Send size={14} />} onClick={submitProposal}>
               ثبت پروپوزال و تخصیص کد یکتا
@@ -528,6 +545,7 @@ function InnovationFundTab() {
 }
 
 function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject; onUpdate: (p: NfProject) => void; onDelete: (p: NfProject) => void }) {
+  const { canManageItem } = useTenancy();
   const { notify } = useToast();
   const { settings } = useSettings();
   const [showAllCriteria, setShowAllCriteria] = useState(false);
@@ -591,9 +609,11 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
               ))}
             </select>
           </div>
-          <button onClick={() => onDelete(p)} className="text-[11px] text-rose-500 hover:text-rose-700 flex items-center gap-1">
-            حذف این پروژه از صندوق
-          </button>
+          {canManageItem(p, "funds.submit") && (
+            <button onClick={() => onDelete(p)} className="text-[11px] text-rose-500 hover:text-rose-700 flex items-center gap-1">
+              حذف این پروژه از صندوق
+            </button>
+          )}
         </div>
       </div>
 
@@ -823,6 +843,8 @@ function NfProjectFile({ project: p, onUpdate, onDelete }: { project: NfProject;
 // ---------------------------------------------------------------------------
 function EmploymentFundTab() {
   const [funds, setFunds] = useApiCollection<FundRecord>("/funds/records", fromFund as any, toFund as any);
+  const { filterScoped: filterScopedF, defaultScopeForNew: defaultScopeF, hasPermission } = useTenancy();
+  const [fundScope, setFundScope] = useState<Scoped>({ scope: "سراسری" });
   const reviewSessions = useApiList<{ id: string; title: string; date: string; items: number; committee: string }>(
     "/funds/review-sessions", fromReviewSession as any);
   const [overview, setOverview] = useState({ totalCapital: "—", allocated: "—", successRate: "—", avgReviewDays: 0 });
@@ -854,6 +876,8 @@ function EmploymentFundTab() {
       stage: "ثبت‌شده",
       amount: amount.trim() || "در انتظار ارزیابی",
       roi: "—",
+      ...fundScope,
+      authorId: me().id,
     };
     setFunds((prev) => [newItem, ...prev]);
     notify(`طرح «${newItem.title}»${region ? ` (${region})` : ""} ثبت شد و برای انتخاب اولیه به کارگروه ارجاع داده شد.`);
@@ -871,9 +895,11 @@ function EmploymentFundTab() {
     notify(`طرح «${fund.title}» به جلسه داوری کارگروه ارجاع شد.`, "info");
   };
 
+  const scopedFunds = filterScopedF(funds);
   const filtered = useMemo(
-    () => (stageFilter === "همه" ? funds : funds.filter((f) => f.stage === stageFilter)),
-    [funds, stageFilter]
+    () => (stageFilter === "همه" ? scopedFunds : scopedFunds.filter((f) => f.stage === stageFilter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [funds, stageFilter, filterScopedF]
   );
 
   const columns: Column<FundRecord>[] = [
@@ -890,14 +916,17 @@ function EmploymentFundTab() {
       },
     },
     { key: "roi", label: "بازگشت سرمایه", render: (f) => <span className="flex items-center gap-1 text-emerald-600 font-medium"><TrendingUp size={12} /> {f.roi}</span> },
+    { key: "scopeOwner", label: "دامنه", render: (f) => <ScopeBadge item={f} /> },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-end mb-4">
-        <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
-          ثبت طرح جدید
-        </Button>
+        {hasPermission("funds.submit") && (
+          <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setFundScope(defaultScopeF()); setOpen(true); }}>
+            ثبت طرح جدید
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
@@ -982,6 +1011,7 @@ function EmploymentFundTab() {
             <label className="text-xs font-medium text-ink-600 block mb-1.5">میزان درخواستی (ریال)</label>
             <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="۲۵۰٬۰۰۰٬۰۰۰" className="input-field" />
           </div>
+          <ScopePicker value={fundScope} onChange={setFundScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ثبت طرح</Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
@@ -1066,7 +1096,7 @@ function EmploymentFundTab() {
               </>
             )}
 
-            {(selected.stage === "ثبت‌شده" || selected.stage === "انتخاب اولیه") && (
+            {(selected.stage === "ثبت‌شده" || selected.stage === "انتخاب اولیه") && hasPermission("funds.refer") && (
               <div className="border-t border-ink-100 pt-4">
                 <Button variant="primary" className="w-full justify-center" onClick={() => referToReview(selected)}>
                   ارجاع به جلسه داوری

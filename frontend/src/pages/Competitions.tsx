@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Trophy, Plus, Image as ImageIcon, ThumbsUp, Flag, Swords, Users2 } from "lucide-react";
 import { http, apiMessage } from "../lib/http";
-import { fromCompetition, fromChallenge, cpStatusApi, chKindApi } from "../lib/adapters";
+import { fromCompetition, fromChallenge, cpStatusApi, chKindApi, toScope } from "../lib/adapters";
 import { voteEntryApi, joinChallengeApi, submitEntryApi, deleteEntryApi } from "../lib/competitions";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
@@ -13,6 +13,9 @@ import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 import { useTabParam } from "../lib/useTabParam";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 
 // مسابقات (iiscompetition) + چالش‌ها (iischallenge)
 type Competition = {
@@ -24,7 +27,7 @@ type Competition = {
   status: "ثبت‌نام باز" | "در حال داوری" | "اعلام نتایج";
   prize: string;
   entries: { id: string; by: string; title: string; votes: number; color: string; myVote?: boolean }[];
-};
+} & Scoped;
 
 type Challenge = {
   id: string;
@@ -35,7 +38,7 @@ type Challenge = {
   progress?: number;
   status: "فعال" | "پایان‌یافته";
   isJoined?: boolean;
-};
+} & Scoped;
 
 const compTone: Record<Competition["status"], BadgeTone> = { "ثبت‌نام باز": "success", "در حال داوری": "warning", "اعلام نتایج": "navy" };
 const compStatuses: Competition["status"][] = ["ثبت‌نام باز", "در حال داوری", "اعلام نتایج"];
@@ -44,6 +47,8 @@ export default function Competitions() {
   const [tab, setTab] = useTabParam<"comp" | "challenge">("comp", ["comp", "challenge"]);
   const [comps, setComps] = useState<Competition[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const { filterScoped, defaultScopeForNew, canAccessAdmin, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
   const { notify } = useToast();
   const confirm = useConfirm();
 
@@ -75,9 +80,11 @@ export default function Competitions() {
     if (c) {
       setEditingCompId(c.id);
       setCompForm({ title: c.title, category: c.category, deadline: c.deadline, prize: c.prize, status: c.status });
+      setItemScope({ scope: c.scope, holdingId: c.holdingId, companyId: c.companyId });
     } else {
       setEditingCompId(null);
       setCompForm({ title: "", category: "", deadline: "", prize: "", status: "ثبت‌نام باز" });
+      setItemScope(defaultScopeForNew());
     }
     setCompOpen(true);
   };
@@ -93,6 +100,7 @@ export default function Competitions() {
       deadline: compForm.deadline.trim(),
       prize: compForm.prize.trim(),
       status: cpStatusApi[compForm.status] ?? "open",
+      ...toScope(itemScope),
     };
     try {
       if (editingCompId) {
@@ -184,9 +192,11 @@ export default function Competitions() {
     if (c) {
       setEditingChId(c.id);
       setChForm({ title: c.title, category: c.category, kind: c.kind });
+      setItemScope({ scope: c.scope, holdingId: c.holdingId, companyId: c.companyId });
     } else {
       setEditingChId(null);
       setChForm({ title: "", category: "", kind: "همگانی" });
+      setItemScope(defaultScopeForNew());
     }
     setChOpen(true);
   };
@@ -200,6 +210,7 @@ export default function Competitions() {
       title: chForm.title.trim(),
       category: chForm.category.trim() || "عمومی",
       kind: chKindApi[chForm.kind] ?? "collective",
+      ...toScope(itemScope),
     };
     try {
       if (editingChId) {
@@ -246,24 +257,25 @@ export default function Competitions() {
       />
       <Tabs
         tabs={[
-          { id: "comp", label: "مسابقات", count: comps.length },
-          { id: "challenge", label: "چالش‌ها", count: challenges.length },
+          { id: "comp", label: "مسابقات", count: filterScoped(comps).length },
+          { id: "challenge", label: "چالش‌ها", count: filterScoped(challenges).length },
         ]}
         active={tab}
         onChange={setTab}
       />
 
-      {tab === "comp" && comps.length === 0 && <EmptyState icon={<Trophy size={20} />} title="هنوز مسابقه‌ای تعریف نشده" />}
+      {tab === "comp" && filterScoped(comps).length === 0 && <EmptyState icon={<Trophy size={20} />} title="هنوز مسابقه‌ای تعریف نشده" />}
 
       {tab === "comp" && (
         <div className="space-y-4">
-          {comps.map((c) => (
+          {filterScoped(comps).map((c) => (
             <div key={c.id} className="card p-4">
               <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
                 <p className="text-sm font-bold text-ink-900">{c.title}</p>
                 <span className="flex items-center gap-1">
                   <Badge tone={compTone[c.status]}>{c.status}</Badge>
-                  <RowActions onEdit={() => openCompModal(c)} onDelete={() => removeComp(c)} />
+                  <ScopeBadge item={c} />
+                  {canManageItem(c) && <RowActions onEdit={() => openCompModal(c)} onDelete={() => removeComp(c)} />}
                 </span>
               </div>
               <p className="text-[11.5px] text-ink-400 mb-3 flex items-center gap-2 flex-wrap">
@@ -283,7 +295,7 @@ export default function Competitions() {
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="text-[10.5px] text-ink-400 truncate flex items-center gap-0.5">
                             {e.by}
-                            <RowActions onDelete={() => removeEntry(e)} size={12} />
+                            {canAccessAdmin && <RowActions onDelete={() => removeEntry(e)} size={12} />}
                           </span>
                           <button
                             onClick={() => voteEntry(c.id, e.id)}
@@ -314,8 +326,8 @@ export default function Competitions() {
 
       {tab === "challenge" && (
         <div className="card divide-y divide-ink-100">
-          {challenges.length === 0 && <p className="p-6 text-center text-sm text-ink-400">هنوز چالشی تعریف نشده است.</p>}
-          {challenges.map((c) => {
+          {filterScoped(challenges).length === 0 && <p className="p-6 text-center text-sm text-ink-400">هنوز چالشی تعریف نشده است.</p>}
+          {filterScoped(challenges).map((c) => {
             const isJoined = !!c.isJoined;
             return (
               <div key={c.id} className="p-4 flex items-center justify-between gap-3 flex-wrap">
@@ -351,7 +363,8 @@ export default function Competitions() {
                       {isJoined ? "عضو هستید" : "پیوستن"}
                     </Button>
                   )}
-                  <RowActions onEdit={() => openChModal(c)} onDelete={() => removeCh(c)} />
+                  <ScopeBadge item={c} />
+                  {canManageItem(c) && <RowActions onEdit={() => openChModal(c)} onDelete={() => removeCh(c)} />}
                 </div>
               </div>
             );
@@ -387,6 +400,7 @@ export default function Competitions() {
               </select>
             </div>
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submitComp}>{editingCompId ? "ذخیره تغییرات" : "ایجاد مسابقه"}</Button>
             <Button variant="secondary" onClick={() => setCompOpen(false)}>انصراف</Button>
@@ -413,6 +427,7 @@ export default function Competitions() {
               </select>
             </div>
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submitCh}>{editingChId ? "ذخیره تغییرات" : "ایجاد چالش"}</Button>
             <Button variant="secondary" onClick={() => setChOpen(false)}>انصراف</Button>

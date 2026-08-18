@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { http, isAuthed } from "../lib/http";
+import { http, isAuthed, getUser } from "../lib/http";
 import { setScopeHeaders } from "../lib/http";
 
 /**
@@ -21,8 +21,13 @@ export type SubCompany = { id: string; name: string };
 export type Holding = { id: string; name: string; color: string; companies: SubCompany[] };
 export type Company = { id: string; name: string; holdingId: string };
 
-/** The scope stamped on a piece of content. */
-export type Scoped = { scope?: ContentScopeName; holdingId?: string; companyId?: string };
+/**
+ * The scope stamped on a piece of content.
+ *
+ * `authorId` is the ownership axis: whoever created an item may always manage
+ * it, regardless of which domain it was published into.
+ */
+export type Scoped = { scope?: ContentScopeName; holdingId?: string; companyId?: string; authorId?: string };
 
 type Switchable = { holdingId?: string; companyId?: string; label: string };
 
@@ -72,6 +77,17 @@ type TenancyValue = {
   hasPermission: (id: string) => boolean;
   canAccessAdmin: boolean;
   canManageHoldings: boolean;
+  /** Moderation authority over one group — the "group warden" role only inside its own group. */
+  canModerateGroup: (group: { id: string; scope?: string; holdingId?: string; companyId?: string }) => boolean;
+  /**
+   * May this user edit/delete this item?
+   *
+   * The owner always may. Otherwise only a manager of the item's own domain:
+   * system level everywhere, holding manager inside their holding, company
+   * manager inside their company. `editPerm` is the module's management
+   * permission; modules without one fall back to `canAccessAdmin`.
+   */
+  canManageItem: (item: Scoped, editPerm?: string) => boolean;
   managedHoldingIds: string[];
   managedCompanyIds: string[];
 
@@ -126,6 +142,11 @@ export function TenancyProvider({ children }: { children: ReactNode }) {
     const { holdings, companies, role, level } = data;
     const permissionSet = new Set(role.permissions);
     const hasPermission = (id: string) => permissionSet.has(id);
+    const myId: string = getUser()?.id ?? "";
+    // System and holding levels always reach the console; a company-level user
+    // needs a role that actually carries one of the management permissions.
+    const canAccessAdmin =
+      level === "سیستم" || level === "هلدینگ" || ADMIN_PERMS.some((p) => permissionSet.has(p));
 
     const activeHolding = holdings.find((h) => h.id === activeHoldingId);
     const activeCompany = companies.find((c) => c.id === activeCompanyId);
@@ -185,8 +206,28 @@ export function TenancyProvider({ children }: { children: ReactNode }) {
       allowedPublishScopes: data.publishable,
 
       hasPermission,
-      canAccessAdmin: ADMIN_PERMS.some(hasPermission),
+      canAccessAdmin,
       canManageHoldings: hasPermission("companies.manage"),
+      canModerateGroup: (g) => {
+        if (level === "سیستم") return true;
+        // A group warden's authority is bounded by their own membership domain;
+        // the API applies the same rule, so this only decides what to render.
+        if (level === "گروه")
+          return permissionSet.has("groups.members") && managedCompanyIds.includes(g.companyId ?? "");
+        if (level === "هلدینگ")
+          return !g.scope || g.scope === "سراسری" || data.memberHoldingIds.includes(g.holdingId ?? "");
+        if (canAccessAdmin) return managedCompanyIds.includes(g.companyId ?? "");
+        return false;
+      },
+      canManageItem: (item: Scoped, editPerm?: string) => {
+        if (item.authorId && item.authorId === myId) return true;
+        const isManager = editPerm ? permissionSet.has(editPerm) : canAccessAdmin;
+        if (!isManager) return false;
+        if (level === "سیستم") return true;
+        if (item.companyId && managedCompanyIds.includes(item.companyId)) return true;
+        if (item.holdingId && managedHoldingIds.includes(item.holdingId)) return true;
+        return false; // global content, or outside this manager's domain ⇒ system level only
+      },
       managedHoldingIds,
       managedCompanyIds,
 

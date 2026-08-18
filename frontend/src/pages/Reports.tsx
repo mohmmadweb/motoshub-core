@@ -16,9 +16,11 @@ import {
   PlayCircle,
   CalendarClock,
   Table2,
+  Network,
 } from "lucide-react";
 import { type SavedReport } from "../data/types-details";
 import PageHeader from "../components/ui/PageHeader";
+import { useTenancy } from "../context/TenancyContext";
 import Button from "../components/ui/Button";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import StatCard from "../components/ui/StatCard";
@@ -57,6 +59,7 @@ const rowsFrom = (by: Record<string, number> | undefined, labels: Record<string,
   Object.entries(by ?? {}).map(([k, count], i) => ({ id: `b${i}`, label: labels[k] ?? k, count, extra: `${count} ${unit}` }));
 
 export default function Reports() {
+  const { hasPermission, session, activeScopeLabel } = useTenancy();
   const [period, setPeriod] = useState(periods[1]);
   const [builderModule, setBuilderModule] = useState<(typeof builderModules)[number]>("پروژه‌ها");
   const [builderGroupBy, setBuilderGroupBy] = useState<(typeof builderGroupings)[number]>("وضعیت");
@@ -212,6 +215,7 @@ export default function Reports() {
         description="گزارش تجمیعی بر اساس معاونت، نوع پروژه، وضعیت و بازه‌ی زمانی برای داشبورد مدیریتی"
         icon={<BarChart3 size={18} />}
         actions={
+          !hasPermission("reports.export") ? null : (
           <div className="relative">
             <Button variant="secondary" icon={<Download size={14} />} onClick={() => setExportOpen((v) => !v)}>
               خروجی Excel/PDF
@@ -226,8 +230,16 @@ export default function Reports() {
               </div>
             )}
           </div>
+          )
         }
       />
+
+      <div className="card p-3 mb-5 bg-brand-50 border-brand-200 flex items-center gap-2.5 text-xs text-brand-800">
+        <Network size={15} className="shrink-0" />
+        {session.level === "سیستم"
+          ? "این گزارش، نمای تجمیعیِ کل سازمان است (همه‌ی هلدینگ‌ها و شرکت‌ها)."
+          : <>این گزارش به دامنه‌ی <b>«{activeScopeLabel}»</b> محدود است؛ داده‌های خارج از این دامنه در آن دیده نمی‌شود.</>}
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {kpis.map((k) => (

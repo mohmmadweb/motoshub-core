@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { CheckCircle2, Bell, BellOff, Send, Pencil, Trash2, Check } from "lucide-react";
 import { http, apiMessage, getUser } from "../lib/http";
 import { relativeFa } from "../lib/jalali";
+import { useTenancy } from "../context/TenancyContext";
 import { useContent } from "../context/ContentContext";
 import Avatar from "../components/Avatar";
 import Badge from "../components/ui/Badge";
@@ -37,6 +38,7 @@ export default function ForumTopic() {
   const [editingReply, setEditingReply] = useState<Reply | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [topicEditOpen, setTopicEditOpen] = useState(false);
+  const { hasPermission, canManageItem } = useTenancy();
   const [topicForm, setTopicForm] = useState({ title: "", category: "", body: "" });
   const [following, setFollowing] = useState(false);
 
@@ -179,15 +181,19 @@ export default function ForumTopic() {
         breadcrumb={[{ label: "انجمن", to: "/dashboard/forum" }, { label: topic.category }]}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            <VisibilityToggle visibility={topic.visibility} onChange={toggleVisibility} size="sm" />
-            <Button variant={topic.solved ? "primary" : "secondary"} size="sm" icon={<CheckCircle2 size={13} />} onClick={toggleSolved}>
-              {topic.solved ? "حل‌شده" : "علامت حل‌شده"}
-            </Button>
+            {canManageItem(topic, "forum.edit")
+              ? <VisibilityToggle visibility={topic.visibility} onChange={toggleVisibility} size="sm" />
+              : <VisibilityBadge visibility={topic.visibility} />}
+            {canManageItem(topic, "forum.solve") && (
+              <Button variant={topic.solved ? "primary" : "secondary"} size="sm" icon={<CheckCircle2 size={13} />} onClick={toggleSolved}>
+                {topic.solved ? "حل‌شده" : "علامت حل‌شده"}
+              </Button>
+            )}
             <Button variant={following ? "primary" : "secondary"} size="sm" icon={following ? <Bell size={13} /> : <BellOff size={13} />} onClick={() => setFollowing((v) => !v)}>
               {following ? "دنبال‌می‌کنید" : "دنبال کردن موضوع"}
             </Button>
-            <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={openTopicEdit}>ویرایش</Button>
-            <Button variant="secondary" size="sm" icon={<Trash2 size={13} />} onClick={removeTopic}>حذف</Button>
+            {canManageItem(topic, "forum.edit") && <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={openTopicEdit}>ویرایش</Button>}
+            {canManageItem(topic, "forum.delete") && <Button variant="secondary" size="sm" icon={<Trash2 size={13} />} onClick={removeTopic}>حذف</Button>}
           </div>
         }
       />
@@ -226,7 +232,7 @@ export default function ForumTopic() {
                 <span className="text-[11px] text-ink-400">{r.when}</span>
                 {r.accepted && <Badge tone="success">پاسخ پذیرفته‌شده</Badge>}
                 <span className="flex-1" />
-                {isAsker && (
+                {(isAsker || canManageItem(topic, "forum.solve")) && (
                   <button
                     onClick={() => acceptReply(r)}
                     className={`p-1.5 rounded-md hover:bg-emerald-50 ${r.accepted ? "text-emerald-600" : "text-ink-400 hover:text-emerald-600"}`}
@@ -237,8 +243,8 @@ export default function ForumTopic() {
                 )}
                 {/* Only the writer may edit; the asker may also clear a reply. */}
                 <RowActions
-                  onEdit={r.mine ? () => { setEditingReply(r); setReplyDraft(r.body); } : undefined}
-                  onDelete={r.mine || isAsker ? () => removeReply(r) : undefined}
+                  onEdit={(r.mine || canManageItem(topic, "forum.edit")) ? () => { setEditingReply(r); setReplyDraft(r.body); } : undefined}
+                  onDelete={(r.mine || isAsker || canManageItem(topic, "forum.delete")) ? () => removeReply(r) : undefined}
                 />
               </div>
               <p className="text-sm text-ink-700 leading-7 whitespace-pre-wrap">{r.body}</p>
@@ -247,18 +253,24 @@ export default function ForumTopic() {
         )}
       </div>
 
-      <div className="card p-3 flex items-center gap-2">
-        <input
-          className="input-field"
-          placeholder="پاسخ خود را بنویسید…"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
-        />
-        <Button variant="primary" icon={<Send size={14} />} onClick={sendReply}>
-          ارسال
-        </Button>
-      </div>
+      {hasPermission("forum.reply") ? (
+        <div className="card p-3 flex items-center gap-2">
+          <input
+            className="input-field"
+            placeholder="پاسخ خود را بنویسید…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
+          />
+          <Button variant="primary" icon={<Send size={14} />} onClick={sendReply}>
+            ارسال
+          </Button>
+        </div>
+      ) : (
+        <div className="card p-3 text-center text-xs text-ink-400">
+          برای پاسخ‌دادن به این موضوع، دسترسی «پاسخ به مباحث» لازم است.
+        </div>
+      )}
 
       <Modal open={!!editingReply} onClose={() => setEditingReply(null)} title="ویرایش پاسخ">
         <div className="space-y-3">

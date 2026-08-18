@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CalendarDays, MapPin, Users, Plus, Calendar, Send } from "lucide-react";
 import { Link } from "react-router-dom";
-import { type EventItem, type Visibility } from "../data/types";
+import { eventCategories, type EventCategory, type EventItem, type Visibility } from "../data/types";
+import { me } from "../lib/me";
 import RowActions from "../components/ui/RowActions";
 import DataTable from "../components/ui/DataTable";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -10,9 +11,12 @@ import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
-import { VisibilityToggle, VisibilityPicker } from "../components/ui/VisibilityControl";
+import { VisibilityToggle, VisibilityPicker, VisibilityBadge } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
 import { useContent } from "../context/ContentContext";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 
 export default function Events() {
   return (
@@ -29,6 +33,8 @@ export default function Events() {
 
 function EventsListTab() {
   const { events, setEvents } = useContent();
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
   const [calendar, setCalendar] = useState<"jalali" | "gregorian">("jalali");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -37,6 +43,8 @@ function EventsListTab() {
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("خصوصی");
+  const [category, setCategory] = useState<EventCategory>("جلسه");
+  const [capacity, setCapacity] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ title?: boolean; date?: boolean }>({});
   const { notify } = useToast();
@@ -44,6 +52,7 @@ function EventsListTab() {
 
   const startEdit = (ev: EventItem) => {
     setEditingId(ev.id);
+    setItemScope({ scope: ev.scope, holdingId: ev.holdingId, companyId: ev.companyId });
     setTitle(ev.title);
     setJalaliDate(ev.jalaliDate);
     setTime(ev.time);
@@ -71,7 +80,7 @@ function EventsListTab() {
       setEvents((prev) =>
         prev.map((e) =>
           e.id === editingId
-            ? { ...e, title: title.trim(), jalaliDate: jalaliDate.trim(), time: time.trim() || "—", location: location.trim() || "نامشخص", description: description.trim() || e.description, visibility }
+            ? { ...e, title: title.trim(), jalaliDate: jalaliDate.trim(), time: time.trim() || "—", location: location.trim() || "نامشخص", description: description.trim() || e.description, visibility, category, capacity: Number(capacity) || e.capacity, ...itemScope }
             : e
         )
       );
@@ -89,6 +98,10 @@ function EventsListTab() {
         hashtags: [],
         description: description.trim() || "بدون توضیحات",
         visibility,
+        category,
+        capacity: Number(capacity) || undefined,
+        ...itemScope,
+        authorId: me().id,
       };
       setEvents((prev) => [newEvent, ...prev]);
       notify(`رویداد «${newEvent.title}» منتشر شد (${visibility}).`);
@@ -127,9 +140,11 @@ function EventsListTab() {
                 میلادی
               </button>
             </div>
-            <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
-              رویداد جدید
-            </Button>
+            {hasPermission("events.create") && (
+              <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
+                رویداد جدید
+              </Button>
+            )}
           </>
       </div>
 
@@ -157,21 +172,23 @@ function EventsListTab() {
             },
           },
           { key: "mode", label: "حالت", render: (e) => <Badge tone={e.mode === "آنلاین" ? "brand" : "navy"}>{e.mode}</Badge> },
+          { key: "category", label: "دسته", render: (e) => e.category ? <Badge tone="neutral">{e.category}</Badge> : <span className="text-xs text-ink-300">—</span> },
           { key: "location", label: "مکان", render: (e) => <span className="text-xs text-ink-400 flex items-center gap-1"><MapPin size={12} className="shrink-0" /> <span className="truncate max-w-[160px]">{e.location}</span></span> },
-          { key: "attendees", label: "شرکت‌کنندگان", render: (e) => <span className="text-xs text-ink-400 flex items-center gap-1"><Users size={12} /> {e.attendees.toLocaleString("fa-IR")}</span> },
-          { key: "visibility", label: "دسترسی", render: (e) => <VisibilityToggle visibility={e.visibility} onChange={() => toggleVisibility(e.id)} size="xs" /> },
+          { key: "attendees", label: "شرکت‌کنندگان", render: (e) => <span className="text-xs text-ink-400 flex items-center gap-1 whitespace-nowrap"><Users size={12} /> {e.attendees.toLocaleString("fa-IR")}{e.capacity ? ` از ${e.capacity.toLocaleString("fa-IR")}` : ""}</span> },
+          { key: "owner", label: "دامنه", render: (e) => <ScopeBadge item={e} /> },
+          { key: "visibility", label: "دسترسی", render: (e) => canManageItem(e, "events.edit") ? <VisibilityToggle visibility={e.visibility} onChange={() => toggleVisibility(e.id)} size="xs" /> : <VisibilityBadge visibility={e.visibility} /> },
           {
             key: "actions",
             label: "",
             render: (e) => (
               <span className="flex items-center gap-0.5">
-                <Button variant="ghost" size="sm" icon={<Send size={12} />} onClick={() => sendInvite(e)}>دعوت</Button>
-                <RowActions onEdit={() => startEdit(e)} onDelete={() => remove(e)} />
+                {hasPermission("events.invite") && <Button variant="ghost" size="sm" icon={<Send size={12} />} onClick={() => sendInvite(e)}>دعوت</Button>}
+                <RowActions onEdit={canManageItem(e, "events.edit") ? () => startEdit(e) : undefined} onDelete={canManageItem(e, "events.delete") ? () => remove(e) : undefined} />
               </span>
             ),
           },
         ]}
-        rows={events}
+        rows={filterScoped(events)}
         searchKeys={["title", "location"]}
         searchPlaceholder="جستجو در عنوان یا مکان رویداد…"
         emptyTitle="هنوز رویدادی ثبت نشده"
@@ -195,6 +212,18 @@ function EventsListTab() {
               <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="۱۰:۰۰" className="input-field" />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">دسته‌ی رویداد</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value as EventCategory)} className="input-field">
+                {eventCategories.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-ink-600 block mb-1.5">ظرفیت ثبت‌نام</label>
+              <input value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="مثلاً ۱۰۰" className="input-field" inputMode="numeric" />
+            </div>
+          </div>
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">محل برگزاری</label>
             <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="سالن جلسات طبقه چهارم / لینک آنلاین" className="input-field" />
@@ -204,6 +233,7 @@ function EventsListTab() {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input-field min-h-20" />
           </div>
           <VisibilityPicker value={visibility} onChange={setVisibility} />
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>انتشار رویداد</Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>

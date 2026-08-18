@@ -2,29 +2,38 @@ import { useState } from "react";
 import { Plus, Users } from "lucide-react";
 import { type Group } from "../data/types";
 import { useContent } from "../context/ContentContext";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import GroupCard from "../components/GroupCard";
 import PageHeader from "../components/ui/PageHeader";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { VisibilityPicker } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 
 const palette = ["#1f4f99", "#2a66bd", "#0d9488", "#7c3aed", "#b45309"];
 
 export default function Groups() {
   const { groups, setGroups } = useContent();
+  const { filterScoped, defaultScopeForNew, canModerateGroup } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
   const [active, setActive] = useState("همه");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [privacy, setPrivacy] = useState<Group["privacy"]>("خصوصی");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { notify } = useToast();
+  const confirm = useConfirm();
 
   const [sort, setSort] = useState<"members" | "created" | "activity">("activity");
-  const allCategories = Array.from(new Set(groups.map((g) => g.category)));
+  const allCategories = Array.from(new Set(filterScoped(groups).map((g) => g.category)));
   const categories = ["همه", ...allCategories];
-  const filtered = (active === "همه" ? groups : groups.filter((g) => g.category === active)).slice().sort((a, b) =>
+  const scoped = filterScoped(groups);
+  const filtered = (active === "همه" ? scoped : scoped.filter((g) => g.category === active)).slice().sort((a, b) =>
     sort === "members" ? b.members - a.members :
     sort === "created" ? (a.createdAt < b.createdAt ? 1 : -1) :
     (a.lastActivityAt < b.lastActivityAt ? 1 : -1)
@@ -43,9 +52,50 @@ export default function Groups() {
     }
   };
 
+  const startEdit = (g: Group) => {
+    setEditingId(g.id);
+    setName(g.name);
+    setDescription(g.description === "بدون توضیحات" ? "" : g.description);
+    setCategory(g.category);
+    setPrivacy(g.privacy);
+    setItemScope({ scope: g.scope, holdingId: g.holdingId, companyId: g.companyId });
+    setOpen(true);
+  };
+
+  const remove = (g: Group) =>
+    confirm({
+      title: `حذف گروه «${g.name}»؟`,
+      message: `${g.members.toLocaleString("fa-IR")} عضو از این گروه خارج می‌شوند و گفتگوها و اسناد گروه در دسترس نخواهد بود.`,
+      onConfirm: () => {
+        setGroups((prev) => prev.filter((x) => x.id !== g.id));
+        notify(`گروه «${g.name}» حذف شد.`, "info");
+      },
+    });
+
+  const closeModal = () => {
+    setOpen(false);
+    setEditingId(null);
+    setName("");
+    setDescription("");
+    setCategory("");
+    setPrivacy("خصوصی");
+  };
+
   const submit = () => {
     if (!name.trim() || !category.trim()) {
       notify("نام گروه و دسته‌بندی الزامی است.", "warning");
+      return;
+    }
+    if (editingId) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === editingId
+            ? { ...g, name: name.trim(), description: description.trim() || "بدون توضیحات", category: category.trim(), privacy, ...itemScope }
+            : g
+        )
+      );
+      notify(`گروه «${name.trim()}» ویرایش شد.`);
+      closeModal();
       return;
     }
     const newGroup: Group = {
@@ -60,14 +110,11 @@ export default function Groups() {
       lastActivityAt: "۱۴۰۵/۰۴/۳۱",
       lastActivityRel: "هم‌اکنون",
       category: category.trim(),
+      ...itemScope,
     };
     setGroups((prev) => [newGroup, ...prev]);
     notify(`گروه «${newGroup.name}» با موفقیت ایجاد شد.`);
-    setOpen(false);
-    setName("");
-    setDescription("");
-    setCategory("");
-    setPrivacy("خصوصی");
+    closeModal();
   };
 
   return (
@@ -77,7 +124,7 @@ export default function Groups() {
         description="ایجاد، مدیریت و عضویت در گروه‌های خصوصی و عمومی سازمان"
         icon={<Users size={18} />}
         actions={
-          <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
+          <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
             گروه جدید
           </Button>
         }
@@ -112,11 +159,22 @@ export default function Groups() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((g) => (
-          <GroupCard key={g.id} group={g} onTogglePrivacy={() => togglePrivacy(g.id)} />
+          <GroupCard
+            key={g.id}
+            group={g}
+            onTogglePrivacy={canModerateGroup(g) ? () => togglePrivacy(g.id) : undefined}
+            onEdit={canModerateGroup(g) ? () => startEdit(g) : undefined}
+            onDelete={canModerateGroup(g) ? () => remove(g) : undefined}
+          />
         ))}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="ایجاد گروه جدید" description="شما به‌صورت خودکار مدیر این گروه خواهید بود.">
+      <Modal
+        open={open}
+        onClose={closeModal}
+        title={editingId ? "ویرایش گروه" : "ایجاد گروه جدید"}
+        description={editingId ? "تغییرات برای همه‌ی اعضای گروه اعمال می‌شود." : "شما به‌صورت خودکار مدیر این گروه خواهید بود."}
+      >
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">نام گروه</label>
@@ -131,9 +189,12 @@ export default function Groups() {
             <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="مثلاً: فنی" className="input-field" />
           </div>
           <VisibilityPicker value={privacy} onChange={setPrivacy} />
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ایجاد گروه</Button>
-            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>
+              {editingId ? "ذخیره تغییرات" : "ایجاد گروه"}
+            </Button>
+            <Button variant="secondary" onClick={closeModal}>انصراف</Button>
           </div>
         </div>
       </Modal>

@@ -55,6 +55,8 @@ import { useApiList } from "../lib/useApiList";
 import { me } from "../lib/me";
 import type { UserProfile, PresenceStatus } from "../data/types";
 import Badge from "../components/ui/Badge";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge } from "../components/ui/ScopeControl";
 import EmptyState from "../components/ui/EmptyState";
 import Drawer from "../components/ui/Drawer";
 import Toggle from "../components/ui/Toggle";
@@ -107,6 +109,7 @@ export default function Chat() {
   const [selection, setSelection] = useState<Selection>({ kind: "dm", id: "" });
   const [messages, setMessages] = useState<ChannelMessage[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const { filterScoped } = useTenancy();
   const [msgAuthors, setMsgAuthors] = useState<Record<string, { name: string; color: string }>>({});
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [userPresence, setUserPresence] = useState<Record<string, PresenceStatus>>({});
@@ -566,10 +569,12 @@ export default function Chat() {
   const showSlashHint = draft.startsWith("/");
 
   const q = sidebarQuery.trim();
+  // فقط کانال‌های داخلِ دامنه‌ی فعال — همان قاعده‌ای که سرور هم اعمال می‌کند
+  const scopedChannels = useMemo(() => filterScoped(channels), [filterScoped, channels]);
   const grouped = {
-    favorites: channels.filter((c) => favorites.includes(c.id) && c.name.includes(q)),
-    channels: channels.filter((c) => c.category === "کانال‌ها" && !favorites.includes(c.id) && c.name.includes(q)),
-    archived: channels.filter((c) => c.category === "بایگانی‌شده" && c.name.includes(q)),
+    favorites: scopedChannels.filter((c) => favorites.includes(c.id) && c.name.includes(q)),
+    channels: scopedChannels.filter((c) => c.category === "کانال‌ها" && !favorites.includes(c.id) && c.name.includes(q)),
+    archived: scopedChannels.filter((c) => c.category === "بایگانی‌شده" && c.name.includes(q)),
     dms: dmThreads.filter((t) => t.with.includes(q)),
   };
 
@@ -1401,7 +1406,10 @@ function ChannelHeader({
         </button>
         {channel.type === "private" ? <Lock size={14} className="text-ink-400 shrink-0" /> : <Hash size={14} className="text-ink-400 shrink-0" />}
         <div className="min-w-0">
-          <p className="text-sm font-bold text-ink-900 leading-4">{channel.name}</p>
+          <p className="text-sm font-bold text-ink-900 leading-4 flex items-center gap-1.5">
+            {channel.name}
+            <ScopeBadge item={channel} />
+          </p>
           <p className="text-[11px] text-ink-400 truncate">{channel.topic}</p>
         </div>
       </div>
@@ -1414,6 +1422,15 @@ function ChannelHeader({
         </button>
         <button onClick={() => onTogglePanel("saved")} title="ذخیره‌شده‌ها" className={`px-2.5 py-1.5 rounded-full transition-colors ${activePanel === "saved" ? "bg-brand-50 text-brand-700" : "hover:bg-ink-100"}`}>
           <Bookmark size={13} />
+        </button>
+        <button title="تماس صوتی گروهی" className="px-2.5 py-1.5 rounded-full hover:bg-ink-100 text-ink-500 transition-colors">
+          <Phone size={14} />
+        </button>
+        <button title="جلسه تصویری" className="px-2.5 py-1.5 rounded-full hover:bg-ink-100 text-ink-500 transition-colors">
+          <Video size={14} />
+        </button>
+        <button title="گزینه‌های بیشتر" className="px-2.5 py-1.5 rounded-full hover:bg-ink-100 text-ink-500 transition-colors">
+          <MoreVertical size={14} />
         </button>
       </div>
     </div>

@@ -21,6 +21,9 @@ import Modal from "../components/ui/Modal";
 import Drawer from "../components/ui/Drawer";
 import { useToast } from "../components/ui/ToastProvider";
 import { useTabParam } from "../lib/useTabParam";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 
 const stageTone: Record<ContractRecord["stage"], BadgeTone> = {
   مذاکره: "warning",
@@ -46,6 +49,9 @@ const stages: ContractRecord["stage"][] = ["فراخوان", "مذاکره", "د
 
 export default function Contracts() {
   const [tab, setTab] = useTabParam<"tech" | "transfer" | "esign" | "tender">("tech", ["tech", "transfer", "esign", "tender"]);
+  const { filterScoped } = useTenancy();
+  const techContracts = useApiList<ContractRecord>("/contracts", fromContract as any);
+  const techCount = filterScoped(techContracts).length;
   const techTransfer = useApiList<TechTransferContract>("/contracts/tech-transfer", fromTechTransfer as any);
   const [tenderList, reloadTenders] = useApiListReloadable<TenderRecord>("/contracts/tenders", fromTender as any);
   const esignDocs = useApiList<ESignDocument>("/contracts/esign", fromESign as any);
@@ -58,7 +64,7 @@ export default function Contracts() {
       />
       <Tabs
         tabs={[
-          { id: "tech", label: "قراردادهای فناورانه" },
+          { id: "tech", label: "قراردادهای فناورانه", count: techCount },
           { id: "transfer", label: "پورتفولیوی تبادل فناوری", count: techTransfer.length },
           { id: "esign", label: "گردش امضای الکترونیک", count: esignDocs.length },
           { id: "tender", label: "مناقصه و کمیسیون معاملات", count: tenderList.length },
@@ -382,6 +388,8 @@ function ESignTab({ docs }: { docs: ESignDocument[] }) {
 
 function TechContractsTab() {
   const [contracts, setContracts] = useApiCollection<ContractRecord>("/contracts", fromContract as any, toContract as any);
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [vendor, setVendor] = useState("");
@@ -412,7 +420,7 @@ function TechContractsTab() {
     if (errs.title || errs.vendor) return;
     if (editingId) {
       setContracts((prev) =>
-        prev.map((c) => (c.id === editingId ? { ...c, title: title.trim(), vendor: vendor.trim(), value: value.trim() || "—", deadline: deadline.trim() || "نامشخص" } : c))
+        prev.map((c) => (c.id === editingId ? { ...c, title: title.trim(), vendor: vendor.trim(), value: value.trim() || "—", deadline: deadline.trim() || "نامشخص", ...itemScope } : c))
       );
       notify(`قرارداد «${title.trim()}» ویرایش شد.`);
     } else {
@@ -424,6 +432,8 @@ function TechContractsTab() {
         value: value.trim() || "—",
         deadline: deadline.trim() || "نامشخص",
         owner: me().name,
+        ...itemScope,
+        authorId: me().id,
       };
       setContracts((prev) => [newItem, ...prev]);
       notify(`قرارداد «${newItem.title}» (${contractType} — ${method}) ثبت شد و در وضعیت «${newItem.stage}» قرار گرفت.`);
@@ -436,13 +446,15 @@ function TechContractsTab() {
     setDeadline("");
   };
 
+  const scoped = filterScoped(contracts);
   const filtered = useMemo(
-    () => (stageFilter === "همه" ? contracts : contracts.filter((c) => c.stage === stageFilter)),
-    [contracts, stageFilter]
+    () => (stageFilter === "همه" ? scoped : scoped.filter((c) => c.stage === stageFilter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contracts, stageFilter, filterScoped]
   );
 
-  const active = contracts.filter((c) => c.stage === "در حال اجرا").length;
-  const inReview = contracts.filter((c) => c.stage === "داوری" || c.stage === "مذاکره").length;
+  const active = scoped.filter((c) => c.stage === "در حال اجرا").length;
+  const inReview = scoped.filter((c) => c.stage === "داوری" || c.stage === "مذاکره").length;
 
   const isObligationDone = (id: string, fallback: boolean) => obligationState[id] ?? fallback;
 
@@ -459,6 +471,7 @@ function TechContractsTab() {
     { key: "value", label: "ارزش قرارداد" },
     { key: "deadline", label: "سرآمد تعهدات" },
     { key: "owner", label: "مسئول" },
+    { key: "scopeOwner", label: "دامنه", render: (c) => <ScopeBadge item={c} /> },
     {
       key: "docs",
       label: "اسناد",
@@ -473,8 +486,8 @@ function TechContractsTab() {
       label: "",
       render: (c) => (
         <RowActions
-          onEdit={() => startEdit(c)}
-          onDelete={() =>
+          onEdit={canManageItem(c, "contracts.edit") ? () => startEdit(c) : undefined}
+          onDelete={!canManageItem(c, "contracts.delete") ? undefined : () =>
             confirm({
               title: `حذف قرارداد «${c.title}»؟`,
               message: "پرونده قرارداد و تاریخچه‌ی آن بایگانی می‌شود.",
@@ -491,6 +504,7 @@ function TechContractsTab() {
 
   const startEdit = (c: ContractRecord) => {
     setEditingId(c.id);
+    setItemScope({ scope: c.scope, holdingId: c.holdingId, companyId: c.companyId });
     setTitle(c.title);
     setVendor(c.vendor);
     setValue(c.value);
@@ -500,14 +514,16 @@ function TechContractsTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-4">
-        <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
-          ثبت قرارداد جدید
-        </Button>
-      </div>
+      {hasPermission("contracts.create") && (
+        <div className="flex items-center justify-end mb-4">
+          <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
+            ثبت قرارداد جدید
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <StatCard label="کل قراردادها" value={contracts.length.toLocaleString("fa-IR")} tone="brand" icon={<FileSignature size={16} />} />
+        <StatCard label="کل قراردادها" value={scoped.length.toLocaleString("fa-IR")} tone="brand" icon={<FileSignature size={16} />} />
         <StatCard label="در حال اجرا" value={active.toLocaleString("fa-IR")} tone="success" icon={<CircleDollarSign size={16} />} />
         <StatCard label="در مذاکره / داوری" value={inReview.toLocaleString("fa-IR")} tone="warning" icon={<Hourglass size={16} />} />
         <StatCard label="دارای ضمانت‌نامه معتبر" value={contracts.filter((c: any) => c.guarantee && c.guarantee !== "—").length.toLocaleString("fa-IR")} icon={<ShieldCheck size={16} />} />
@@ -521,7 +537,7 @@ function TechContractsTab() {
             stageFilter === "همه" ? "bg-navy-900 text-white border-navy-900" : "bg-white text-ink-600 border-ink-200 hover:bg-ink-50"
           }`}
         >
-          همه ({contracts.length})
+          همه ({scoped.length})
         </button>
         {stages.map((s) => (
           <button
@@ -531,7 +547,7 @@ function TechContractsTab() {
               stageFilter === s ? "bg-navy-900 text-white border-navy-900" : "bg-white text-ink-600 border-ink-200 hover:bg-ink-50"
             }`}
           >
-            {s} ({contracts.filter((c) => c.stage === s).length})
+            {s} ({scoped.filter((c) => c.stage === s).length})
           </button>
         ))}
       </div>
@@ -593,6 +609,7 @@ function TechContractsTab() {
               <input value={deadline} onChange={(e) => setDeadline(e.target.value)} placeholder="۱۴۰۵/۰۹/۰۱" className="input-field" />
             </div>
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>ثبت قرارداد</Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>

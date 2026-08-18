@@ -3,6 +3,10 @@ import { GraduationCap, CalendarDays, Users, Award, Gauge, CheckCircle2, Plus } 
 import { type TrainingCourse } from "../data/types-daneshmand";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromCourse, toCourse } from "../lib/adapters";
+import { me } from "../lib/me";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import PageHeader from "../components/ui/PageHeader";
 import Badge, { type BadgeTone } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -34,7 +38,9 @@ export default function Training() {
   const [titleError, setTitleError] = useState(false);
   const { notify } = useToast();
 
-  const trainingCourses = courses;
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
+  const trainingCourses = filterScoped(courses);
   const totalCerts = trainingCourses.reduce((s, c) => s + (c.certificates ?? 0), 0);
   const openCourses = trainingCourses.filter((c) => c.status === "ثبت‌نام باز").length;
 
@@ -50,6 +56,7 @@ export default function Training() {
   const toNum = (s: string) => Number(s.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))) || 0;
 
   const startEdit = (c: TrainingCourse) => {
+    setItemScope({ scope: c.scope, holdingId: c.holdingId, companyId: c.companyId });
     setEditingId(c.id);
     setTitle(c.title);
     setInstructor(c.instructor);
@@ -78,7 +85,7 @@ export default function Training() {
     setTitleError(false);
     if (editingId) {
       setCourses((prev) =>
-        prev.map((c) => (c.id === editingId ? { ...c, title: title.trim(), instructor: instructor.trim() || c.instructor, date: date.trim() || c.date, hours: toNum(hours) || c.hours, capacity: toNum(capacity) || c.capacity } : c))
+        prev.map((c) => (c.id === editingId ? { ...c, title: title.trim(), instructor: instructor.trim() || c.instructor, date: date.trim() || c.date, hours: toNum(hours) || c.hours, capacity: toNum(capacity) || c.capacity, ...itemScope } : c))
       );
       notify(`دوره «${title.trim()}» ویرایش شد.`);
     } else {
@@ -92,6 +99,8 @@ export default function Training() {
           capacity: toNum(capacity) || 30,
           enrolled: 0,
           status: "ثبت‌نام باز",
+          ...itemScope,
+          authorId: me().id,
         },
         ...prev,
       ]);
@@ -109,9 +118,11 @@ export default function Training() {
         description="دوره‌های تخصصی، تقویم آموزشی، حضور و غیاب، ارزشیابی، سنجش اثربخشی و صدور گواهینامه"
         icon={<GraduationCap size={18} />}
         actions={
-          <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
-            تعریف دوره جدید
-          </Button>
+          hasPermission("training.create") ? (
+            <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
+              تعریف دوره جدید
+            </Button>
+          ) : null
         }
       />
 
@@ -140,12 +151,13 @@ export default function Training() {
             <span className="text-xs text-ink-500 whitespace-nowrap">{c.enrolled.toLocaleString("fa-IR")} / {c.capacity.toLocaleString("fa-IR")}</span>
             <Badge tone={statusTone[c.status]}>{c.status}</Badge>
             <span className="hidden sm:flex items-center gap-1">
-              {c.status === "ثبت‌نام باز" && (
+              <ScopeBadge item={c} />
+              {c.status === "ثبت‌نام باز" && hasPermission("training.enroll") && (
                 <Button variant={enrolledIds.includes(c.id) ? "secondary" : "primary"} size="sm" onClick={() => enroll(c)}>
                   {enrolledIds.includes(c.id) ? "ثبت‌نام شد" : "ثبت‌نام"}
                 </Button>
               )}
-              <RowActions onEdit={() => startEdit(c)} onDelete={() => removeCourse(c)} />
+              <RowActions onEdit={canManageItem(c, "training.create") ? () => startEdit(c) : undefined} onDelete={canManageItem(c, "training.create") ? () => removeCourse(c) : undefined} />
             </span>
           </div>
         ))}
@@ -176,6 +188,7 @@ export default function Training() {
               <input value={capacity} onChange={(e) => setCapacity(e.target.value)} className="input-field" />
             </div>
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>{editingId ? "ذخیره تغییرات" : "تعریف دوره"}</Button>
             <Button variant="secondary" onClick={() => { setOpen(false); setEditingId(null); }}>انصراف</Button>

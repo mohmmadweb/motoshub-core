@@ -1,3 +1,5 @@
+import type { Scoped } from "./types";
+
 /**
  * Shared UI types (previously colocated with sample data).
  *
@@ -89,4 +91,4 @@ export type NfProject = {
   payments: NfPayment[];
   timeline: NfTimelineItem[];
   requests: NfRequest[];
-};
+} & Scoped;

@@ -299,7 +299,11 @@ type HoldingRow = { id: string; name: string; color: string; companies: { id: st
 
 function HoldingsSection({ notify }: { notify: Notify }) {
   const confirm = useConfirm();
+  // زنجیره‌ی واگذاری: هر سطح فقط زیرمجموعه‌ی خودش را می‌بیند و اداره می‌کند
+  const { session, canManageHoldings, managedHoldingIds } = useTenancy();
   const [holdingsList, setHoldingsList] = useState<HoldingRow[]>([]);
+  const visibleHoldings = holdingsList.filter((h) => managedHoldingIds.includes(h.id));
+  const tenantShortName = useTenant().name;
   const [holdingOpen, setHoldingOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<HoldingRow | null>(null);
   const [holdingForm, setHoldingForm] = useState({ name: "", color: "#0d9488" });
@@ -425,13 +429,24 @@ function HoldingsSection({ notify }: { notify: Notify }) {
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <h3 className="text-sm font-bold text-ink-900">ساختار هلدینگ‌ها و شرکت‌های زیرمجموعه</h3>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => openHoldingModal()}>
-            هلدینگ جدید
-          </Button>
-          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => openCompanyModal()}>
-            افزودن شرکت
-          </Button>
+          {canManageHoldings && (
+            <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => openHoldingModal()}>
+              هلدینگ جدید
+            </Button>
+          )}
+          {visibleHoldings.length > 0 && (
+            <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => openCompanyModal()}>
+              افزودن شرکت
+            </Button>
+          )}
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <StatCard label="هلدینگ‌ها" value={visibleHoldings.length.toLocaleString("fa-IR")} tone="brand" icon={<Network size={16} />} />
+        <StatCard label="شرکت‌ها" value={visibleHoldings.reduce((n, h) => n + h.companies.length, 0).toLocaleString("fa-IR")} icon={<Building2 size={16} />} />
+        <StatCard label="سطح دسترسی" value={session.level} tone="success" icon={<ShieldCheck size={16} />} />
+        <StatCard label="سیستم" value={tenantShortName} />
       </div>
 
       <div className="card p-4 mb-4 bg-brand-50 border-brand-200 flex items-start gap-3">
@@ -450,22 +465,25 @@ function HoldingsSection({ notify }: { notify: Notify }) {
           مدیر سیستم هلدینگ‌ها را می‌سازد و مدیر هر هلدینگ را منصوب می‌کند؛
           مدیر هلدینگ شرکت‌های هلدینگ خودش را می‌سازد و مدیر شرکت را تعیین می‌کند؛ مدیر شرکت کاربران همان
           شرکت را اضافه می‌کند. هیچ سطحی نمی‌تواند بیرون از دامنه‌ی خودش چیزی بدهد.
+          <br />
+          <b>سطح دسترسی شما در این نشست:</b> {session.level}
+          {session.level !== "سیستم" && " — فقط زیرمجموعه‌ی خودتان را می‌بینید."}
         </div>
       </div>
 
-      {holdingsList.length === 0 && (
+      {visibleHoldings.length === 0 && (
         <div className="card p-6 text-center text-xs text-ink-400">در دامنه‌ی شما هلدینگی برای مدیریت وجود ندارد.</div>
       )}
 
       <div className="space-y-3">
-        {holdingsList.map((h) => (
+        {visibleHoldings.map((h) => (
           <div key={h.id} className="card p-4">
             <div className="flex items-center gap-2.5 mb-3">
               <span className="w-7 h-7 rounded-lg shrink-0" style={{ backgroundColor: h.color }} />
               <p className="text-sm font-bold text-ink-900">{h.name}</p>
               <span className="text-xs text-ink-400">{h.companies.length.toLocaleString("fa-IR")} شرکت</span>
               <span className="flex-1" />
-              <RowActions onEdit={() => openHoldingModal(h)} onDelete={() => removeHolding(h)} size={13} />
+              <RowActions onEdit={() => openHoldingModal(h)} onDelete={canManageHoldings ? () => removeHolding(h) : undefined} size={13} />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {h.companies.length === 0 && (
@@ -701,7 +719,7 @@ function SystemIdentitySection({ notify }: { notify: Notify }) {
           <Button variant="primary" size="sm" onClick={save} disabled={!dirty || busy}>
             {busy ? "در حال ذخیره…" : dirty ? "ذخیره تغییرات" : "تغییری برای ذخیره وجود ندارد"}
           </Button>
-          <Button variant="secondary" size="sm" onClick={testSso} disabled={busy}>تست اتصال</Button>
+          <Button variant="secondary" size="sm" icon={<Plug size={14} />} onClick={testSso} disabled={busy}>تست اتصال</Button>
           {dirty && <Button variant="secondary" size="sm" onClick={() => setDraft(saved)}>بازگردانی</Button>}
         </div>
       </div>
@@ -752,6 +770,8 @@ function ModulesSection({ enabledModules, toggleModule }: { enabledModules: stri
 
 
 function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles: (fn: (prev: RoleDef[]) => RoleDef[]) => void; notify: Notify }) {
+  // زنجیره‌ی واگذاری: نقش‌های پایه فقط خواندنی‌اند مگر برای سطح سیستم
+  const { session } = useTenancy();
   const [editing, setEditing] = useState<RoleDef | "new" | null>(null);
   const confirm = useConfirm();
   const { hasPermission } = useTenancy();
@@ -794,18 +814,18 @@ function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles:
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-ink-900">نقش‌ها و سطوح دسترسی</h3>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setEditing("new")}>
-          نقش جدید
-        </Button>
+        {session.level !== "گروه" && (
+          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setEditing("new")}>
+            نقش جدید
+          </Button>
+        )}
       </div>
       <div className="card p-4 mb-4 bg-brand-50 border-brand-200 flex items-start gap-3">
         <KeyRound size={18} className="text-brand-700 shrink-0 mt-0.5" />
         <p className="text-xs text-brand-800 leading-6">
-          علاوه بر نقش‌های پایه‌ی سامانه، می‌توانید نقش کاملاً سفارشی تعریف کنید و تک‌تک دسترسی‌های هر ماژول را
-          تیک بزنید، سپس از بخش «کاربران» آن را تخصیص دهید.
-          <br />
-          <b>قاعده‌ی واگذاری:</b> شما فقط برای زیرمجموعه‌ی خود نقش تعریف/ویرایش می‌کنید و تنها می‌توانید
-          دسترسی‌هایی را بدهید که خودتان دارید. نقش‌های پایه‌ی سامانه فقط قابل مشاهده‌اند.
+          {session.level === "سیستم"
+            ? "می‌توانید نقش کاملاً سفارشی تعریف کنید و تک‌تک دسترسی‌های هر ماژول را تیک بزنید، سپس از بخش «کاربران» آن را تخصیص دهید."
+            : "شما فقط برای زیرمجموعه‌ی خود نقش تعریف/ویرایش می‌کنید و تنها می‌توانید دسترسی‌هایی را بدهید که خودتان دارید. نقش‌های پایه‌ی سامانه فقط قابل مشاهده‌اند."}
         </p>
       </div>
       <div className="card divide-y divide-ink-100">
@@ -814,7 +834,7 @@ function RolesSection({ roles, setRoles, notify }: { roles: RoleDef[]; setRoles:
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink-900 flex items-center gap-2 flex-wrap">
                 {r.title} <Badge tone={r.scope === "پلتفرم" ? "navy" : r.scope === "سازمان" ? "brand" : "neutral"}>{r.scope}</Badge>
-                {!r.system && <Badge tone="warning">سفارشی</Badge>}
+                {r.system ? <Badge tone="neutral">پایه‌ی سامانه</Badge> : <Badge tone="warning">سفارشی</Badge>}
               </p>
               <p className="text-xs text-ink-400 mt-0.5">{r.description}</p>
             </div>
@@ -1131,6 +1151,7 @@ function PagesSection({
 }
 
 function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users: number }; roles: RoleDef[]; notify: Notify }) {
+  const { session } = useTenancy();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const orgUsers = useApiList<{ id: string; name: string; role: string; org: string; company?: string; avatarColor: string }>(
     "/users", fromUser as any);
@@ -1217,6 +1238,7 @@ function UsersSection({ tenant, roles, notify }: { tenant: { name: string; users
         </div>
         <p className="text-xs text-ink-400 mb-3">
           هر کاربر دقیقاً به اندازه‌ی دسترسی‌های تیک‌خورده‌ی نقشِ تخصیص‌یافته، به بخش‌های سامانه دسترسی خواهد داشت.
+          {session.level !== "سیستم" && " شما فقط کاربران زیرمجموعه‌ی خودتان را می‌بینید."}
           <br />
           <b>دامنه‌ی سازمانی کاربران:</b> کاربر عضویتش را انتخاب نمی‌کند — دامنه‌ی دیدش خودکار از روی عضویت
           محاسبه می‌شود؛ فقط اگر عضو بیش از یک شرکت باشد، سوییچر بالای صفحه برایش ظاهر می‌شود.

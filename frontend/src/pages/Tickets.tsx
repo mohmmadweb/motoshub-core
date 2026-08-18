@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { fromTicket, tPrioApi } from "../lib/adapters";
+import { fromTicket, tPrioApi, toScope } from "../lib/adapters";
 import { http, apiMessage } from "../lib/http";
 import { LifeBuoy, Plus, Send, Clock3, CheckCircle2, MessageSquareText, RotateCcw, Pencil, Trash2, X } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
@@ -8,7 +8,11 @@ import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import Drawer from "../components/ui/Drawer";
 import DataTable, { type Column } from "../components/ui/DataTable";
+import RowActions from "../components/ui/RowActions";
 import { useToast } from "../components/ui/ToastProvider";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 
 // تیکت پشتیبانی — معادل iisticketing (تیکت + دسته + پاسخ‌گویی)
@@ -22,7 +26,7 @@ type Ticket = {
   status: "باز" | "در حال بررسی" | "پاسخ داده شد" | "بسته";
   updated: string;
   messages: TicketMsg[];
-};
+} & Scoped;
 
 const categories = ["فنی و سامانه", "دسترسی و نقش‌ها", "مالی و پرداخت", "پیشنهاد و انتقاد"];
 
@@ -39,6 +43,8 @@ export default function Tickets() {
   const [priority, setPriority] = useState<Ticket["priority"]>("متوسط");
   const [body, setBody] = useState("");
   const [reply, setReply] = useState("");
+  const { filterScoped, defaultScopeForNew, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
   const { notify } = useToast();
   const confirm = useConfirm();
 
@@ -60,12 +66,14 @@ export default function Tickets() {
       setCategory(t.category || categories[0]);
       setPriority(t.priority);
       setBody("");
+      setItemScope({ scope: t.scope, holdingId: t.holdingId, companyId: t.companyId });
     } else {
       setEditingId(null);
       setSubject("");
       setCategory(categories[0]);
       setPriority("متوسط");
       setBody("");
+      setItemScope(defaultScopeForNew());
     }
     setOpen(true);
   };
@@ -79,13 +87,13 @@ export default function Tickets() {
       if (editingId) {
         await http(`/tickets/${editingId}`, {
           method: "PATCH",
-          body: JSON.stringify({ subject: subject.trim(), category, priority: tPrioApi[priority] ?? "medium" }),
+          body: JSON.stringify({ subject: subject.trim(), category, priority: tPrioApi[priority] ?? "medium", ...toScope(itemScope) }),
         });
         notify("تیکت ویرایش شد.");
       } else {
         const t = await http<any>("/tickets", {
           method: "POST",
-          body: JSON.stringify({ subject: subject.trim(), category, priority: tPrioApi[priority] ?? "medium", body: body.trim() }),
+          body: JSON.stringify({ subject: subject.trim(), category, priority: tPrioApi[priority] ?? "medium", body: body.trim(), ...toScope(itemScope) }),
         });
         notify(`تیکت «${t.number}» ثبت شد؛ پاسخ از طریق اعلان به شما اطلاع داده می‌شود.`);
       }
@@ -164,6 +172,12 @@ export default function Tickets() {
     { key: "priority", label: "اولویت", render: (t) => <Badge tone={prioTone[t.priority]}>{t.priority}</Badge> },
     { key: "status", label: "وضعیت", render: (t) => <Badge tone={statusTone[t.status]}>{t.status}</Badge> },
     { key: "updated", label: "آخرین به‌روزرسانی" },
+    { key: "owner", label: "دامنه", render: (t) => <ScopeBadge item={t} /> },
+    {
+      key: "actions",
+      label: "",
+      render: (t) => <RowActions onEdit={canManageItem(t) ? () => openModal(t) : undefined} onDelete={canManageItem(t) ? () => removeTicket(t) : undefined} />,
+    },
   ];
 
   return (
@@ -179,7 +193,7 @@ export default function Tickets() {
 
       <DataTable
         columns={columns}
-        rows={tickets}
+        rows={filterScoped(tickets)}
         searchKeys={["subject", "no"]}
         searchPlaceholder="جستجو در موضوع یا شماره تیکت…"
         onRowClick={(t) => setSelectedId(t.id)}
@@ -213,6 +227,7 @@ export default function Tickets() {
               <textarea value={body} onChange={(e) => setBody(e.target.value)} className="input-field min-h-24" placeholder="جزئیات، مراحل بازتولید مشکل، اسکرین‌شات…" />
             </div>
           )}
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>{editingId ? "ذخیره تغییرات" : "ثبت تیکت"}</Button>
             <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>

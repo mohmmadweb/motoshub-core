@@ -10,12 +10,13 @@ import Tabs from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import EmptyState from "../components/ui/EmptyState";
-import { VisibilityBadge, VisibilityToggle } from "../components/ui/VisibilityControl";
+import { VisibilityBadge, VisibilityToggle, VisibilityPicker } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 import GroupChat from "../components/GroupChat";
 import GroupMembersPanel, { type GroupMember } from "../components/GroupMembersPanel";
 import { getUser } from "../lib/http";
+import { useTenancy } from "../context/TenancyContext";
 
 type TabId = "chat" | "posts" | "forum" | "members" | "docs";
 
@@ -25,6 +26,7 @@ export default function GroupDetail() {
   const { groups, setGroups } = useContent();
   const { notify } = useToast();
   const confirm = useConfirm();
+  const { canModerateGroup } = useTenancy();
   const group = groups.find((g) => g.id === id);
   const [tab, setTab] = useState<TabId>("chat");
   const [groupPosts, setGroupPosts] = useState<Post[]>([]);
@@ -52,7 +54,9 @@ export default function GroupDetail() {
   if (!group) return <p>گروه پیدا نشد.</p>;
 
   const myMembership = members.find((m) => m.user.id === me?.id);
-  const canModerate = !!myMembership?.can_moderate;
+  // Moderation authority is either granted inside the group, or carried in from
+  // a system/holding role — the API applies the same two rules.
+  const canModerate = !!myMembership?.can_moderate || (group ? canModerateGroup(group) : false);
   const canPost = !!myMembership && !myMembership.banned;
 
   const togglePrivacy = () => {
@@ -239,14 +243,8 @@ export default function GroupDetail() {
               <label className="text-xs font-medium text-ink-600 block mb-1.5">دسته‌بندی <span className="text-rose-500">*</span></label>
               <input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="input-field" />
             </div>
-            <div>
-              <label className="text-xs font-medium text-ink-600 block mb-1.5">حریم خصوصی</label>
-              <select value={form.privacy} onChange={(e) => setForm((f) => ({ ...f, privacy: e.target.value as "عمومی" | "خصوصی" }))} className="input-field">
-                <option value="عمومی">عمومی</option>
-                <option value="خصوصی">خصوصی</option>
-              </select>
-            </div>
           </div>
+          <VisibilityPicker value={form.privacy} onChange={(v) => setForm((f) => ({ ...f, privacy: v }))} />
           <div className="flex items-center gap-2 pt-1">
             <Button variant="primary" className="flex-1 justify-center" onClick={saveEdit}>ذخیره تغییرات</Button>
             <Button variant="secondary" onClick={() => setEditOpen(false)}>انصراف</Button>

@@ -1,15 +1,21 @@
 import { useState } from "react";
 import { Image, Video, Star, Upload, PlayCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import {type MediaItem, type Visibility} from "../data/types";
+import { type MediaItem, type Visibility } from "../data/types";
 import { me } from "../lib/me";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
-import { VisibilityToggle, VisibilityPicker } from "../components/ui/VisibilityControl";
+import RowActions from "../components/ui/RowActions";
+import EmptyState from "../components/ui/EmptyState";
+import { VisibilityToggle, VisibilityPicker, VisibilityBadge } from "../components/ui/VisibilityControl";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 import { useContent } from "../context/ContentContext";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import { contentImg, bgStyle } from "../data/images";
 
 const jalaliToday = "۱۴۰۵/۰۴/۰۷";
@@ -17,21 +23,67 @@ const palette = ["#82aee6", "#93a2b8", "#1f4f99", "#5e7191", "#0d9488"];
 
 export default function Media() {
   const { mediaItems: items, setMediaItems: setItems } = useContent();
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
   const [kind, setKind] = useState<"all" | "photo" | "video">("all");
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [album, setAlbum] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("خصوصی");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { notify } = useToast();
+  const confirm = useConfirm();
 
   const [topic, setTopic] = useState<string>("همه");
-  const topics = ["همه", ...Array.from(new Set(items.map((m) => m.album)))];
-  const filtered = items
+  // فقط رسانه‌های داخلِ دامنه‌ی کاربر — همین مبنای فهرست، آلبوم‌ها و شمارنده‌هاست تا عدد با محتوا بخواند
+  const scoped = filterScoped(items);
+  const topics = ["همه", ...Array.from(new Set(scoped.map((m) => m.album)))];
+  const filtered = scoped
     .filter((m) => (kind === "all" ? true : m.kind === kind))
     .filter((m) => (topic === "همه" ? true : m.album === topic));
 
+  const startEdit = (m: MediaItem) => {
+    setEditingId(m.id);
+    setTitle(m.title);
+    setAlbum(m.album === "بدون آلبوم" ? "" : m.album);
+    setVisibility(m.visibility);
+    setItemScope({ scope: m.scope, holdingId: m.holdingId, companyId: m.companyId });
+    setFile(null);
+    setOpen(true);
+  };
+
+  const remove = (m: MediaItem) =>
+    confirm({
+      title: `حذف «${m.title}»؟`,
+      message: m.kind === "video" ? "ویدیو و نسخه‌های فشرده‌شده‌ی آن حذف می‌شوند." : "تصویر و بندانگشتی‌های آن حذف می‌شوند.",
+      onConfirm: () => {
+        setItems((prev) => prev.filter((x) => x.id !== m.id));
+        notify(`«${m.title}» از گالری حذف شد.`, "info");
+      },
+    });
+
+  const closeModal = () => {
+    setOpen(false);
+    setEditingId(null);
+    setFile(null); setTitle(""); setAlbum(""); setVisibility("عمومی");
+  };
+
   const submit = () => {
+    if (editingId) {
+      if (!title.trim()) {
+        notify("عنوان الزامی است.", "warning");
+        return;
+      }
+      setItems((prev) =>
+        prev.map((m) =>
+          m.id === editingId ? { ...m, title: title.trim(), album: album.trim() || "بدون آلبوم", visibility, ...itemScope } : m
+        )
+      );
+      notify(`«${title.trim()}» ویرایش شد.`);
+      closeModal();
+      return;
+    }
     if (!file || !title.trim()) {
       notify("انتخاب فایل و عنوان الزامی است.", "warning");
       return;
@@ -47,11 +99,12 @@ export default function Media() {
       tags: [],
       color: palette[items.length % palette.length],
       visibility,
+      ...itemScope,
+      authorId: me().id,
     };
     setItems((prev) => [newItem, ...prev]);
     notify(`«${newItem.title}» در گالری بارگذاری شد (${visibility}).`);
-    setOpen(false);
-    setFile(null); setTitle(""); setAlbum(""); setVisibility("عمومی");
+    closeModal();
   };
 
   const toggleVisibility = (id: string) => {
@@ -69,9 +122,11 @@ export default function Media() {
         description="مدیریت آلبوم‌های کاربری، حریم خصوصی محتوا و اتصال به شبکه‌ی آپارات"
         icon={<Image size={18} />}
         actions={
-          <Button variant="primary" icon={<Upload size={15} />} onClick={() => setOpen(true)}>
-            بارگذاری محتوا
-          </Button>
+          hasPermission("media.upload") ? (
+            <Button variant="primary" icon={<Upload size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
+              بارگذاری محتوا
+            </Button>
+          ) : null
         }
       />
 
@@ -94,7 +149,7 @@ export default function Media() {
       {/* موضوع‌ها (آلبوم‌ها) */}
       <div className="flex items-center gap-1.5 flex-wrap mb-4">
         {topics.map((t) => {
-          const count = t === "همه" ? items.length : items.filter((m) => m.album === t).length;
+          const count = t === "همه" ? scoped.length : scoped.filter((m) => m.album === t).length;
           return (
             <button
               key={t}
@@ -103,11 +158,13 @@ export default function Media() {
                 topic === t ? "bg-brand-600 text-white border-brand-600" : "bg-white text-ink-600 border-ink-200 hover:border-brand-300"
               }`}
             >
-              {t} <span className="text-[10px] opacity-70">({count.toLocaleString("fa-IR")})</span>
+              {t} <span className="text-[10px]">({count.toLocaleString("fa-IR")})</span>
             </button>
           );
         })}
       </div>
+
+      {filtered.length === 0 && <EmptyState icon={<Image size={20} />} title="محتوایی با این فیلتر پیدا نشد" />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {filtered.map((m) => (
@@ -123,6 +180,11 @@ export default function Media() {
                     {m.kind === "video" ? "ویدیو" : "تصویر"}
                   </Badge>
                 </span>
+                {m.kind === "video" && m.duration && (
+                  <span className="absolute bottom-2 right-2 text-[10px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded" dir="ltr">
+                    {m.duration}
+                  </span>
+                )}
               </div>
             </Link>
             <div className="p-3">
@@ -135,27 +197,29 @@ export default function Media() {
               <p className="text-[11px] text-ink-400 mt-1 truncate">{m.album} · {m.uploadedBy}</p>
               <div className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-ink-400">{m.date}</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <span className="flex items-center gap-1 text-amber-600 text-[11px] font-medium">
                     <Star size={11} className="fill-amber-500 text-amber-500" /> {m.rating}
                   </span>
-                  <VisibilityToggle
-                    visibility={m.visibility}
-                    onChange={() => toggleVisibility(m.id)}
-                    size="xs"
-                  />
+                  {canManageItem(m, "media.edit")
+                    ? <VisibilityToggle visibility={m.visibility} onChange={() => toggleVisibility(m.id)} size="xs" />
+                    : <VisibilityBadge visibility={m.visibility} />}
+                  <RowActions onEdit={canManageItem(m, "media.edit") ? () => startEdit(m) : undefined} onDelete={canManageItem(m, "media.delete") ? () => remove(m) : undefined} size={13} />
                 </div>
+              </div>
+              <div className="mt-1.5">
+                <ScopeBadge item={m} />
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="بارگذاری محتوای جدید">
+      <Modal open={open} onClose={closeModal} title={editingId ? "ویرایش محتوای رسانه" : "بارگذاری محتوای جدید"}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-ink-600 block mb-1.5">فایل تصویر/ویدیو</label>
-            <input type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="input-field" />
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">فایل تصویر/ویدیو{editingId && <span className="text-ink-400 font-normal"> (در حالت ویرایش قابل تغییر نیست)</span>}</label>
+            <input type="file" accept="image/*,video/*" disabled={!!editingId} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="input-field disabled:opacity-50" />
           </div>
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان</label>
@@ -166,9 +230,10 @@ export default function Media() {
             <input value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="رویدادهای رسمی" className="input-field" />
           </div>
           <VisibilityPicker value={visibility} onChange={setVisibility} />
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>بارگذاری</Button>
-            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+            <Button variant="primary" className="flex-1 justify-center" onClick={submit}>{editingId ? "ذخیره تغییرات" : "بارگذاری"}</Button>
+            <Button variant="secondary" onClick={closeModal}>انصراف</Button>
           </div>
         </div>
       </Modal>

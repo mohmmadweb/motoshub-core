@@ -6,8 +6,9 @@ import { type PresenceStatus } from "../data/types";
 import { http, getUser } from "../lib/http";
 import { useTenant } from "../lib/useTenant";
 import ScopeSwitcher from "./ScopeSwitcher";
-import { navSections } from "./Sidebar";
+import { filterNavSections } from "./Sidebar";
 import { useTheme } from "../context/ThemeContext";
+import { useTenancy } from "../context/TenancyContext";
 
 const statusOptions: { id: PresenceStatus; label: string; dot: string }[] = [
   { id: "online", label: "آنلاین", dot: "bg-emerald-500" },
@@ -37,11 +38,12 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
   }, []);
   const navigate = useNavigate();
   const { resolved, setMode } = useTheme();
+  const { canAccessAdmin, hasPermission, session, role } = useTenancy();
 
   const toggleDark = () => setMode(resolved === "dark" ? "light" : "dark");
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 px-4 lg:px-6 h-16 bg-white border-b border-ink-200">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6 h-16 bg-white border-b border-ink-200">
       {/* ناوبری موبایل */}
       <button
         onClick={() => setNavOpen(true)}
@@ -62,7 +64,7 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-              {navSections.map((section) => (
+              {filterNavSections({ canAccessAdmin, hasPermission }).map((section) => (
                 <div key={section.title}>
                   <p className="text-[10.5px] font-semibold text-navy-300 uppercase tracking-wide px-2.5 mb-1.5">{section.title}</p>
                   <div className="space-y-0.5">
@@ -91,7 +93,6 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
       )}
 
       <div className="flex-1 max-w-md flex items-center gap-2">
-        <ScopeSwitcher />
         <form
           className="flex-1 relative"
           onSubmit={(e) => {
@@ -118,7 +119,8 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
+        <ScopeSwitcher />
         <button
           onClick={toggleDark}
           title={resolved === "dark" ? "حالت روشن" : "حالت تیره"}
@@ -142,7 +144,7 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
         <div className="relative">
           <button onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-2 pl-1 pr-1 py-1 rounded-lg hover:bg-ink-100">
             <Avatar name={currentUser.name} color={currentUser.avatarColor} size={34} status={status} />
-            <span className="hidden md:block text-[13px] font-medium">{currentUser.name}</span>
+            <span className="hidden md:block text-[13px] font-medium max-w-36 truncate">{currentUser.name}</span>
             <ChevronDown size={14} className="text-ink-400" />
           </button>
 
@@ -150,6 +152,17 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div className="absolute left-0 mt-2 w-60 bg-white border border-ink-200 rounded-lg shadow-lg z-20 py-1.5" dir="rtl">
+                <div className="px-3.5 pt-1 pb-2">
+                  <p className="text-[13px] font-bold text-ink-900 truncate">{currentUser.name}</p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <span className="text-[10.5px] font-bold bg-brand-50 text-brand-700 border border-brand-200 rounded-full px-2 py-px">{role.title}</span>
+                    <span className="text-[10px] text-ink-400">سطح {session.level}</span>
+                  </div>
+                </div>
+                <Link to="/dashboard/access" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] hover:bg-ink-50">
+                  <ShieldCheck size={15} className="text-ink-400" /> نقش و دسترسی من
+                </Link>
+                <div className="h-px bg-ink-100 my-1" />
                 <p className="px-3.5 py-1 text-[11px] text-ink-400">وضعیت حضور</p>
                 <div className="px-2 pb-1.5 flex items-center gap-1">
                   {statusOptions.map((s) => (
@@ -176,9 +189,11 @@ export default function Topbar({ onOpenPalette }: { onOpenPalette: () => void })
                 <Link to="/dashboard/appearance" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] hover:bg-ink-50">
                   <Palette size={15} className="text-ink-400" /> ظاهر و برندسازی
                 </Link>
-                <Link to="/dashboard/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] hover:bg-ink-50">
-                  <Settings size={15} className="text-ink-400" /> پنل راهبری
-                </Link>
+                {canAccessAdmin && (
+                  <Link to="/dashboard/admin" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] hover:bg-ink-50">
+                    <Settings size={15} className="text-ink-400" /> پنل راهبری
+                  </Link>
+                )}
                 <div className="h-px bg-ink-100 my-1" />
                 <Link to="/" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-rose-600 hover:bg-rose-50">
                   <LogOut size={15} /> خروج از حساب

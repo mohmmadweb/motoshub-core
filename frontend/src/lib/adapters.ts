@@ -19,6 +19,9 @@ export const fromScope = (x: any) => ({
   scope: (scopeFa[x.scope] ?? "سراسری") as "سراسری" | "هلدینگ" | "شرکت",
   holdingId: x.holding ?? undefined,
   companyId: x.company ?? undefined,
+  // Ownership: whoever created an item may always manage it. The author object
+  // is read-only on the API, so this rides along on the read side only.
+  authorId: (typeof x.author === "object" ? x.author?.id : undefined) ?? x.author_id ?? undefined,
 });
 export const toScope = (v: any) => ({
   scope: scopeApi[v.scope] ?? "global",
@@ -121,8 +124,9 @@ export const fromResearch = (r: any) => ({
       score: a.score ?? undefined, status: appStatus[a.status] ?? a.status,
     })),
   },
+  ...fromScope(r),
 });
-export const toResearch = (v: any) => ({ title: v.title, field: v.field, stage: rStageApi[v.stage] ?? "open" });
+export const toResearch = (v: any) => ({ title: v.title, field: v.field, stage: rStageApi[v.stage] ?? "open", ...toScope(v) });
 
 const cStatus: Record<string, string> = { open: "ثبت‌نام باز", running: "در حال برگزاری", done: "برگزار شده" };
 const cStatusApi: Record<string, string> = { "ثبت‌نام باز": "open", "در حال برگزاری": "running", "برگزار شده": "done" };
@@ -130,8 +134,9 @@ export const fromCourse = (c: any) => ({
   id: c.id, title: c.title, instructor: c.instructor, date: toJalali(c.starts_at), hours: c.hours ?? 0,
   capacity: c.capacity ?? 0, enrolled: c.enrolled ?? 0, status: cStatus[c.status] ?? "ثبت‌نام باز",
   satisfaction: c.satisfaction != null ? Number(c.satisfaction) : undefined,
+  ...fromScope(c),
 });
-export const toCourse = (v: any) => ({ title: v.title, instructor: v.instructor, hours: v.hours, capacity: v.capacity, status: cStatusApi[v.status] ?? "open" });
+export const toCourse = (v: any) => ({ title: v.title, instructor: v.instructor, hours: v.hours, capacity: v.capacity, status: cStatusApi[v.status] ?? "open", ...toScope(v) });
 
 // ── Tickets & Polls (list + create real; sub-actions reply/vote stay local) ──
 const prio: Record<string, string> = { low: "کم", medium: "متوسط", urgent: "فوری" };
@@ -141,8 +146,9 @@ export const fromTicket = (t: any) => ({
   id: t.id, no: t.number ?? "", subject: t.subject, category: t.category ?? "",
   priority: prio[t.priority] ?? "متوسط", status: tStatus[t.status] ?? "باز", updated: toJalali(t.updated_at ?? t.created_at),
   messages: (t.messages ?? []).map((m: any) => ({ id: m.id, from: m.from_support ? "support" : "me", text: m.body, time: toTime(m.created_at) })),
+  ...fromScope(t),
 });
-export const toTicket = (v: any) => ({ subject: v.subject, category: v.category, priority: prioApi[v.priority] ?? "medium" });
+export const toTicket = (v: any) => ({ subject: v.subject, category: v.category, priority: prioApi[v.priority] ?? "medium", ...toScope(v) });
 export const tPrioApi = prioApi;
 
 export const fromPoll = (p: any) => ({
@@ -162,8 +168,9 @@ const cStageApi: Record<string, string> = { "مذاکره": "negotiation", "فر
 export const fromContract = (c: any) => ({
   id: c.id, title: c.title, vendor: c.vendor, stage: cStage[c.stage] ?? "مذاکره",
   value: faMoney(c.value), deadline: toJalali(c.deadline), owner: c.owner?.name ?? "—",
+  ...fromScope(c),
 });
-export const toContract = (v: any) => ({ title: v.title, vendor: v.vendor, stage: cStageApi[v.stage] ?? "negotiation", value: faToNumber(v.value) });
+export const toContract = (v: any) => ({ title: v.title, vendor: v.vendor, stage: cStageApi[v.stage] ?? "negotiation", value: faToNumber(v.value), ...toScope(v) });
 
 // ── RBAC roles (admin) ──────────────────────────────────────────────────────
 const rbScope: Record<string, string> = { platform: "پلتفرم", tenant: "سازمان", group: "گروه" };
@@ -186,14 +193,16 @@ export const fromFund = (f: any) => ({
     committee: f.committee || "—", region: f.region || "—", field: f.field || "—",
     notes: f.notes || "", tranches: (f.tranches ?? []).map(fromFundTranche), kpis: (f.kpis ?? []).map(fromFundKpi),
   },
+  ...fromScope(f),
 });
-export const toFund = (v: any) => ({ title: v.title, applicant: v.applicant, stage: fStageApi[v.stage] ?? "registered", amount: faToNumber(v.amount), roi: v.roi });
+export const toFund = (v: any) => ({ title: v.title, applicant: v.applicant, stage: fStageApi[v.stage] ?? "registered", amount: faToNumber(v.amount), roi: v.roi, ...toScope(v) });
 
 // ── Chat (channels + messages; author carried for rendering) ────────────────
 const chCat = new Set(["علاقه‌مندی‌ها", "کانال‌ها", "بایگانی‌شده"]);
 export const fromChannel = (c: any) => ({
   id: c.id, name: c.name, topic: c.topic ?? "", type: c.channel_type ?? "public",
   category: chCat.has(c.category) ? c.category : "کانال‌ها", unread: 0, mentions: 0, members: c.member_count ?? 0, pinnedCount: 0,
+  ...fromScope(c),
 });
 export const fromChannelMessage = (m: any) => ({
   id: m.id, channelId: m.channel, authorId: m.author?.id ?? "", text: m.text, time: toTime(m.created_at), pinned: m.pinned,
@@ -275,6 +284,7 @@ export const fromNfProject = (p: any) => ({
   payments: (p.payments ?? []).map((pm: any) => ({ id: pm.id, type: pm.payment_type, title: pm.title, amount: faMoney(pm.amount), status: payStatus[pm.status] ?? pm.status, docNo: pm.doc_no || undefined })),
   timeline: p.timeline ?? [],
   requests: (p.requests ?? []).map((rq: any) => ({ id: rq.id, type: reqType[rq.request_type] ?? rq.request_type, note: rq.note, date: rq.created_at ? toJalali(rq.created_at) : "", status: reqStatus[rq.status] ?? rq.status })),
+  ...fromScope(p),
 });
 
 // Only the writable top-level fields + JSON aggregates are sent; nested children
@@ -288,6 +298,7 @@ export const toNfProject = (v: any) => ({
   team_name: v.team?.name ?? "", team_type: v.team?.type ?? "", team_city: v.team?.city ?? "",
   team_manager: v.team?.manager ?? "", team_members: v.team?.members ?? 0,
   finance: v.finance ?? {}, gantt: v.gantt ?? [], timeline: v.timeline ?? [],
+  ...toScope(v),
 });
 
 // ── Competitions + challenges ────────────────────────────────────────────────

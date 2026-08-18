@@ -28,10 +28,29 @@ export default function Login() {
   const [mode, setMode] = useState<"password" | "otp">("password");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [errors, setErrors] = useState<{ u?: string; p?: string; ph?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // اعتبارسنجی — ورودِ خالی پذیرفته نمی‌شود
+    if (mode === "password") {
+      const errs = {
+        u: username.trim() ? undefined : "نام کاربری الزامی است.",
+        p: password.trim() ? undefined : "گذرواژه الزامی است.",
+      };
+      setErrors(errs);
+      if (errs.u || errs.p) return;
+    } else {
+      const ok = /^09\d{9}$/.test(phone.trim());
+      setErrors({ ph: ok ? undefined : "شماره موبایل معتبر وارد کنید (مثلاً 09121234567)." });
+      if (!ok) return;
+      // ورود با رمز یک‌بارمصرف هنوز روی سرور فعال نیست؛ به‌جای وانمودکردن، صریح گفته می‌شود.
+      setError("ورود با رمز یک‌بارمصرف هنوز فعال نشده است؛ لطفاً با نام کاربری و گذرواژه وارد شوید.");
+      return;
+    }
     setError(null); setLoading(true);
     try { await apiLogin(username.trim(), password); navigate("/dashboard"); }
     catch { setError("نام کاربری یا گذرواژه نادرست است."); }
@@ -117,11 +136,40 @@ export default function Login() {
           <form className="space-y-3" onSubmit={submit}>
             {mode === "password" ? (
               <>
-                <input className="input-field" placeholder="نام کاربری یا ایمیل سازمانی" value={username} onChange={(e) => setUsername(e.target.value)} />
-                <input type="password" className="input-field" placeholder="گذرواژه" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <div>
+                  <input
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setErrors((p) => ({ ...p, u: undefined })); }}
+                    className={`input-field ${errors.u ? "input-error" : ""}`}
+                    placeholder="نام کاربری یا ایمیل سازمانی"
+                    autoComplete="username"
+                  />
+                  {errors.u && <p className="field-error">{errors.u}</p>}
+                </div>
+                <div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setErrors((p) => ({ ...p, p: undefined })); }}
+                    className={`input-field ${errors.p ? "input-error" : ""}`}
+                    placeholder="گذرواژه"
+                    autoComplete="current-password"
+                  />
+                  {errors.p && <p className="field-error">{errors.p}</p>}
+                </div>
               </>
             ) : (
-              <input className="input-field" placeholder="شماره موبایل (مثلاً 0912xxxxxxx)" value={username} onChange={(e) => setUsername(e.target.value)} />
+              <div>
+                <input
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); setErrors((p) => ({ ...p, ph: undefined })); }}
+                  className={`input-field ${errors.ph ? "input-error" : ""}`}
+                  placeholder="شماره موبایل (مثلاً 0912xxxxxxx)"
+                  inputMode="tel"
+                  dir="ltr"
+                />
+                {errors.ph && <p className="field-error">{errors.ph}</p>}
+              </div>
             )}
             {error && <p className="text-[12px] text-red-600">{error}</p>}
             <Button type="submit" variant="primary" className="w-full justify-center" disabled={loading}>

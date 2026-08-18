@@ -7,6 +7,12 @@ import { http, apiMessage } from "../lib/http";
 import { fromRfpCall, fromSabbatical, rfpStageApi, sabStageApi } from "../lib/adapters";
 import { fromResearch, toResearch } from "../lib/adapters";
 import { type ResearchApplicant } from "../data/types-details";
+import { me } from "../lib/me";
+import RowActions from "../components/ui/RowActions";
+import { useConfirm } from "../components/ui/ConfirmProvider";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import {type RfpCall, type Sabbatical} from "../data/types-daneshmand";
 import Tabs from "../components/ui/Tabs";
 import PageHeader from "../components/ui/PageHeader";
@@ -78,6 +84,7 @@ const rfpStageTone: Record<RfpCall["stage"], BadgeTone> = {
 const rfpStages = ["انتشار فراخوان", "دریافت مستندات", "ارزیابی کسب‌وکاری", "ارزیابی فنی", "بازگشایی پاکات", "فناور برتر انتخاب شد"];
 
 function RfpTab({ calls, reload }: { calls: RfpCall[]; reload: () => Promise<void> }) {
+  const { hasPermission } = useTenancy();
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", company: "", holding: "", stage: rfpStages[0], deadline: "" });
@@ -112,9 +119,11 @@ function RfpTab({ calls, reload }: { calls: RfpCall[]; reload: () => Promise<voi
           ثبت‌نام و ارسال مستندات فناوران ← جلسه ارزیابی توانمندی کسب‌وکاری (ثبت نمره) ← ارزیابی فنی (ثبت نمره) ←
           دریافت پیشنهاد قیمت ← بازگشایی پاکات در کمیسیون معاملات ← انتخاب فناور برتر.
         </p>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
-          RFP جدید
-        </Button>
+        {hasPermission("research.create") && (
+          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
+            RFP جدید
+          </Button>
+        )}
       </div>
       {calls.map((call) => (
         <div key={call.id} className="card p-4">
@@ -217,6 +226,7 @@ const sabbReportTone: Record<string, BadgeTone> = {
 const sabStages = ["فراخوان", "انتخاب استاد", "قرارداد", "در حال اجرا", "کتابچه و ارائه نهایی", "خاتمه"];
 
 function SabbaticalTab({ items, reload }: { items: Sabbatical[]; reload: () => Promise<void> }) {
+  const { hasPermission } = useTenancy();
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ professor: "", university: "", industry: "", topic: "", stage: sabStages[0] });
@@ -252,9 +262,11 @@ function SabbaticalTab({ items, reload }: { items: Sabbatical[]; reload: () => P
           پیشنهادی) — هر گزارش پس از داوری صنعت و داور، تایید و دستور پرداخت آن صادر می‌شود ← کتابچه نهایی و جلسه
           ارائه ← نامه اتمام طرح.
         </p>
-        <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
-          فراخوان فرصت مطالعاتی
-        </Button>
+        {hasPermission("research.create") && (
+          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setOpen(true)}>
+            فراخوان فرصت مطالعاتی
+          </Button>
+        )}
       </div>
       {items.map((sb) => (
         <div key={sb.id} className="card p-4">
@@ -333,15 +345,60 @@ function OpportunitiesTab() {
   const [supervisor, setSupervisor] = useState("");
   const [stageFilter, setStageFilter] = useState<"همه" | ResearchOpportunity["stage"]>("همه");
   const [selected, setSelected] = useState<ResearchOpportunity | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
+  const confirm = useConfirm();
   const [applicantState, setApplicantState] = useState<Record<string, ResearchApplicant["status"]>>({});
   const { notify } = useToast();
 
   // The opportunity payload carries its own budget + applicants (see fromResearch).
   const selectedDetail = selected ? (selected as any).detail : undefined;
 
+  const startEdit = (o: ResearchOpportunity) => {
+    setEditingId(o.id);
+    setItemScope({ scope: o.scope, holdingId: o.holdingId, companyId: o.companyId });
+    setTitle(o.title);
+    setField(o.field);
+    setDeadline(o.deadline === "نامشخص" ? "" : o.deadline);
+    setOpen(true);
+  };
+
+  const remove = (o: ResearchOpportunity) =>
+    confirm({
+      title: `بستن فراخوان «${o.title}»؟`,
+      message: `${o.applicants.toLocaleString("fa-IR")} درخواست ثبت‌شده نیز بایگانی می‌شود.`,
+      onConfirm: () => {
+        setOpportunities((prev) => prev.filter((x) => x.id !== o.id));
+        setSelected((sel) => (sel && sel.id === o.id ? null : sel));
+        notify(`فراخوان «${o.title}» بسته شد.`, "info");
+      },
+    });
+
+  const closeModal = () => {
+    setOpen(false);
+    setEditingId(null);
+    setTitle("");
+    setField("");
+    setDeadline("");
+    setBudget("");
+    setSupervisor("");
+  };
+
   const submit = () => {
     if (!title.trim() || !field.trim()) {
       notify("عنوان و حوزه‌ی پژوهش الزامی است.", "warning");
+      return;
+    }
+    if (editingId) {
+      setOpportunities((prev) =>
+        prev.map((o) =>
+          o.id === editingId ? { ...o, title: title.trim(), field: field.trim(), deadline: deadline.trim() || "نامشخص", ...itemScope } : o
+        )
+      );
+      setSelected((sel) => (sel && sel.id === editingId ? { ...sel, title: title.trim(), field: field.trim() } : sel));
+      notify(`فراخوان «${title.trim()}» ویرایش شد.`);
+      closeModal();
       return;
     }
     const newItem: ResearchOpportunity = {
@@ -351,15 +408,12 @@ function OpportunitiesTab() {
       stage: "فراخوان باز",
       applicants: 0,
       deadline: deadline.trim() || "نامشخص",
+      ...itemScope,
+      authorId: me().id,
     };
     setOpportunities((prev) => [newItem, ...prev]);
     notify(`فراخوان پژوهشی «${newItem.title}» منتشر شد و در وضعیت «فراخوان باز» قرار گرفت.`);
-    setOpen(false);
-    setTitle("");
-    setField("");
-    setDeadline("");
-    setBudget("");
-    setSupervisor("");
+    closeModal();
   };
 
   const applicantStatus = (oppId: string, ap: ResearchApplicant): ResearchApplicant["status"] =>
@@ -375,9 +429,11 @@ function OpportunitiesTab() {
     );
   };
 
+  const scoped = filterScoped(opportunities);
   const filtered = useMemo(
-    () => (stageFilter === "همه" ? opportunities : opportunities.filter((o) => o.stage === stageFilter)),
-    [opportunities, stageFilter]
+    () => (stageFilter === "همه" ? scoped : scoped.filter((o) => o.stage === stageFilter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [opportunities, stageFilter, filterScoped]
   );
 
   const totalApplicants = opportunities.reduce((s, o) => s + o.applicants, 0);
@@ -395,15 +451,23 @@ function OpportunitiesTab() {
       render: (r) => <span className="text-ink-600">{(r as any).detail?.budget ?? "—"}</span>,
     },
     { key: "deadline", label: "مهلت ثبت‌نام" },
+    { key: "owner", label: "دامنه", render: (r) => <ScopeBadge item={r} /> },
+    {
+      key: "actions",
+      label: "",
+      render: (r) => <RowActions onEdit={canManageItem(r, "research.edit") ? () => startEdit(r) : undefined} onDelete={canManageItem(r, "research.close") ? () => remove(r) : undefined} />,
+    },
   ];
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-4">
-        <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
-          فراخوان جدید
-        </Button>
-      </div>
+      {hasPermission("research.create") && (
+        <div className="flex items-center justify-end mb-4">
+          <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setOpen(true); }}>
+            فراخوان جدید
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <StatCard label="فراخوان‌های باز" value={openCalls.toLocaleString("fa-IR")} tone="success" icon={<FlaskConical size={16} />} />
@@ -443,7 +507,7 @@ function OpportunitiesTab() {
         onRowClick={(r) => setSelected(r)}
       />
 
-      <Modal open={open} onClose={() => setOpen(false)} title="انتشار فراخوان پژوهشی جدید" description="پس از انتشار، فراخوان در وضعیت «فراخوان باز» قابل مشاهده برای پژوهشگران خواهد بود.">
+      <Modal open={open} onClose={closeModal} title={editingId ? "ویرایش فراخوان پژوهشی" : "انتشار فراخوان پژوهشی جدید"} description={editingId ? undefined : "پس از انتشار، فراخوان در وضعیت «فراخوان باز» قابل مشاهده برای پژوهشگران خواهد بود."}>
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">عنوان فرصت پژوهشی</label>
@@ -469,9 +533,10 @@ function OpportunitiesTab() {
               <input value={supervisor} onChange={(e) => setSupervisor(e.target.value)} placeholder="دفتر مطالعات راهبردی" className="input-field" />
             </div>
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>انتشار فراخوان</Button>
-            <Button variant="secondary" onClick={() => setOpen(false)}>انصراف</Button>
+            <Button variant="secondary" onClick={closeModal}>انصراف</Button>
           </div>
         </div>
       </Modal>

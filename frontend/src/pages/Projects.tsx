@@ -1,11 +1,17 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { KanbanSquare, Plus, Wallet, ListChecks, ClipboardList, PlayCircle, AlertTriangle, Milestone, GanttChartSquare, ListFilter } from "lucide-react";
-import {type Project, type PlaybookTemplate} from "../data/types";
+import { type Project, type PlaybookTemplate } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
-import { fromPlaybook, toPlaybook } from "../lib/adapters";
-import { fromProject, toProject } from "../lib/adapters";
+import { fromPlaybook, toPlaybook, fromProject, toProject } from "../lib/adapters";
+import { me } from "../lib/me";
+
 import Badge, { type BadgeTone } from "../components/ui/Badge";
+import RowActions from "../components/ui/RowActions";
+import { useConfirm } from "../components/ui/ConfirmProvider";
+import { useTenancy } from "../context/TenancyContext";
+import { ScopeBadge, ScopePicker } from "../components/ui/ScopeControl";
+import type { Scoped } from "../data/types";
 import PageHeader from "../components/ui/PageHeader";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
@@ -32,11 +38,79 @@ export default function Projects() {
   const [pbName, setPbName] = useState("");
   const [pbCategory, setPbCategory] = useState("");
   const [pbSteps, setPbSteps] = useState("");
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingPbId, setEditingPbId] = useState<string | null>(null);
   const { notify } = useToast();
+  const confirm = useConfirm();
+  const { filterScoped, defaultScopeForNew, hasPermission, canManageItem } = useTenancy();
+  const [itemScope, setItemScope] = useState<Scoped>({ scope: "سراسری" });
+
+  const startEditProject = (p: Project) => {
+    setEditingProjectId(p.id);
+    setItemScope({ scope: p.scope, holdingId: p.holdingId, companyId: p.companyId });
+    setName(p.name);
+    setClient(p.client);
+    setDeadline(p.deadline === "نامشخص" ? "" : p.deadline);
+    setProjectOpen(true);
+  };
+
+  const removeProject = (p: Project) =>
+    confirm({
+      title: `حذف پروژه «${p.name}»؟`,
+      message: `${p.tasks.length.toLocaleString("fa-IR")} تسک، بورد و سوابق بودجه‌ی این پروژه حذف می‌شود.`,
+      onConfirm: () => {
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        notify(`پروژه «${p.name}» حذف شد.`, "info");
+      },
+    });
+
+  const closeProjectModal = () => {
+    setProjectOpen(false);
+    setEditingProjectId(null);
+    setName("");
+    setClient("");
+    setDeadline("");
+  };
+
+  const startEditPlaybook = (pb: PlaybookTemplate) => {
+    setEditingPbId(pb.id);
+    setPbName(pb.name);
+    setPbCategory(pb.category);
+    setPbSteps(String(pb.steps));
+    setPlaybookOpen(true);
+  };
+
+  const removePlaybook = (pb: PlaybookTemplate) =>
+    confirm({
+      title: `حذف قالب «${pb.name}»؟`,
+      message: `این قالب ${pb.usedCount.toLocaleString("fa-IR")} بار استفاده شده؛ پروژه‌های ساخته‌شده از آن دست‌نخورده می‌مانند.`,
+      onConfirm: () => {
+        setPlaybooks((prev) => prev.filter((x) => x.id !== pb.id));
+        notify(`قالب «${pb.name}» حذف شد.`, "info");
+      },
+    });
+
+  const closePlaybookModal = () => {
+    setPlaybookOpen(false);
+    setEditingPbId(null);
+    setPbName("");
+    setPbCategory("");
+    setPbSteps("");
+  };
 
   const submitProject = () => {
     if (!name.trim() || !client.trim()) {
       notify("نام پروژه و کارفرما الزامی است.", "warning");
+      return;
+    }
+    if (editingProjectId) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === editingProjectId ? { ...p, name: name.trim(), client: client.trim(), deadline: deadline.trim() || "نامشخص", ...itemScope } : p
+        )
+      );
+      notify(`پروژه «${name.trim()}» ویرایش شد.`);
+      closeProjectModal();
       return;
     }
     const newProject: Project = {
@@ -48,18 +122,27 @@ export default function Projects() {
       budgetUsed: 0,
       deadline: deadline.trim() || "نامشخص",
       tasks: [],
+      ...itemScope,
+      authorId: me().id,
     };
     setProjects((prev) => [newProject, ...prev]);
     notify(`پروژه «${newProject.name}» ایجاد شد.`);
-    setProjectOpen(false);
-    setName("");
-    setClient("");
-    setDeadline("");
+    closeProjectModal();
   };
 
   const submitPlaybook = () => {
     if (!pbName.trim() || !pbCategory.trim()) {
       notify("نام و دسته‌بندی قالب الزامی است.", "warning");
+      return;
+    }
+    if (editingPbId) {
+      setPlaybooks((prev) =>
+        prev.map((p) =>
+          p.id === editingPbId ? { ...p, name: pbName.trim(), category: pbCategory.trim(), steps: Number(pbSteps) || p.steps } : p
+        )
+      );
+      notify(`قالب «${pbName.trim()}» ویرایش شد.`);
+      closePlaybookModal();
       return;
     }
     const newPb: PlaybookTemplate = {
@@ -71,10 +154,7 @@ export default function Projects() {
     };
     setPlaybooks((prev) => [newPb, ...prev]);
     notify(`قالب فرآیند «${newPb.name}» ایجاد شد.`);
-    setPlaybookOpen(false);
-    setPbName("");
-    setPbCategory("");
-    setPbSteps("");
+    closePlaybookModal();
   };
 
   const runPlaybook = (pb: PlaybookTemplate) => {
@@ -82,9 +162,10 @@ export default function Projects() {
     notify(`اجرای قالب «${pb.name}» آغاز شد — یک چک‌لیست ${pb.steps} مرحله‌ای برای تیم ایجاد شد.`, "info");
   };
 
+  const scopedProjects = filterScoped(projects);
   const filteredProjects = useMemo(
-    () => (healthFilter === "همه" ? projects : projects.filter((p) => p.health === healthFilter)),
-    [projects, healthFilter]
+    () => (healthFilter === "همه" ? scopedProjects : scopedProjects.filter((p) => p.health === healthFilter)),
+    [scopedProjects, healthFilter]
   );
 
   const atRisk = projects.filter((p) => p.health !== "سبز").length;
@@ -99,9 +180,11 @@ export default function Projects() {
         description="پروژه‌های پژوهشی، فناورانه و آموزشی با بودجه، تسک و گانت چارت"
         icon={<KanbanSquare size={18} />}
         actions={
-          <Button variant="primary" icon={<Plus size={15} />} onClick={() => setProjectOpen(true)}>
-            پروژه جدید
-          </Button>
+          hasPermission("projects.create") ? (
+            <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setItemScope(defaultScopeForNew()); setProjectOpen(true); }}>
+              پروژه جدید
+            </Button>
+          ) : null
         }
       />
 
@@ -133,7 +216,13 @@ export default function Projects() {
           <Link key={p.id} to={`/dashboard/projects/${p.id}`} className="card p-4 hover:border-brand-300 transition-colors flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <Badge tone={healthTone[p.health]}>وضعیت: {p.health}</Badge>
-              <span className="text-xs text-ink-400">مهلت {p.deadline}</span>
+              <span className="flex items-center gap-1">
+                <ScopeBadge item={p} />
+                <span className="text-xs text-ink-400">مهلت {p.deadline}</span>
+                <span onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                  <RowActions onEdit={canManageItem(p, "projects.edit") ? () => startEditProject(p) : undefined} onDelete={canManageItem(p, "projects.delete") ? () => removeProject(p) : undefined} size={13} />
+                </span>
+              </span>
             </div>
             <div>
               <h3 className="font-semibold text-sm text-ink-900">{p.name}</h3>
@@ -175,7 +264,7 @@ export default function Projects() {
           </h2>
           <p className="text-xs text-ink-400 mt-0.5">رویه‌های تکرارشونده (مثل تحویل پروژه یا واکنش به حادثه) را به یک گردش‌کار چک‌لیستی تبدیل کنید.</p>
         </div>
-        <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setPlaybookOpen(true)}>قالب جدید</Button>
+        {hasPermission("projects.create") && <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setPlaybookOpen(true)}>قالب جدید</Button>}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {playbooks.map((pb) => (
@@ -185,12 +274,13 @@ export default function Projects() {
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-100">
               <span className="text-[11px] text-ink-400">{pb.usedCount} بار اجراشده</span>
               <Button variant="ghost" size="sm" icon={<PlayCircle size={13} />} onClick={() => runPlaybook(pb)}>اجرا</Button>
+              <RowActions onEdit={hasPermission("projects.edit") ? () => startEditPlaybook(pb) : undefined} onDelete={hasPermission("projects.delete") ? () => removePlaybook(pb) : undefined} />
             </div>
           </div>
         ))}
       </div>
 
-      <Modal open={projectOpen} onClose={() => setProjectOpen(false)} title="ایجاد پروژه جدید">
+      <Modal open={projectOpen} onClose={closeProjectModal} title={editingProjectId ? "ویرایش پروژه" : "ایجاد پروژه جدید"}>
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">نام پروژه</label>
@@ -204,14 +294,15 @@ export default function Projects() {
             <label className="text-xs font-medium text-ink-600 block mb-1.5">مهلت تحویل</label>
             <input value={deadline} onChange={(e) => setDeadline(e.target.value)} placeholder="۱۴۰۵/۰۸/۰۱" className="input-field" />
           </div>
+          <ScopePicker value={itemScope} onChange={setItemScope} />
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="primary" className="flex-1 justify-center" onClick={submitProject}>ایجاد پروژه</Button>
-            <Button variant="secondary" onClick={() => setProjectOpen(false)}>انصراف</Button>
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitProject}>{editingProjectId ? "ذخیره تغییرات" : "ایجاد پروژه"}</Button>
+            <Button variant="secondary" onClick={closeProjectModal}>انصراف</Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={playbookOpen} onClose={() => setPlaybookOpen(false)} title="ایجاد قالب فرآیند جدید">
+      <Modal open={playbookOpen} onClose={closePlaybookModal} title={editingPbId ? "ویرایش قالب فرآیند" : "ایجاد قالب فرآیند جدید"}>
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">نام قالب</label>
@@ -228,8 +319,8 @@ export default function Projects() {
             </div>
           </div>
           <div className="flex items-center gap-2 pt-2">
-            <Button variant="primary" className="flex-1 justify-center" onClick={submitPlaybook}>ایجاد قالب</Button>
-            <Button variant="secondary" onClick={() => setPlaybookOpen(false)}>انصراف</Button>
+            <Button variant="primary" className="flex-1 justify-center" onClick={submitPlaybook}>{editingPbId ? "ذخیره تغییرات" : "ایجاد قالب"}</Button>
+            <Button variant="secondary" onClick={closePlaybookModal}>انصراف</Button>
           </div>
         </div>
       </Modal>

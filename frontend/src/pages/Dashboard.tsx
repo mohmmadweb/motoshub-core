@@ -34,6 +34,7 @@ import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
 import { useToast } from "../components/ui/ToastProvider";
+import { useTenancy } from "../context/TenancyContext";
 
 // «شروع سریع سازمان» — چک‌لیست راه‌اندازی برای راهبر؛ قابل بستن (localStorage)
 const quickStartSteps = [
@@ -265,6 +266,7 @@ function PersonalToday() {
 }
 
 export default function Dashboard() {
+  const { session } = useTenancy();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const { notify } = useToast();
@@ -337,7 +339,7 @@ export default function Dashboard() {
         description="هرچه امروز باید ببینید: اعلان‌ها، پیام‌ها، اقدامات در انتظار و فید گروه‌های شما"
       />
 
-      <QuickStart />
+      {session.level === "سیستم" && <QuickStart />}
 
       <PersonalToday />
 

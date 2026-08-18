@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AtSign, Heart, MessageCircle, Settings, CheckSquare, Bell, CheckCheck, Circle, CheckCircle2 } from "lucide-react";
+import { AtSign, Heart, MessageCircle, Settings, CheckSquare, Bell, CheckCheck, Circle, CheckCircle2, Trash2 } from "lucide-react";
 import { type Notification } from "../data/types";
 import { useApiCollection } from "../lib/useApiCollection";
 import { fromNotification } from "../lib/adapters";
@@ -7,7 +7,9 @@ import PageHeader from "../components/ui/PageHeader";
 import Tabs from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import RowActions from "../components/ui/RowActions";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 
 const typeIcon: Record<Notification["type"], typeof AtSign> = {
   mention: AtSign,
@@ -23,6 +25,7 @@ export default function Notifications() {
   const [filter, setFilter] = useState<FilterId>("all");
   const [items, setItems] = useApiCollection<Notification>("/notifications", fromNotification as any, () => ({}));
   const { notify } = useToast();
+  const confirm = useConfirm();
 
   const unreadCount = items.filter((n) => !n.read).length;
   const list = filter === "unread" ? items.filter((n) => !n.read) : items;
@@ -35,6 +38,26 @@ export default function Notifications() {
     notify("همه‌ی اعلان‌ها خوانده‌شده علامت خوردند.", "info");
   };
 
+  const remove = (n: Notification) =>
+    confirm({
+      title: "حذف این اعلان؟",
+      message: n.text,
+      onConfirm: () => {
+        setItems((prev) => prev.filter((x) => x.id !== n.id));
+        notify("اعلان حذف شد.", "info");
+      },
+    });
+
+  const clearAll = () =>
+    confirm({
+      title: "پاک‌کردن همه‌ی اعلان‌ها؟",
+      message: `${items.length.toLocaleString("fa-IR")} اعلان حذف می‌شود و قابل بازیابی نیست.`,
+      onConfirm: () => {
+        setItems(() => []);
+        notify("همه‌ی اعلان‌ها پاک شدند.", "info");
+      },
+    });
+
   return (
     <div>
       <PageHeader
@@ -42,11 +65,18 @@ export default function Notifications() {
         description="اعلان‌های برخط و رایانامه‌ای مرتبط با فعالیت‌های شما"
         icon={<Bell size={18} />}
         actions={
-          unreadCount > 0 ? (
-            <Button variant="secondary" size="sm" icon={<CheckCheck size={14} />} onClick={markAll}>
-              خواندن همه ({unreadCount.toLocaleString("fa-IR")})
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button variant="secondary" size="sm" icon={<CheckCheck size={14} />} onClick={markAll}>
+                خواندن همه ({unreadCount.toLocaleString("fa-IR")})
+              </Button>
+            )}
+            {items.length > 0 && (
+              <Button variant="secondary" size="sm" icon={<Trash2 size={14} />} onClick={clearAll}>
+                پاک‌کردن همه
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -79,6 +109,7 @@ export default function Notifications() {
               >
                 {n.read ? <Circle size={16} /> : <CheckCircle2 size={16} className="text-brand-600" />}
               </button>
+              <RowActions onDelete={() => remove(n)} size={15} />
             </div>
           );
         })}

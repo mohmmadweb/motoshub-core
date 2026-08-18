@@ -1,7 +1,7 @@
 // Organisational scope carried by every content record. Defined here and
 // re-exported from the tenancy context so pages import it from one place.
 export type ContentScopeName = "سراسری" | "هلدینگ" | "شرکت";
-export type Scoped = { scope?: ContentScopeName; holdingId?: string; companyId?: string };
+export type Scoped = { scope?: ContentScopeName; holdingId?: string; companyId?: string; authorId?: string };
 
 /**
  * Shared UI types (previously colocated with sample data).
@@ -104,7 +104,7 @@ export type Project = {
   budgetUsed: number;
   deadline: string;
   tasks: Task[];
-};
+} & Scoped;
 
 export type Notification = {
   id: string;
@@ -207,7 +207,7 @@ export type ContractRecord = {
   value: string;
   deadline: string;
   owner: string;
-};
+} & Scoped;
 
 export type FundRecord = {
   id: string;
@@ -216,7 +216,7 @@ export type FundRecord = {
   stage: "ثبت‌شده" | "انتخاب اولیه" | "داوری" | "تخصیص‌یافته" | "در حال پایش";
   amount: string;
   roi: string;
-};
+} & Scoped;
 
 export type ResearchOpportunity = {
   id: string;
@@ -225,7 +225,7 @@ export type ResearchOpportunity = {
   stage: "فراخوان باز" | "بررسی درخواست‌ها" | "داوری" | "در حال اجرا" | "پایان‌یافته";
   applicants: number;
   deadline: string;
-};
+} & Scoped;
 
 export type ModuleDef = {
   id: string;
@@ -297,7 +297,7 @@ export type Channel = {
   mentions: number;
   members: number;
   pinnedCount: number;
-};
+} & Scoped;
 
 export type ReactionIcon = "ThumbsUp" | "Heart" | "Smile" | "CheckCircle2";
 

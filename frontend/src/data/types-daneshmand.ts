@@ -1,3 +1,5 @@
+import type { Scoped } from "./types";
+
 /**
  * Shared UI types (previously colocated with sample data).
  *
@@ -82,7 +84,7 @@ export type TrainingCourse = {
   satisfaction?: number; // ارزشیابی از ۵
   effectiveness?: "در انتظار سنجش" | "اثربخش" | "نیازمند دوره تکمیلی";
   certificates?: number; // گواهینامه صادرشده
-};
+} & Scoped;
 
 export type SignatureStep = {
   role: string;

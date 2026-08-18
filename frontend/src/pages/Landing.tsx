@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, Users, BookOpen, KanbanSquare, ShieldCheck, ArrowLeft, CheckCircle2, Network } from "lucide-react";
+import { Building2, Users, BookOpen, KanbanSquare, ShieldCheck, ArrowLeft, CheckCircle2, Network, Quote } from "lucide-react";
 import SiteHeader from "../components/SiteHeader";
 import PublicFooter from "../components/PublicFooter";
 import { http } from "../lib/http";
@@ -123,6 +123,17 @@ export default function Landing() {
                   </span>
                 ))}
               </div>
+              <figure className="max-w-2xl mx-auto text-center">
+                <Quote size={20} className="mx-auto text-brand-300 mb-3" aria-hidden />
+                <blockquote className="text-[15px] leading-8 text-ink-700 font-medium">
+                  «پیش از این هر شرکت برای خبر، سند و پروژه ابزار جدا داشت؛ الان همه‌چیز یک‌جاست و
+                  هر مجموعه فقط محتوای دامنه‌ی خودش را می‌بیند. برای مجموعه‌ای با این تنوع، همین
+                  تفکیک ساده، بزرگ‌ترین تغییر بود.»
+                </blockquote>
+                <figcaption className="text-xs text-ink-400 mt-3">
+                  دکتر نگار توکلی — راهبر هلدینگ مالی و سرمایه‌گذاری سینا
+                </figcaption>
+              </figure>
             </div>
           </section>
         )}

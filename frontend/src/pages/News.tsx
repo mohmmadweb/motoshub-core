@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Newspaper, Pin, MessageCircle, Plus, Building2, Eye, Globe2, Network } from "lucide-react";
 import { Link } from "react-router-dom";
-import { type NewsItem, type Visibility } from "../data/types";
+import { type NewsItem, type Visibility, newsTopics, type NewsTopic } from "../data/types";
+import { me } from "../lib/me";
 import {type ScopedNews,
   type ContentScope} from "../data/types-daneshmand";
 import { useContent } from "../context/ContentContext";
+import { useTenancy } from "../context/TenancyContext";
 import { http } from "../lib/http";
 import PageHeader from "../components/ui/PageHeader";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { useToast } from "../components/ui/ToastProvider";
-import { VisibilityPicker, VisibilityToggle } from "../components/ui/VisibilityControl";
+import { VisibilityPicker, VisibilityToggle, VisibilityBadge } from "../components/ui/VisibilityControl";
 import RowActions from "../components/ui/RowActions";
 import DataTable from "../components/ui/DataTable";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -20,10 +22,12 @@ const jalaliToday = "۱۴۰۵/۰۴/۰۷";
 
 export default function News() {
   const { newsItems, setNewsItems } = useContent();
+  const { hasPermission, canAccessAdmin, canManageItem } = useTenancy();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [pinned, setPinned] = useState(false);
+  const [topic, setTopic] = useState<NewsTopic>("سازمانی");
   const [visibility, setVisibility] = useState<Visibility>("خصوصی");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ title?: boolean; summary?: boolean }>({});
@@ -36,6 +40,7 @@ export default function News() {
     setTitle(n.title);
     setSummary(n.summary);
     setPinned(Boolean(n.pinned));
+    setTopic(n.topic ?? "سازمانی");
     setVisibility(n.visibility);
     setOpen(true);
   };
@@ -55,7 +60,7 @@ export default function News() {
     setErrors(errs);
     if (errs.title || errs.summary) return;
     if (editingId) {
-      setNewsItems((prev) => prev.map((n) => (n.id === editingId ? { ...n, title: title.trim(), summary: summary.trim(), pinned, visibility } : n)));
+      setNewsItems((prev) => prev.map((n) => (n.id === editingId ? { ...n, title: title.trim(), summary: summary.trim(), pinned, visibility, topic } : n)));
       notify(`خبر «${title.trim()}» ویرایش شد.`);
     } else {
       const newItem: NewsItem = {
@@ -67,13 +72,15 @@ export default function News() {
         views: 0,
         pinned,
         visibility,
+        topic,
+        authorId: me().id,
       };
       setNewsItems((prev) => [newItem, ...prev]);
       notify(`اطلاعیه «${newItem.title}» ${visibility === "عمومی" ? "برای همه‌ی اعضا" : "به‌صورت خصوصی"} منتشر شد.`);
     }
     setOpen(false);
     setEditingId(null);
-    setTitle(""); setSummary(""); setPinned(false); setVisibility("خصوصی");
+    setTitle(""); setSummary(""); setPinned(false); setVisibility("خصوصی"); setTopic("سازمانی");
   };
 
   const toggleVisibility = (id: string) => {
@@ -87,8 +94,6 @@ export default function News() {
   const jMonths = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
   const faToNum = (s: string) => Number(s.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))));
   const monthOf = (d: string) => faToNum(d.split("/")[1] ?? "0");
-  const sortedNews = [...newsItems].sort((a, b) => (a.date < b.date ? 1 : -1));
-  const latest = sortedNews[0];
   const mostViewed = [...newsItems].sort((a, b) => b.views - a.views)[0];
   const mostDiscussed = [...newsItems].sort((a, b) => b.comments - a.comments)[0];
   const shownNews = month === null ? newsItems : newsItems.filter((n) => monthOf(n.date) === month);
@@ -100,28 +105,14 @@ export default function News() {
         description="اطلاع‌رسانی عمومی شبکه و اطلاعیه‌های رسمی به همه‌ی کاربران"
         icon={<Newspaper size={18} />}
         actions={
-          <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
-            خبر جدید
-          </Button>
+          hasPermission("news.create") ? (
+            <Button variant="primary" icon={<Plus size={15} />} onClick={() => setOpen(true)}>
+              خبر جدید
+            </Button>
+          ) : null
         }
       />
 
-      {/* برجسته‌ها */}
-      {latest && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          {[
-            { tag: "تازه‌ترین", n: latest, cls: "from-brand-600 to-brand-800" },
-            { tag: "پربازدیدترین", n: mostViewed, cls: "from-emerald-600 to-emerald-800" },
-            { tag: "داغ‌ترین گفتگو", n: mostDiscussed, cls: "from-amber-500 to-orange-700" },
-          ].map(({ tag, n, cls }) => (
-            <Link key={tag} to={`/dashboard/news/${n.id}`} className={`group rounded-xl bg-gradient-to-l ${cls} p-3.5 text-white shadow-sm hover:shadow-md transition-shadow`}>
-              <span className="inline-block text-[10px] font-bold bg-white/20 rounded-full px-2 py-0.5 mb-1.5">{tag}</span>
-              <p className="text-[12.5px] font-bold leading-6 line-clamp-2 group-hover:underline">{n.title}</p>
-              <p className="text-[10px] text-white/70 mt-1.5">{n.date} · {n.views.toLocaleString("fa-IR")} بازدید · {n.comments.toLocaleString("fa-IR")} نظر</p>
-            </Link>
-          ))}
-        </div>
-      )}
 
       {/* آرشیو ماهانه */}
       <div className="flex items-center gap-1.5 flex-wrap mb-4">
@@ -142,7 +133,7 @@ export default function News() {
                 month === i + 1 ? "bg-brand-600 text-white border-brand-600" : "bg-white text-ink-600 border-ink-200 hover:border-brand-300"
               }`}
             >
-              {m} <span className="text-[10px] opacity-70">({count.toLocaleString("fa-IR")})</span>
+              {m} <span className="text-[10px]">({count.toLocaleString("fa-IR")})</span>
             </button>
           );
         })}
@@ -155,9 +146,20 @@ export default function News() {
             label: "عنوان خبر",
             render: (n) => (
               <span className="min-w-0 block">
-                <Link to={`/dashboard/news/${n.id}`} className="font-medium text-sm text-ink-900 hover:text-brand-700 transition-colors block">
-                  {n.title}
-                </Link>
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <Link to={`/dashboard/news/${n.id}`} className="font-medium text-sm text-ink-900 hover:text-brand-700 transition-colors">
+                    {n.title}
+                  </Link>
+                  {n.topic && (
+                    <span className="text-[9.5px] font-medium bg-ink-100 text-ink-600 border border-ink-200 rounded-full px-1.5 py-px">{n.topic}</span>
+                  )}
+                  {n.id === mostViewed?.id && (
+                    <span className="text-[9.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-1.5 py-px">پربازدیدترین</span>
+                  )}
+                  {n.id === mostDiscussed?.id && (
+                    <span className="text-[9.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-px">داغ‌ترین گفتگو</span>
+                  )}
+                </span>
                 <span className="text-xs text-ink-400 mt-0.5 line-clamp-1 block">{n.summary}</span>
               </span>
             ),
@@ -173,9 +175,11 @@ export default function News() {
           {
             key: "visibility",
             label: "دسترسی",
-            render: (n) => <VisibilityToggle visibility={n.visibility} onChange={() => toggleVisibility(n.id)} size="xs" />,
+            render: (n) => canManageItem(n, "news.edit")
+              ? <VisibilityToggle visibility={n.visibility} onChange={() => toggleVisibility(n.id)} size="xs" />
+              : <VisibilityBadge visibility={n.visibility} />,
           },
-          { key: "actions", label: "", render: (n) => <RowActions onEdit={() => startEdit(n)} onDelete={() => remove(n)} /> },
+          { key: "actions", label: "", render: (n) => <RowActions onEdit={canManageItem(n, "news.edit") ? () => startEdit(n) : undefined} onDelete={canManageItem(n, "news.delete") ? () => remove(n) : undefined} /> },
         ]}
         rows={shownNews}
         searchKeys={["title", "summary"]}
@@ -183,7 +187,7 @@ export default function News() {
         emptyTitle="هنوز خبری ثبت نشده"
       />
 
-      <ScopedNewsSection />
+      {canAccessAdmin && <ScopedNewsSection />}
 
       <Modal open={open} onClose={() => { setOpen(false); setEditingId(null); }} title={editingId ? "ویرایش خبر" : "انتشار اطلاعیه‌ی رسمی جدید"}>
         <div className="space-y-3">
@@ -201,6 +205,12 @@ export default function News() {
             <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} className="accent-brand-600" />
             سنجاق‌کردن به‌عنوان خبر مهم
           </label>
+          <div>
+            <label className="text-xs font-medium text-ink-600 block mb-1.5">موضوع خبر</label>
+            <select value={topic} onChange={(e) => setTopic(e.target.value as NewsTopic)} className="input-field">
+              {newsTopics.map((tp) => <option key={tp}>{tp}</option>)}
+            </select>
+          </div>
           <VisibilityPicker value={visibility} onChange={setVisibility} />
           <div className="flex items-center gap-2 pt-2">
             <Button variant="primary" className="flex-1 justify-center" onClick={submit}>انتشار</Button>
@@ -231,7 +241,7 @@ function ScopedNewsSection() {
       })) as ScopedNews[]))
       .catch(() => setItems([]));
   }, []);
-  const [viewer, setViewer] = useState<string>("hq"); // hq = ستاد بنیاد
+  const [viewer, setViewer] = useState<string>("hq"); // hq = ستاد بنیاد؛ برای سطوح پایین‌تر به اولین شرکتِ تحتِ مدیریت می‌افتد
   // Real org tree: holdings carry their companies (see /holdings).
   const [holdings, setHoldings] = useState<{ id: string; name: string; color: string; companies: { id: string; name: string }[] }[]>([]);
   const allCompanies = useMemo(
@@ -241,10 +251,24 @@ function ScopedNewsSection() {
   useEffect(() => {
     http<any[]>("/holdings?page_size=100").then(setHoldings).catch(() => {});
   }, []);
+  // ابزار «مشاهده به‌عنوان / خبر شرکتی» فقط دامنه‌ی تحتِ مدیریتِ همین کاربر را نشان می‌دهد
+  const { session, managedHoldingIds, managedCompanyIds, allowedPublishScopes } = useTenancy();
+  const scopedHoldings = useMemo(
+    () => holdings
+      .map((h) => ({ ...h, companies: h.companies.filter((c) => session.level === "سیستم" || managedCompanyIds.includes(c.id)) }))
+      .filter((h) => session.level === "سیستم" || managedHoldingIds.includes(h.id) || h.companies.length > 0),
+    [holdings, session.level, managedCompanyIds, managedHoldingIds],
+  );
+  const scopedCompanies = scopedHoldings.flatMap((h) => h.companies);
+  const canViewHq = session.level === "سیستم";
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [ownerCompany, setOwnerCompany] = useState("");
+  useEffect(() => {
+    if (!canViewHq && viewer === "hq" && scopedCompanies[0]) setViewer(scopedCompanies[0].id);
+    setOwnerCompany((cur) => cur || scopedCompanies[0]?.id || "");
+  }, [canViewHq, viewer, scopedCompanies]);
   const [scope, setScope] = useState<ContentScope>("شرکت");
   const { notify } = useToast();
   const confirmDialog = useConfirm();
@@ -298,11 +322,11 @@ function ScopedNewsSection() {
         <h3 className="text-sm font-bold text-ink-900 flex items-center gap-1.5">
           <Network size={15} className="text-brand-600" /> اخبار هلدینگ‌ها و شرکت‌های زیرمجموعه
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] text-ink-400 flex items-center gap-1"><Eye size={12} /> مشاهده به‌عنوان:</span>
-          <select value={viewer} onChange={(e) => setViewer(e.target.value)} className="text-xs border border-ink-200 rounded-md px-2 py-1.5 outline-none focus:border-brand-400 bg-white">
-            <option value="hq">ستاد بنیاد (همه محتوا)</option>
-            {holdings.map((h) => (
+          <select value={viewer} onChange={(e) => setViewer(e.target.value)} aria-label="مشاهده به‌عنوان" className="text-xs border border-ink-200 rounded-md px-2 py-1.5 outline-none focus:border-brand-400 bg-white">
+            {canViewHq && <option value="hq">ستاد بنیاد (همه محتوا)</option>}
+            {scopedHoldings.map((h) => (
               <optgroup key={h.id} label={h.name}>
                 {h.companies.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -375,7 +399,7 @@ function ScopedNewsSection() {
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">شرکت مالک محتوا</label>
             <select value={ownerCompany} onChange={(e) => setOwnerCompany(e.target.value)} className="input-field">
-              {holdings.map((h) => (
+              {scopedHoldings.map((h) => (
                 <optgroup key={h.id} label={h.name}>
                   {h.companies.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -387,7 +411,7 @@ function ScopedNewsSection() {
           <div>
             <label className="text-xs font-medium text-ink-600 block mb-1.5">دامنه‌ی انتشار</label>
             <div className="grid grid-cols-3 gap-2">
-              {(["شرکت", "هلدینگ", "سراسری"] as ContentScope[]).map((s) => {
+              {(["شرکت", "هلدینگ", "سراسری"] as ContentScope[]).filter((s) => allowedPublishScopes.includes(s)).map((s) => {
                 const Icon = scopeIcon[s];
                 return (
                   <button

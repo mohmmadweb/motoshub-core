@@ -237,8 +237,31 @@ function ForumDetail({ item }: { item: ForumTopic }) {
           </div>
         ))}
         {item.replies > sampleReplies.length && (
-          <p className="text-[11.5px] text-ink-400 text-center">+ {(item.replies - sampleReplies.length).toLocaleString("fa-IR")} پاسخ دیگر</p>
+          <Link
+            to="/login"
+            title="مشاهده‌ی همه‌ی پاسخ‌ها نیاز به ورود دارد"
+            className="block text-center text-[12px] font-medium text-brand-600 hover:text-brand-700 hover:underline py-2 rounded-lg border border-dashed border-ink-200 hover:border-brand-300 transition-colors"
+          >
+            مشاهده‌ی {(item.replies - sampleReplies.length).toLocaleString("fa-IR")} پاسخ دیگر
+          </Link>
         )}
+      </div>
+
+      {/* فرم پاسخ همیشه در همین‌جا است — بدون ورود فقط غیرفعال می‌شود */}
+      <div className="card p-4 mt-4">
+        <p className="text-xs font-bold text-ink-600 mb-2">پاسخ شما</p>
+        <textarea
+          disabled
+          aria-disabled="true"
+          placeholder="برای نوشتن پاسخ، ابتدا وارد حساب سازمانی خود شوید…"
+          className="w-full min-h-24 text-sm border border-ink-200 rounded-lg p-3 bg-ink-50/60 text-ink-400 resize-none cursor-not-allowed"
+        />
+        <div className="flex items-center justify-between gap-3 mt-2.5 flex-wrap">
+          <p className="text-[11.5px] text-ink-400">پس از ورود، پاسخ شما در همین محل ثبت می‌شود.</p>
+          <Link to="/login" className="btn bg-navy-900 text-white hover:bg-navy-800 text-xs px-4 py-2">
+            <LogIn size={13} /> ورود و ارسال پاسخ
+          </Link>
+        </div>
       </div>
     </div>
   );
