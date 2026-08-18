@@ -116,10 +116,18 @@ const appStatus: Record<string, string> = { review: "در حال بررسی", ac
 export const fromResearch = (r: any) => ({
   id: r.id, title: r.title, field: r.field, stage: rStage[r.stage] ?? "فراخوان باز",
   applicants: r.applicant_count ?? 0, deadline: toJalali(r.deadline),
-  // Real dossier for the detail drawer (budget + applicant list).
+  // پرونده‌ی کشوی جزئیات. نام فیلدها باید دقیقاً همان چیزی باشد که
+  // ResearchDetail تعریف کرده — «applicants» و نبودِ «outputs» باعث می‌شد
+  // کشو موقع باز شدن با «reading 'map'» بیفتد.
   detail: {
-    budget: faMoney(r.budget ?? 0), supervisor: r.supervisor ?? "—",
-    applicants: (r.applications ?? []).map((a: any) => ({
+    description: r.description ?? "",
+    budget: faMoney(r.budget ?? 0),
+    duration: r.duration ?? "—",
+    supervisor: r.supervisor ?? "—",
+    // این دو ستون هنوز روی مدل نیستند؛ آرایه‌ی خالی یعنی «چیزی برای نمایش نیست»
+    outputs: (r.outputs ?? []) as string[],
+    progress: r.progress ?? undefined,
+    applicantsList: (r.applications ?? []).map((a: any) => ({
       id: a.id, name: a.applicant_name, affiliation: a.affiliation,
       score: a.score ?? undefined, status: appStatus[a.status] ?? a.status,
     })),
