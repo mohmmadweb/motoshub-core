@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MessagesSquare, NotebookPen, CalendarDays, Image, BookOpen, Newspaper, Users } from "lucide-react";
 import type { ForumTopic, BlogPost, EventItem, MediaItem, KnowledgeDoc, NewsItem, Group } from "../data/types";
-import { http } from "../lib/http";
+import { http, isAuthed } from "../lib/http";
 import {
   fromNews, toNews, fromBlog, toBlog, fromEvent, toEvent, fromMedia, toMedia,
   fromKnowledge, toKnowledge, fromForum, toForum, fromGroup, toGroup,
@@ -61,20 +61,34 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     mediaItems: setMediaItemsRaw, knowledgeDocs: setKnowledgeDocsRaw, newsItems: setNewsItemsRaw, groups: setGroupsRaw,
   };
 
-  // Load every collection from the real API on mount.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await Promise.all(Object.keys(CFG).map(async (key) => {
-        try {
-          const rows = await http<any[]>(`${CFG[key].path}?page_size=100`);
-          if (!cancelled) rawSetters[key](rows.map(CFG[key].from));
-        } catch { /* leave empty on failure */ }
-      }));
-    })();
-    return () => { cancelled = true; };
+  // بارگذاری همه‌ی مجموعه‌ها از API.
+  //
+  // این Provider بالای مسیر ورود سوار می‌شود، پس در بارگذاری سرد هنوز کسی وارد
+  // نشده و درخواست‌ها ۴۰۱ می‌گیرند. اگر فقط یک‌بار اجرا شود، آن ۴۰۱ برای همیشه
+  // می‌ماند و کاربر صفحه‌های خالی می‌بیند. بنابراین تا وقتی نشستی نیست چیزی
+  // خوانده نمی‌شود، و به محضِ آمدن یا عوض‌شدنِ نشست دوباره خوانده می‌شود.
+  const loadAll = useCallback(() => {
+    if (!isAuthed()) return;
+    Object.keys(CFG).forEach(async (key) => {
+      try {
+        const rows = await http<any[]>(`${CFG[key].path}?page_size=100`);
+        rawSetters[key](rows.map(CFG[key].from));
+      } catch { /* leave empty on failure */ }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadAll();
+    let had = isAuthed();
+    const check = () => {
+      const now = isAuthed();
+      if (now !== had) { had = now; if (now) loadAll(); }
+    };
+    const id = window.setInterval(check, 1000);
+    window.addEventListener("storage", check);
+    return () => { window.clearInterval(id); window.removeEventListener("storage", check); };
+  }, [loadAll]);
 
   /** set* that mirrors the update locally AND persists the diff to the API. */
   function makeSetter(key: string): SetFn<any> {
